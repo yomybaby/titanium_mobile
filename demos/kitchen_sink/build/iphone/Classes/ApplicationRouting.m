@@ -39,9 +39,9 @@ extern NSData * AES128DecryptWithKey(NSData * data, NSString * key);
    else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"app.html"]]){
      return [self pageNamedApp];
    }
-   else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"audio.html"]]){
-     return [self pageNamedAudio];
-   }
+//   else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"audio.html"]]){
+//     return [self pageNamedAudio];
+//   }
    else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"db.html"]]){
      return [self pageNamedDb];
    }
@@ -54,15 +54,15 @@ extern NSData * AES128DecryptWithKey(NSData * data, NSString * key);
    else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"hidenavbar.html"]]){
      return [self pageNamedHidenavbar];
    }
-   else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"image.html"]]){
-     return [self pageNamedImage];
-   }
+//   else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"image.html"]]){
+//     return [self pageNamedImage];
+//   }
    else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"index.html"]]){
      return [self pageNamedIndex];
    }
-   else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"index.js"]]){
-     return [self scriptNamedIndex];
-   }
+//   else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"index.js"]]){
+//     return [self scriptNamedIndex];
+//   }
    else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"info.html"]]){
      return [self pageNamedInfo];
    }
@@ -75,12 +75,12 @@ extern NSData * AES128DecryptWithKey(NSData * data, NSString * key);
    else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"notifications.html"]]){
      return [self pageNamedNotifications];
    }
-   else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"options_dialog.html"]]){
-     return [self pageNamedOptions_dialog];
-   }
-   else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"orientationchange.html"]]){
-     return [self pageNamedOrientationchange];
-   }
+//   else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"options_dialog.html"]]){
+//     return [self pageNamedOptions_dialog];
+//   }
+//   else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"orientationchange.html"]]){
+//     return [self pageNamedOrientationchange];
+//   }
    else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"other.html"]]){
      return [self pageNamedOther];
    }
@@ -93,9 +93,9 @@ extern NSData * AES128DecryptWithKey(NSData * data, NSString * key);
    else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"property_view.html"]]){
      return [self pageNamedProperty_view];
    }
-   else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"shake.html"]]){
-     return [self pageNamedShake];
-   }
+//   else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"shake.html"]]){
+//     return [self pageNamedShake];
+//   }
    else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"toolbar.html"]]){
      return [self pageNamedToolbar];
    }
