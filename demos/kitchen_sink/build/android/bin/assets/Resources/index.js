@@ -91,7 +91,7 @@ Titanium.UI.ready = function()
 			error:function(error)
 			{
 				// create alert
-				var alert = Titanium.UI.createAlert();
+				var alert = Titanium.UI.createAlertDialog();
 
 				// set title
 				alert.setTitle('Camera Error');

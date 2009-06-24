@@ -33,9 +33,9 @@ extern NSData * AES128DecryptWithKey(NSData * data, NSString * key);
    else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"activity_indicator.html"]]){
      return [self pageNamedActivity_indicator];
    }
-   else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"alerts.html"]]){
-     return [self pageNamedAlerts];
-   }
+//   else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"alerts.html"]]){
+//     return [self pageNamedAlerts];
+//   }
    else if ([urlStr isEqualToString:[NSString stringWithFormat:@"app%s//%@/%@",":",@"com.appcelerator.mobilefun",@"app.html"]]){
      return [self pageNamedApp];
    }
