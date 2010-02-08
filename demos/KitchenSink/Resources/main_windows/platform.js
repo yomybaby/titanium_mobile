@@ -10,7 +10,7 @@ var data = [
 	{title:'Filesystem', hasChild:true, test:'../examples/filesystem.js'},
 	{title:'JS Includes', hasChild:true, test:'../examples/js_include.js'},
 	{title:'Passing Data (windows)', hasChild:true, test:'../examples/custom_properties.js'},
-
+	{title:'Sockets', hasChild:true, test:'../examples/sockets.js'},
 ];
 
 // create table view

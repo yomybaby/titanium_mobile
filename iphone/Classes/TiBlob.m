@@ -21,7 +21,9 @@
 
 -(id)description
 {
-	return @"[object TiBlob]";
+    // UTF8 string of data
+    NSString* textDesc = [[[NSString alloc] initWithData:[self data] encoding:NSUTF8StringEncoding] autorelease];
+    return [@"[object TiBlob]: " stringByAppendingString:textDesc];
 }
 
 -(id)initWithImage:(UIImage*)image_

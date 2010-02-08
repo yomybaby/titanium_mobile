@@ -762,6 +762,14 @@
 		B4F97C59111BAD4700E2F72C /* TiUIScrollIndicatorStyleProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = B4F97C57111BAD4700E2F72C /* TiUIScrollIndicatorStyleProxy.m */; };
 		B4F97C5A111BAD4700E2F72C /* TiUIScrollIndicatorStyleProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = B4F97C57111BAD4700E2F72C /* TiUIScrollIndicatorStyleProxy.m */; };
 		B4F97C5B111BAD4700E2F72C /* TiUIScrollIndicatorStyleProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = B4F97C57111BAD4700E2F72C /* TiUIScrollIndicatorStyleProxy.m */; };
+		DA70345D1120D24800B8B0EF /* SocketModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DA70345A1120D24800B8B0EF /* SocketModule.m */; };
+		DA70345E1120D24800B8B0EF /* TiTCPSocketProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DA70345C1120D24800B8B0EF /* TiTCPSocketProxy.m */; };
+		DA70345F1120D24800B8B0EF /* SocketModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DA70345A1120D24800B8B0EF /* SocketModule.m */; };
+		DA7034601120D24800B8B0EF /* TiTCPSocketProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DA70345C1120D24800B8B0EF /* TiTCPSocketProxy.m */; };
+		DA7034611120D24800B8B0EF /* SocketModule.h in Headers */ = {isa = PBXBuildFile; fileRef = DA7034591120D24800B8B0EF /* SocketModule.h */; };
+		DA7034621120D24800B8B0EF /* SocketModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DA70345A1120D24800B8B0EF /* SocketModule.m */; };
+		DA7034631120D24800B8B0EF /* TiTCPSocketProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = DA70345B1120D24800B8B0EF /* TiTCPSocketProxy.h */; };
+		DA7034641120D24800B8B0EF /* TiTCPSocketProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DA70345C1120D24800B8B0EF /* TiTCPSocketProxy.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -1205,6 +1213,10 @@
 		B4F97B72111A41C800E2F72C /* TiUIScrollView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TiUIScrollView.m; sourceTree = "<group>"; };
 		B4F97C56111BAD4700E2F72C /* TiUIScrollIndicatorStyleProxy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TiUIScrollIndicatorStyleProxy.h; sourceTree = "<group>"; };
 		B4F97C57111BAD4700E2F72C /* TiUIScrollIndicatorStyleProxy.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TiUIScrollIndicatorStyleProxy.m; sourceTree = "<group>"; };
+		DA7034591120D24800B8B0EF /* SocketModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SocketModule.h; sourceTree = "<group>"; };
+		DA70345A1120D24800B8B0EF /* SocketModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SocketModule.m; sourceTree = "<group>"; };
+		DA70345B1120D24800B8B0EF /* TiTCPSocketProxy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TiTCPSocketProxy.h; sourceTree = "<group>"; };
+		DA70345C1120D24800B8B0EF /* TiTCPSocketProxy.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TiTCPSocketProxy.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1514,6 +1526,7 @@
 				24CA8C11111163C30084E2DE /* Platform */,
 				24CA8C16111164150084E2DE /* Yahoo */,
 				24CA8C14111164040084E2DE /* UI */,
+				DA7034581120D22800B8B0EF /* Sockets */,
 			);
 			name = Modules;
 			sourceTree = "<group>";
@@ -2215,6 +2228,17 @@
 			name = "Scroll View";
 			sourceTree = "<group>";
 		};
+		DA7034581120D22800B8B0EF /* Sockets */ = {
+			isa = PBXGroup;
+			children = (
+				DA7034591120D24800B8B0EF /* SocketModule.h */,
+				DA70345A1120D24800B8B0EF /* SocketModule.m */,
+				DA70345B1120D24800B8B0EF /* TiTCPSocketProxy.h */,
+				DA70345C1120D24800B8B0EF /* TiTCPSocketProxy.m */,
+			);
+			name = Sockets;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -2371,6 +2395,8 @@
 				24EB0BAC111F7959001DC2D1 /* TiMapPinAnnotationView.h in Headers */,
 				24F5AEB6111F9DE9005C9199 /* TiFile.h in Headers */,
 				24F5B148111FDFE8005C9199 /* ListenerEntry.h in Headers */,
+				DA7034611120D24800B8B0EF /* SocketModule.h in Headers */,
+				DA7034631120D24800B8B0EF /* TiTCPSocketProxy.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2694,6 +2720,8 @@
 				24EB0B74111E7EE8001DC2D1 /* NSData+Additions.m in Sources */,
 				24F5AEB4111F9DE9005C9199 /* TiFile.m in Sources */,
 				24F5B146111FDFE8005C9199 /* ListenerEntry.m in Sources */,
+				DA70345D1120D24800B8B0EF /* SocketModule.m in Sources */,
+				DA70345E1120D24800B8B0EF /* TiTCPSocketProxy.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2887,6 +2915,8 @@
 				24EB0B75111E7EE8001DC2D1 /* NSData+Additions.m in Sources */,
 				24F5AEB5111F9DE9005C9199 /* TiFile.m in Sources */,
 				24F5B147111FDFE8005C9199 /* ListenerEntry.m in Sources */,
+				DA70345F1120D24800B8B0EF /* SocketModule.m in Sources */,
+				DA7034601120D24800B8B0EF /* TiTCPSocketProxy.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3079,6 +3109,8 @@
 				24EB0B77111E7EE8001DC2D1 /* NSData+Additions.m in Sources */,
 				24F5AEB7111F9DE9005C9199 /* TiFile.m in Sources */,
 				24F5B149111FDFE8005C9199 /* ListenerEntry.m in Sources */,
+				DA7034621120D24800B8B0EF /* SocketModule.m in Sources */,
+				DA7034641120D24800B8B0EF /* TiTCPSocketProxy.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
