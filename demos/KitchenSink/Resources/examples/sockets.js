@@ -81,6 +81,7 @@ writeButton.addEventListener('click', function() {
 
 var readButton = Titanium.UI.createButton({
 	title:'Read data',
+	backgroundDisabledImage: '../images/BUTT_drk_off.png',
 	width:200,
 	height:40,
 	top:210
