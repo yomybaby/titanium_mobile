@@ -8,7 +8,7 @@ var messageLabel = Titanium.UI.createLabel({
 	text:'Socket messages',
 	font:{fontSize:14},
 	color:'#777',
-	top:260,
+	top:310,
 	left:10
     });
 win.add(messageLabel);
@@ -17,7 +17,7 @@ var readLabel = Titanium.UI.createLabel({
 	text:'Read data',
 	font:{fontSize:14},
 	color:'#777',
-	top:280,
+	top:330,
 	left:10,
 	width:200
     });
@@ -91,3 +91,37 @@ readButton.addEventListener('click', function() {
 	messageLabel.text = "I'm a reader!";
 	readLabel.text = blob;
     });
+ 
+var modeLabel = Titanium.UI.createLabel({
+	text:'Passive read mode: ',
+	font:{fontSize:14},
+	color:'#777',
+	top:260,
+	left:10
+});
+win.add(modeLabel);
+    
+passiveRead = function(e) {
+	readLabel.text = '';
+	while (socket.dataAvailable()) {
+		readLabel.text = readLabel.text + ':' + socket.read();
+	}
+}
+    
+var modeSwitch = Titanium.UI.createSwitch({
+	value:false,
+	top:280,
+});
+win.add(modeSwitch);
+modeSwitch.addEventListener('change', function(e) {
+	if (e.value) {
+		messageLabel.text = 'Turning on passive read...';
+		readButton.enabled = false;
+		socket.addEventListener('newData', passiveRead);
+	}
+	else {
+		messageLabel.text = 'Turning off passive read...';
+		readButton.enabled = true;
+		socket.removeEventListener('newData', passiveRead);
+	}
+});
