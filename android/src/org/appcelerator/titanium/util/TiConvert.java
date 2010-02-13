@@ -8,9 +8,11 @@ package org.appcelerator.titanium.util;
 
 import java.util.Date;
 
+import org.appcelerator.titanium.TiBlob;
 import org.appcelerator.titanium.TiDict;
 import org.appcelerator.titanium.TiDimension;
 import org.appcelerator.titanium.TiProxy;
+import org.appcelerator.titanium.kroll.KrollCallback;
 import org.appcelerator.titanium.kroll.KrollObject;
 import org.appcelerator.titanium.view.TitaniumCompositeLayout.TitaniumCompositeLayoutParams;
 
@@ -77,6 +79,8 @@ public class TiConvert
 		} else if (value == null) {
 			d.put(key, null);
 		} else if (value instanceof TiProxy) {
+			d.put(key, value);
+		} else if (value instanceof KrollCallback) {
 			d.put(key, value);
 		} else {
 			throw new IllegalArgumentException("Unsupported property type " + value.getClass().getName());
@@ -201,6 +205,7 @@ public class TiConvert
 	public static String[] toStringArray(Object[] parts) {
 		String[] sparts = new String[parts.length];
 		for (int i = 0; i < parts.length; i++) {
+			Object p = parts[i];
 			sparts[i] = (String) parts[i];
 		}
 		return sparts;
@@ -251,5 +256,13 @@ public class TiConvert
 
 		d.put("error", e);
 		return d;
+	}
+
+	public static TiBlob toBlob(Object value) {
+		return (TiBlob) value;
+	}
+
+	public static TiBlob toBlob(TiDict object, String property) {
+		return toBlob(object.get(property));
 	}
 }

@@ -1,10 +1,11 @@
 package ti.modules.titanium.ui;
 
 import org.appcelerator.titanium.TiContext;
+import org.appcelerator.titanium.proxy.TiViewProxy;
 import org.appcelerator.titanium.view.TiUIView;
-import org.appcelerator.titanium.view.TiViewProxy;
 
 import ti.modules.titanium.ui.widget.TiUISwitch;
+import android.app.Activity;
 
 public class SwitchProxy extends TiViewProxy
 {
@@ -14,7 +15,7 @@ public class SwitchProxy extends TiViewProxy
 	}
 
 	@Override
-	public TiUIView createView()
+	public TiUIView createView(Activity activity)
 	{
 		return new TiUISwitch(this);
 	}

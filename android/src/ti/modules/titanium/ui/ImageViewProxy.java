@@ -4,6 +4,7 @@ import org.appcelerator.titanium.TiContext;
 import org.appcelerator.titanium.view.TiUIView;
 
 import ti.modules.titanium.ui.widget.TiUIImageView;
+import android.app.Activity;
 
 public class ImageViewProxy extends ViewProxy {
 
@@ -12,7 +13,35 @@ public class ImageViewProxy extends ViewProxy {
 	}
 
 	@Override
-	public TiUIView createView() {
+	public TiUIView createView(Activity activity) {
 		return new TiUIImageView(this);
+	}
+	
+	private TiUIImageView getImageView() {
+		return (TiUIImageView)getView(getTiContext().getActivity());
+	}
+	
+	public void start() {
+		getImageView().start();
+	}
+	
+	public void stop() {
+		getImageView().stop();
+	}
+	
+	public void pause() {
+		getImageView().pause();
+	}
+	
+	public boolean getAnimating() {
+		return getImageView().isAnimating();
+	}
+	
+	public boolean getReverse() {
+		return getImageView().isReverse();
+	}
+	
+	public void setReverse(boolean reverse) {
+		getImageView().setReverse(reverse);
 	}
 }

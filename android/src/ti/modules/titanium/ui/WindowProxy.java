@@ -1,43 +1,30 @@
 package ti.modules.titanium.ui;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 
 import org.appcelerator.titanium.TiActivity;
 import org.appcelerator.titanium.TiContext;
+import org.appcelerator.titanium.TiDict;
+import org.appcelerator.titanium.proxy.TiViewProxy;
+import org.appcelerator.titanium.proxy.TiWindowProxy;
+import org.appcelerator.titanium.util.Log;
+import org.appcelerator.titanium.util.TiConfig;
+import org.appcelerator.titanium.util.TiConvert;
 import org.appcelerator.titanium.view.TiUIView;
-import org.appcelerator.titanium.view.TiViewProxy;
-import org.appcelerator.titanium.view.TiWindowProxy;
 import org.json.JSONObject;
 
 import android.app.Activity;
-import android.view.View;
-import android.view.ViewParent;
-import android.widget.FrameLayout;
-import android.widget.FrameLayout.LayoutParams;
+import android.content.Intent;
 
-/*
- * @interface TiUIWindowProxy : TiWindowProxy
-{
-@private
-	NSURL *url;
-	NSMutableArray *views;
-	TiViewProxy *activeView;
-	KrollBridge *context;
-	BOOL hasToolbar;
-	BOOL focused;
-}
-
--(void)addView:(id)args;
--(void)removeView:(id)args;
--(void)showView:(id)args;
-
-
- */
 public class WindowProxy extends TiWindowProxy
 {
-	private String url;
+	private static final String LCAT = "WindowProxy";
+	private static final boolean DBG = TiConfig.LOGD;
+
 	ArrayList<TiViewProxy> views;
-	TiViewProxy activeView;
+	WeakReference<Activity> weakActivity;
+	String windowId;
 
 	public WindowProxy(TiContext tiContext, Object[] args)
 	{
@@ -45,41 +32,73 @@ public class WindowProxy extends TiWindowProxy
 	}
 
 	@Override
-	protected void handleOpen()
-	{
-		//TODO ignore multiple opens
-		TiUIView v = getView();
-		Activity a = getTiContext().getActivity();
-		if (a instanceof TiActivity) {
-			TiActivity tia = (TiActivity) a;
-			tia.getLayout().addView(v.getNativeView());
-		} else {
-			a.addContentView(v.getNativeView(), new FrameLayout.LayoutParams(LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT));
-		}
-
-
+	public TiUIView getView(Activity activity) {
+		throw new IllegalStateException("call to getView on a Window");
 	}
 
+
 	@Override
-	protected void handleClose()
+	protected void handleOpen(TiDict options)
 	{
-		if (peekView() != null) {
-			TiUIView v = getView();
-			ViewParent p =v.getNativeView().getParent();
-			Activity a= getTiContext().getActivity();
-			if (a instanceof TiActivity) {
-				TiActivity tia = (TiActivity) a;
-				tia.getLayout().removeViewInLayout(v.getNativeView());
-			} else {
-//				a.finish();
+		Log.i(LCAT, "handleOpen");
+
+		// Check for type of Window
+		TiDict props = getDynamicProperties();
+		Activity activity = getTiContext().getActivity();
+
+		Intent intent = new Intent(activity, TiActivity.class);
+		fillIntent(intent);
+
+		boolean newActivity = requiresNewActivity(props);
+		if (!newActivity && options != null && options.containsKey("tabOpen")) {
+			newActivity = TiConvert.toBoolean(options,"tabOpen");
+		}
+
+		if (newActivity)
+		{
+			intent.putExtra("finishRoot", activity.isTaskRoot());
+			getTiContext().getTiApp().registerProxy(this);
+
+			getTiContext().getActivity().startActivity(intent);
+		} else {
+			getTiContext().getTiApp().registerProxy(this);
+			windowId = getTiContext().getRootActivity().openWindow(intent);
+		}
+	}
+
+	public void handlePostOpen(Activity activity)
+	{
+		TiActivity tia = (TiActivity) activity;
+		if (tia != null) {
+			weakActivity = new WeakReference<Activity>(activity);
+			view = new TiUIWindow(this, (TiActivity) activity);
+			realizeViews(activity, view);
+			if (tab == null) {
+				getTiContext().getRootActivity().addWindow(windowId, view.getLayoutParams());
 			}
 		}
+		opened = true;
 	}
 
 	@Override
-	public TiUIView createView()
+	protected void handleClose(TiDict options)
 	{
-		return new TiUIWindow(this);
+		Log.i(LCAT, "handleClose");
+		Activity activity = null;
+		if (weakActivity != null) {
+			activity = weakActivity.get();
+		}
+		if (windowId == null) {
+			activity.finish();
+			weakActivity = null;
+			this.clearView();
+		} else {
+			getTiContext().getRootActivity().closeWindow(windowId);
+			releaseViews();
+			windowId = null;
+			view = null;
+		}
+		opened = false;
 	}
 
 	public void addView(TiViewProxy view)

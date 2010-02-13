@@ -9,6 +9,8 @@ package org.appcelerator.titanium;
 import java.io.IOException;
 import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Set;
@@ -16,19 +18,26 @@ import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.appcelerator.titanium.bridge.OnEventListenerChange;
+import org.appcelerator.titanium.io.TiBaseFile;
+import org.appcelerator.titanium.io.TiFileFactory;
 import org.appcelerator.titanium.kroll.KrollBridge;
 import org.appcelerator.titanium.kroll.KrollContext;
 import org.appcelerator.titanium.util.Log;
+import org.appcelerator.titanium.util.TiConfig;
 import org.appcelerator.titanium.util.TiFileHelper;
 
 import android.app.Activity;
+import android.net.Uri;
 import android.os.Looper;
 
 public class TiContext implements TiEvaluator
 {
 	private static final String LCAT = "TiContext";
+	private static final boolean DBG = TiConfig.LOGD;
 
 	private long mainThreadId;
+
+	private String baseUrl;
 
 	private WeakReference<Activity> weakActivity;
 	private SoftReference<TiEvaluator>	softTiEvaluator;
@@ -76,7 +85,7 @@ public class TiContext implements TiEvaluator
 		}
 	}
 
-	public TiContext(Activity activity)
+	public TiContext(Activity activity, String baseUrl)
 	{
 		this.mainThreadId = Looper.getMainLooper().getThread().getId();
 
@@ -85,6 +94,18 @@ public class TiContext implements TiEvaluator
 		this.eventListeners = new HashMap<String, HashMap<Integer,TiListener>>();
 		eventChangeListeners = new ArrayList<WeakReference<OnEventListenerChange>>();
 		lifecycleListeners = new ArrayList<WeakReference<OnLifecycleEvent>>();
+		if (baseUrl == null) {
+			this.baseUrl = "app://";
+		} else {
+			this.baseUrl = baseUrl;
+			if (!baseUrl.endsWith("/")) {
+				this.baseUrl += "/";
+			}
+		}
+
+		if (DBG) {
+			Log.e(LCAT, "BaseURL for context is " + baseUrl);
+		}
 	}
 
 	public boolean isUIThread() {
@@ -100,7 +121,8 @@ public class TiContext implements TiEvaluator
 	}
 
 	public Activity getActivity() {
-		return weakActivity.get();
+		Activity activity = weakActivity.get();
+		return activity;
 	}
 
 	public TiApplication getTiApp() {
@@ -113,6 +135,93 @@ public class TiContext implements TiEvaluator
 
 	public TiFileHelper getTiFileHelper() {
 		return new TiFileHelper(getTiApp());
+	}
+
+	public String absoluteUrl(String url)
+	{
+		try {
+			URI uri = new URI(url);
+			String scheme = uri.getScheme();
+			if (scheme == null) {
+				String path = uri.getPath();
+				String fname = null;
+				int lastIndex = path.lastIndexOf("/");
+				if (lastIndex > 0) {
+					fname = path.substring(lastIndex+1);
+					path = path.substring(0, lastIndex);
+				}
+
+				if (path.startsWith("../")) {
+					String[] right = path.split("/");
+					String[] left = null;
+					if (baseUrl.contains("://")) {
+						String[] tmp = baseUrl.split("://");
+						left = tmp[1].split("/");
+					} else {
+						left = baseUrl.split("/");
+					}
+
+					int rIndex = 0;
+					int lIndex = left.length;
+
+					while(right[rIndex].equals("..")) {
+						lIndex--;
+						rIndex++;
+					}
+					String sep = "";
+					StringBuilder sb = new StringBuilder();
+					for (int i = 0; i < lIndex; i++) {
+						sb.append(sep).append(left[i]);
+						sep = "/";
+					}
+					for (int i = rIndex; i < right.length; i++) {
+						sb.append(sep).append(right[i]);
+						sep = "/";
+					}
+					String bUrl = sb.toString();
+					if (!bUrl.endsWith("/")) {
+						bUrl = bUrl + "/";
+					}
+					url = "app://" + bUrl + fname;
+				}
+			}
+		} catch (URISyntaxException e) {
+			Log.w(LCAT, "Error parsing url: " + e.getMessage(), e);
+		}
+
+		return url;
+	}
+
+	public String resolveUrl(String path)
+	{
+		String result = null;
+
+		if (path.startsWith("../")) {
+			path = absoluteUrl(path);
+		}
+
+		Uri uri = Uri.parse(path);
+		if (uri.getScheme() == null) {
+			if (!path.startsWith("/")) {
+				result = baseUrl + path;
+			} else {
+				result = "app:/" + path;
+			}
+		} else {
+			result = path;
+		}
+
+		if (!result.startsWith("file:")) {
+			String[] p = { result };
+			TiBaseFile tbf = TiFileFactory.createTitaniumFile(this, p, false);
+			result = tbf.nativePath();
+		}
+
+		return result;
+	}
+
+	public String getBaseUrl() {
+		return baseUrl;
 	}
 
 	// Javascript Support
@@ -213,14 +322,14 @@ public class TiContext implements TiEvaluator
 			throw new IllegalStateException("removeEventListener expects a non-null eventName");
 		}
 	}
-	
+
 	public void removeEventListener(String eventName, Object listener)
 	{
 		if (listener instanceof Number) {
 			removeEventListener(eventName, ((Number)listener).intValue());
 			return;
 		}
-	
+
 		if (eventName != null) {
 			HashMap<Integer, TiListener> listeners = eventListeners.get(eventName);
 			if (listeners != null) {
@@ -446,9 +555,9 @@ public class TiContext implements TiEvaluator
 		}
 	}
 
-	public static TiContext createTiContext(Activity activity, TiDict preload)
+	public static TiContext createTiContext(Activity activity, TiDict preload, String baseUrl)
 	{
-		TiContext tic = new TiContext(activity);
+		TiContext tic = new TiContext(activity, baseUrl);
 		KrollContext kroll = KrollContext.createContext(tic);
 		KrollBridge krollBridge = new KrollBridge(kroll, preload);
 		tic.setJSContext(krollBridge);

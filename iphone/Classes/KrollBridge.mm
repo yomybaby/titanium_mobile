@@ -4,7 +4,7 @@
  * Licensed under the terms of the Apache Public License
  * Please see the LICENSE included with this distribution for details.
  */
-
+#import "TiBase.h"
 #import "KrollBridge.h"
 #import "KrollCallback.h"
 #import "KrollObject.h"
@@ -15,9 +15,13 @@
 
 @implementation TitaniumObject
 
--(id)initWithContext:(KrollContext*)context_ host:(TiHost*)host_
+-(id)initWithContext:(KrollContext*)context_ host:(TiHost*)host_ context:(id<TiEvaluator>)pageContext_ baseURL:(NSURL*)baseURL_
 {
-	if (self = [super initWithTarget:[[[TitaniumModule alloc] init] autorelease] context:context_])
+	TitaniumModule *module = [[[TitaniumModule alloc] _initWithPageContext:pageContext_] autorelease];
+	[module setHost:host_];
+	[module _setBaseURL:baseURL_];
+	
+	if (self = [super initWithTarget:module context:context_])
 	{
 		modules = [[NSMutableDictionary alloc] init];
 		host = [host_ retain];
@@ -275,13 +279,10 @@
 	// called to inject any Titanium patches in JS before a context is loaded... nice for 
 	// setting up backwards compat type APIs
 	
-	NSMutableString *js = [[[NSMutableString alloc] init] autorelease];
-	
-	[js appendString:@"Ti.UI.iPhone.createGroupedSection = function(a,b,c){ return Ti.UI.createGroupedSection(a,b,c); };"];
-	[js appendString:@"Ti.UI.iPhone.createGroupedView = function(a,b,c) { return Ti.UI.createGroupedView(a,b,c); };"];
+	NSMutableString *js = [[NSMutableString alloc] init];
 	[js appendString:@"function alert(msg) { Ti.UI.createAlertDialog({title:'Alert',message:msg}).show(); };"];
-	
 	[self evalJS:js];
+	[js release];
 }
 
 -(void)shutdown
@@ -311,7 +312,8 @@
 -(void)didStartNewContext:(KrollContext*)kroll
 {
 	// create Titanium global object
-	titanium = [[TitaniumObject alloc] initWithContext:kroll host:host];
+	NSString *basePath = (url==nil) ? [[NSBundle mainBundle] resourcePath] : [[url path] stringByDeletingLastPathComponent];
+	titanium = [[TitaniumObject alloc] initWithContext:kroll host:host context:self baseURL:[NSURL fileURLWithPath:basePath]];
 	TiContextRef jsContext = [kroll context];
 	TiValueRef tiRef = [KrollObject toValue:kroll value:titanium];
 

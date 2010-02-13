@@ -35,32 +35,40 @@
 {
 }
 
+-(void)layoutChildOnMainThread:(id)arg
+{
+	ENSURE_UI_THREAD(layoutChildOnMainThread,arg);
+	[self layoutChild:arg bounds:view.bounds]; 
+}
+
 #pragma mark Public
 
 -(void)add:(id)arg
 {
-	ENSURE_UI_THREAD(add,arg); 
-	ENSURE_ARG_COUNT(arg,1);
-	ENSURE_SINGLE_ARG(arg,TiProxy);
+	ENSURE_SINGLE_ARG(arg,TiViewProxy);
 	if (children==nil)
 	{
 		children = [[NSMutableArray alloc] init];
 	}
 	[children addObject:arg];
-	[self layoutChild:arg bounds:view.bounds]; 
+	[arg setParent:self];
+	// only call layout if the view is attached
+	if ([self viewAttached])
+	{
+		[self layoutChildOnMainThread:arg];
+	}
 	[self childAdded:arg];
 }
 
 
 -(void)remove:(id)arg
 {
-	ENSURE_UI_THREAD(remove,arg);
-	ENSURE_ARG_COUNT(arg,1);
-	ENSURE_SINGLE_ARG(arg,TiProxy);
+	ENSURE_SINGLE_ARG(arg,TiViewProxy);
 	if (children!=nil)
 	{
 		[self childRemoved:arg];
 		[children removeObject:arg];
+		[arg setParent:nil];
 		
 		if ([children count]==0)
 		{
@@ -69,11 +77,14 @@
 	}
 	if (view!=nil)
 	{
-		//TODO: this is temporarily backwards compat with old TiView until everything is ported
-		if ([arg isKindOfClass:[TiViewProxy class]])
+		UIView *childView = [arg view];
+		if ([NSThread isMainThread])
 		{
-			UIView *childView = [arg view];
 			[childView removeFromSuperview];
+		}
+		else
+		{
+			[self performSelectorOnMainThread:@selector(removeFromSuperview) withObject:childView waitUntilDone:NO];
 		}
 	}
 }
@@ -115,6 +126,11 @@
 }
 
 #pragma mark View
+
+-(void)setParent:(TiViewProxy*)parent_
+{
+	parent = parent_;
+}
 
 -(void)animationCompleted:(TiAnimation*)animation
 {
@@ -241,6 +257,7 @@
 		
 		// on open we need to create a new view
 		view = [self newView];
+		view.hidden = YES;
 		view.proxy = self;
 		view.parent = self;
 		view.layer.transform = CATransform3DIdentity;
@@ -297,6 +314,7 @@
 	{
 		[self layoutChild:child bounds:bounds];
 	}
+	[view setHidden:NO];
 }
 
 -(CGRect)appFrame
@@ -305,11 +323,6 @@
 }
 
 #pragma mark Memory Management
-
--(void)didReceiveMemoryWarning:(NSNotification*)notification
-{
-	[super didReceiveMemoryWarning:notification];
-}
 
 -(void)_destroy
 {
@@ -333,6 +346,35 @@
 }
 
 #pragma mark Listener Management
+
+-(BOOL)_hasListeners:(NSString *)type
+{
+	if ([super _hasListeners:type])
+	{
+		return YES;
+	}
+	// check our parent since we optimize the fire with
+	// the check
+	if (parent!=nil)
+	{
+		// walk up the chain
+		return [parent _hasListeners:type];
+	}
+	return NO;
+}
+
+-(void)fireEvent:(NSString*)type withObject:(id)obj withSource:(id)source
+{
+	[super fireEvent:type withObject:obj withSource:source];
+	
+	// views support event propagation. we need to check our
+	// parent and if he has the same named listener, we fire
+	// an event and set the source of the event to ourself
+	if (parent!=nil)
+	{
+		[parent fireEvent:type withObject:obj withSource:source];
+	}
+}
 
 -(void)_listenerAdded:(NSString*)type count:(int)count
 {
@@ -392,5 +434,39 @@
 	// called to remove
 }
 
+#pragma mark For autosizing of table views
+
+
+-(CGFloat)minimumParentHeightForWidth:(CGFloat)suggestedWidth
+{
+	if ([self viewAttached])
+	{
+		//Since it's expensive to extract from properties, let's cheat if the view already is there.
+		return [view minimumParentHeightForWidth:suggestedWidth];
+	}
+
+	TiDimension topDimension = TiDimensionFromObject([self valueForKey:@"top"]);
+	TiDimension botDimension = TiDimensionFromObject([self valueForKey:@"bottom"]);
+	TiDimension heightDimension = TiDimensionFromObject([self valueForKey:@"height"]);	
+
+	CGFloat result = TiDimensionCalculateValue(topDimension, 0)
+			+ TiDimensionCalculateValue(botDimension, 0);
+	switch (heightDimension.type)
+	{
+		case TiDimensionTypePixels:
+			result += heightDimension.value;
+			break;
+		case TiDimensionTypeAuto:
+			if ([self respondsToSelector:@selector(autoHeightForWidth:)])
+			{
+				TiDimension leftDimension = TiDimensionFromObject([self valueForKey:@"left"]);
+				TiDimension rightDimension = TiDimensionFromObject([self valueForKey:@"right"]);
+				suggestedWidth -= TiDimensionCalculateValue(leftDimension, 0)
+						+ TiDimensionCalculateValue(rightDimension, 0);
+				result += [self autoHeightForWidth:suggestedWidth];
+			}
+	}
+	return result;
+}
 
 @end

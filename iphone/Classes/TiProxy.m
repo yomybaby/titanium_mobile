@@ -26,6 +26,73 @@ NSString * const TiExceptionInternalInconsistency = @"Value was not the value ex
 NSString * const TiExceptionUnimplementedFunction = @"Subclass did not implement required method";
 
 
+
+SEL SetterForKrollProperty(NSString * key)
+{
+	NSString *method = [NSString stringWithFormat:@"set%@%@_:", [[key substringToIndex:1] uppercaseString], [key substringFromIndex:1]];
+	return NSSelectorFromString(method);
+}
+
+void DoProxyDelegateChangedValuesWithProxy(UIView<TiProxyDelegate> * target, NSString * key, id oldValue, id newValue, TiProxy * proxy)
+{
+	// default implementation will simply invoke the setter property for this object
+	// on the main UI thread
+	SEL sel = SetterForKrollProperty(key);
+	if ([target respondsToSelector:sel])
+	{
+		if ([NSThread isMainThread])
+		{
+			[target performSelector:sel withObject:newValue];
+		}
+		else
+		{
+			[target performSelectorOnMainThread:sel withObject:newValue waitUntilDone:NO];
+		}
+	}
+
+	if (([target superview]!=nil) && [target isRepositionProperty:key])
+	{
+		[target repositionChange:key value:newValue];
+	}
+}
+
+void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target, id<NSFastEnumeration> keys, TiProxy * proxy)
+{
+	BOOL isMainThread = [NSThread isMainThread];
+	NSNull * nullObject = [NSNull null];
+
+	for (NSString * thisKey in keys)
+	{
+		SEL sel = SetterForKrollProperty(thisKey);
+		if (![target respondsToSelector:sel])
+		{
+			continue;
+		}
+		
+		id newValue = [proxy valueForKey:thisKey];
+		if (newValue == nil)
+		{
+			continue;
+		}
+		if (newValue == nullObject)
+		{
+			newValue = nil;
+		}
+		
+		if (isMainThread)
+		{
+			[target performSelector:sel withObject:newValue];
+		}
+		else
+		{
+			[target performSelectorOnMainThread:sel withObject:newValue waitUntilDone:NO];
+		}
+
+	}
+}
+
+
+
 static int tiProxyId = 0;
 
 
@@ -143,15 +210,7 @@ static int tiProxyId = 0;
 
 -(void)_initWithProperties:(NSDictionary*)properties
 {
-	for (id key in properties)
-	{
-		id value = [properties objectForKey:key];
-		if (value == [NSNull null])
-		{
-			value = nil;
-		}
-		[self replaceValue:value forKey:key notification:NO];
-	}	
+	[self setValuesForKeysWithDictionary:properties];
 }
 
 -(void)_initWithCallback:(KrollCallback*)callback
@@ -211,9 +270,6 @@ static int tiProxyId = 0;
 #if PROXY_MEMORY_TRACK == 1
 	NSLog(@"DESTROY: %@ (%d)",self,[self hash]);
 #endif
-	[[NSNotificationCenter defaultCenter] removeObserver:self
-													name:UIApplicationDidReceiveMemoryWarningNotification  
-												  object:nil];  
 	
 	if (executionContext!=nil)
 	{
@@ -279,6 +335,9 @@ static int tiProxyId = 0;
 #if PROXY_MEMORY_TRACK == 1
 	NSLog(@"DEALLOC: %@ (%d)",self,[self hash]);
 #endif
+	[[NSNotificationCenter defaultCenter] removeObserver:self
+													name:UIApplicationDidReceiveMemoryWarningNotification  
+												  object:nil];  
 	[self _destroy];
 	RELEASE_TO_NIL(destroyLock);
 	[super dealloc];
@@ -421,30 +480,8 @@ static int tiProxyId = 0;
 		[listeners setObject:l forKey:type];
 		[l release];
 	}
-	
-	/*
-	// we need to listener for the execution context shutdown in the case it's not the 
-	// same as our pageContext. we basically will then remove the listener
-	if (pageContext!=executionContext)
-	{
-		id key = [executionContext description];
-		id found = [contextListeners objectForKey:key];
-		if (found==nil)
-		{
-			[[NSNotificationCenter defaultCenter] addObserver:self 
-													 selector:@selector(contextShutdown:) 
-														 name:kKrollShutdownNotification 
-													   object:executionContext];	
-			[contextListeners setObject:executionContext forKey:key];
-		}
-	}
-	
-	[l addObject:listener];
-	 */
-
 	ListenerEntry *entry = [[[ListenerEntry alloc] initWithListener:listener context:[self executionContext] proxy:self type:type] autorelease];
 	[l addObject:entry];
-	
 	[self _listenerAdded:type count:[l count]];
 }
 	  
@@ -489,8 +526,13 @@ static int tiProxyId = 0;
 	[[self _host] removeListener:listener context:ctx];
 	[self _listenerRemoved:type count:count];
 }
-	  
+
 -(void)fireEvent:(NSString*)type withObject:(id)obj
+{
+	[self fireEvent:type withObject:obj withSource:self];
+}
+
+-(void)fireEvent:(NSString*)type withObject:(id)obj withSource:(id)source
 {
 	[destroyLock lock];
 	
@@ -513,7 +555,7 @@ static int tiProxyId = 0;
 			
 			// common event properties for all events we fire
 			[eventObject setObject:type forKey:@"type"];
-			[eventObject setObject:self forKey:@"source"];
+			[eventObject setObject:source forKey:@"source"];
 			
 			// unfortunately we have to make a copy to be able to mutate and still iterate
 			NSMutableArray *_listeners = [NSMutableArray arrayWithArray:l];
@@ -686,6 +728,7 @@ DEFINE_EXCEPTIONS
 }
 
 #pragma mark Memory Management
+
 -(void)didReceiveMemoryWarning:(NSNotification*)notification
 {
 	//FOR NOW, we're not dropping anything but we'll want to do before release

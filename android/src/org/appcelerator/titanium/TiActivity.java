@@ -6,7 +6,7 @@
  */
 package org.appcelerator.titanium;
 
-import org.appcelerator.titanium.util.Log;
+import org.appcelerator.titanium.proxy.TiWindowProxy;
 import org.appcelerator.titanium.util.TiActivityResultHandler;
 import org.appcelerator.titanium.util.TiActivitySupport;
 import org.appcelerator.titanium.util.TiActivitySupportHelper;
@@ -15,11 +15,10 @@ import org.appcelerator.titanium.view.TitaniumCompositeLayout;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.content.res.TypedArray;
-import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
+import android.os.Handler;
 import android.view.Window;
+import android.view.WindowManager;
 
 public class TiActivity extends Activity
 	implements TiActivitySupport
@@ -31,33 +30,66 @@ public class TiActivity extends Activity
 	protected TitaniumCompositeLayout layout;
 	protected TiActivitySupportHelper supportHelper;
 
+	protected Handler handler;
+
 	public TiActivity() {
 		super();
 	}
 
     /** Called when the activity is first created. */
     @Override
-    public void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState)
+    {
         super.onCreate(savedInstanceState);
+        final TiActivity me = this;
+        handler = new Handler();
+
         layout = new TitaniumCompositeLayout(this);
-        if (false) {
-        	if (DBG) {
-        		Log.d(LCAT, "Enabling No Title feature");
+
+        Intent intent = getIntent();
+
+        boolean fullscreen = false;
+        boolean navbar = true;
+        TiWindowProxy proxy = null;
+
+        if (intent != null) {
+        	if (intent.hasExtra("fullscreen")) {
+        		fullscreen = intent.getBooleanExtra("fullscreen", fullscreen);
         	}
-        	this.requestWindowFeature(Window.FEATURE_NO_TITLE);
-        	//fullscreen = true;
-        } else {
-        	if (DBG) {
-        		Log.d(LCAT, "Enabling Title area features");
+        	if (intent.hasExtra("navBarHidden")) {
+        		navbar = intent.getBooleanExtra("navBarHidden", navbar);
         	}
+        	if (intent.hasExtra("proxyId")) {
+        		String proxyId = intent.getStringExtra("proxyId");
+        		proxy = (TiWindowProxy) ((TiApplication) getApplication()).unregisterProxy(proxyId);
+        	}
+        }
+
+        if (fullscreen) {
+        	getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                    WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        }
+
+        if (navbar) {
+        	this.requestWindowFeature(Window.FEATURE_LEFT_ICON); // TODO Keep?
 	        this.requestWindowFeature(Window.FEATURE_RIGHT_ICON);
 	        this.requestWindowFeature(Window.FEATURE_PROGRESS);
 	        this.requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
-			setProgressBarVisibility(true);
-			setProgress(5000);
+        } else {
+           	this.requestWindowFeature(Window.FEATURE_NO_TITLE);
         }
 
         setContentView(layout);
+
+        if (proxy != null) {
+        	final TiWindowProxy fproxy = proxy;
+	       handler.post(new Runnable(){
+
+					@Override
+					public void run() {
+			        	fproxy.handlePostOpen(me);
+					}});
+         }
     }
 
     public TiApplication getTiApp() {
@@ -90,4 +122,16 @@ public class TiActivity extends Activity
 
 		supportHelper.onActivityResult(requestCode, resultCode, data);
 	}
+
+//	@Override
+//	public void finish()
+//	{
+//		Intent intent = getIntent();
+//		if (intent != null) {
+//			if (intent.getBooleanExtra("finishRoot", false)) {
+//				((TiApplication) getApplication()).getRootActivity().finish();
+//			}
+//		}
+//		super.finish();
+//	}
 }

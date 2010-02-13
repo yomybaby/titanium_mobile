@@ -1,6 +1,8 @@
 package ti.modules.titanium.ui;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.appcelerator.titanium.TiActivity;
@@ -8,11 +10,12 @@ import org.appcelerator.titanium.TiContext;
 import org.appcelerator.titanium.TiDict;
 import org.appcelerator.titanium.TiProxy;
 import org.appcelerator.titanium.TiRootActivity.TiActivityRef;
+import org.appcelerator.titanium.proxy.TiViewProxy;
+import org.appcelerator.titanium.proxy.TiWindowProxy;
 import org.appcelerator.titanium.util.Log;
 import org.appcelerator.titanium.util.TiConfig;
 import org.appcelerator.titanium.util.TiConvert;
 import org.appcelerator.titanium.view.TiUIView;
-import org.appcelerator.titanium.view.TiViewProxy;
 
 import android.app.Activity;
 import android.view.View;
@@ -25,29 +28,100 @@ public class TiUIWindow extends TiUIView
 
 	protected String activityKey;
 	protected Activity activity;
+	protected boolean lightWeight;
 
 	private static AtomicInteger idGenerator;
 
-	public TiUIWindow(TiViewProxy proxy)
+	public TiUIWindow(TiViewProxy proxy, TiActivity activity)
 	{
 		super(proxy);
+
 		if (idGenerator == null) {
 			idGenerator = new AtomicInteger(0);
 		}
 
+		if (activity != null) {
+			this.activity = activity;
+			lightWeight = false;
+		} else {
+			this.activity = proxy.getTiContext().getActivity();
+			lightWeight = true;
+		}
+
 		//TODO unique key per window, params for intent
 		activityKey = "window$" + idGenerator.incrementAndGet();
-
-		TiActivityRef ref = proxy.getTiContext().getRootActivity().launchActivity(activityKey);
-		this.activity = ref.activity;
-		TiActivity tia = (TiActivity) activity;
-		setNativeView(ref.activity.getWindow().getDecorView());
 
 		// if url, create a new context.
 		TiDict props = proxy.getDynamicProperties();
 		if (props.containsKey("url")) {
 
 			String url = props.getString("url");
+			String baseUrl = proxy.getTiContext().getBaseUrl();
+
+			Log.e(LCAT, "BASEURL: " + baseUrl);
+			if (url != null) {
+				Log.e(LCAT, "RELURL: " + url);
+			}
+
+			try {
+				URI uri = new URI(url);
+				String scheme = uri.getScheme();
+				if (scheme == null) {
+					String path = uri.getPath();
+					String fname = null;
+					int lastIndex = path.lastIndexOf("/");
+					if (lastIndex > 0) {
+						fname = path.substring(lastIndex+1);
+						path = path.substring(0, lastIndex);
+					}
+
+					if (url.startsWith("/")) {
+						baseUrl = "app:/" + path;
+					} else if (path.startsWith("../")) {
+						String[] right = path.split("/");
+						String[] left = null;
+						if (baseUrl.contains("://")) {
+							String[] tmp = baseUrl.split("://");
+							left = tmp[1].split("/");
+						} else {
+							left = baseUrl.split("/");
+						}
+
+						int rIndex = 0;
+						int lIndex = left.length;
+
+						while(right[rIndex].equals("..")) {
+							lIndex--;
+							rIndex++;
+						}
+						String sep = "";
+						StringBuilder sb = new StringBuilder();
+						for (int i = 0; i < lIndex; i++) {
+							sb.append(sep).append(left[i]);
+							sep = "/";
+						}
+						for (int i = rIndex; i < right.length; i++) {
+							sb.append(sep).append(right[i]);
+							sep = "/";
+						}
+						baseUrl = sb.toString();
+						if (!baseUrl.endsWith("/")) {
+							baseUrl = baseUrl + "/";
+						}
+						url = baseUrl + fname;
+						baseUrl = "app://" + baseUrl;
+					} else {
+						baseUrl = "app://" + path;
+					}
+				} else if (scheme == "app") {
+					baseUrl = url;
+				} else {
+					throw new IllegalArgumentException("Scheme not implemented for " + url);
+				}
+			} catch (URISyntaxException e) {
+				Log.w(LCAT, "Error parsing url: " + e.getMessage(), e);
+			}
+
 			if (DBG) {
 				Log.i(LCAT, "Window has URL: " + url);
 			}
@@ -55,7 +129,11 @@ public class TiUIWindow extends TiUIView
 			TiDict preload = new TiDict();
 			preload.put("currentWindow", proxy);
 
-			TiContext tiContext = TiContext.createTiContext(activity, preload);
+			if (proxy instanceof TiWindowProxy && ((TiWindowProxy) proxy).getTabProxy() != null) {
+				preload.put("currentTab", ((TiWindowProxy) proxy).getTabProxy());
+			}
+
+			TiContext tiContext = TiContext.createTiContext(this.activity, preload, baseUrl);
 			try {
 				this.proxy.switchContext(tiContext);
 				tiContext.evalFile(url);
@@ -64,6 +142,18 @@ public class TiUIWindow extends TiUIView
 				activity.finish();
 			}
 		}
+	}
+
+	@Override
+	public View getNativeView() {
+
+		View v = super.getNativeView();
+
+		if (!lightWeight) {
+			v = getLayout();
+		}
+
+		return v;
 	}
 
 	public View getLayout() {

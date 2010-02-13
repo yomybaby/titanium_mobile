@@ -7,25 +7,31 @@
 package org.appcelerator.titanium;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.appcelerator.titanium.util.Log;
 import org.appcelerator.titanium.util.TiActivityResultHandler;
 import org.appcelerator.titanium.util.TiActivitySupport;
 import org.appcelerator.titanium.util.TiActivitySupportHelper;
+import org.appcelerator.titanium.view.TitaniumCompositeLayout;
+import org.appcelerator.titanium.view.TitaniumCompositeLayout.TitaniumCompositeLayoutParams;
 
 import android.app.Activity;
 import android.app.ActivityGroup;
 import android.app.LocalActivityManager;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
 import android.view.Window;
 
 public class TiRootActivity extends ActivityGroup
 	implements TiActivitySupport
 {
+	private static AtomicInteger windowIdGenerator;
 
 	protected TiContext tiContext;
 	protected TiActivitySupportHelper supportHelper;
+	protected TitaniumCompositeLayout rootLayout;
 
 	public static class TiActivityRef
 	{
@@ -35,6 +41,7 @@ public class TiRootActivity extends ActivityGroup
 
 	public TiRootActivity() {
 		super(true); // Allow multiple activities
+		windowIdGenerator = new AtomicInteger(0);
 	}
 
 	@Override
@@ -44,21 +51,21 @@ public class TiRootActivity extends ActivityGroup
 
 		TiApplication host = getTiApp();
 		host.setRootActivity(this);
+		tiContext = TiContext.createTiContext(this, null, null);
 
-		tiContext = TiContext.createTiContext(this, null);
+		rootLayout = new TitaniumCompositeLayout(this);
+		setContentView(rootLayout);
 
 		runOnUiThread(new Runnable(){
 
 			public void run() {
 				try {
-					//krollBridge.evalFile(host.getStartUrl());
 					tiContext.evalFile("app.js");
 				} catch (IOException e) {
 					// TODO be more helpful
 					e.printStackTrace();
 					finish();
 				}
-
 			}
 		});
 	}
@@ -67,26 +74,49 @@ public class TiRootActivity extends ActivityGroup
 		return (TiApplication) getApplication();
 	}
 
-	public TiActivityRef launchActivity(String key)
+	public String openWindow(Intent intent)
 	{
-		TiActivityRef ref = new TiActivityRef();
-
 		LocalActivityManager lam = getLocalActivityManager();
-		Activity activity = lam.getActivity(key);
-		if (activity == null) {
-			Intent intent = new Intent(this, TiActivity.class);
-			Window w = lam.startActivity(key, intent);
-			activity = lam.getActivity(key);
-			//this.setContentView(w.getDecorView());
-		}
-		ref.activity = activity;
-		ref.key = key;
 
-		return ref;
+		String windowId = "window$$" + windowIdGenerator.incrementAndGet();
+
+		Window w = lam.startActivity(windowId, intent);
+//		Activity activity = lam.getActivity(windowId);
+//		if (activity != null) {
+//			if (activity instanceof TiActivity) {
+//				TitaniumCompositeLayout layout = ((TiActivity) activity).getLayout();
+//				rootLayout.addView(layout, layout.getLayoutParams());
+//			} else {
+//				rootLayout.addView(w.getDecorView());
+//			}
+//		} else {
+//			windowId = null;
+//		}
+
+		return windowId;
+	}
+
+	public void addWindow(String windowId, TitaniumCompositeLayoutParams params)
+	{
+		LocalActivityManager lam = getLocalActivityManager();
+		Activity activity = lam.getActivity(windowId);
+		if (activity != null) {
+			View decor = activity.getWindow().getDecorView();
+			rootLayout.addView(decor, params);
+		}
+	}
+
+	public void closeWindow(String windowId) {
+		LocalActivityManager lam = getLocalActivityManager();
+		Activity activity = lam.getActivity(windowId);
+		if (activity != null) {
+			View decor = activity.getWindow().getDecorView();
+			rootLayout.removeView(decor);
+		}
+		lam.destroyActivity(windowId, true);
 	}
 
 	// Activity Support
-
 	public int getUniqueResultCode() {
 		if (supportHelper == null) {
 			this.supportHelper = new TiActivitySupportHelper(this);
@@ -108,6 +138,18 @@ public class TiRootActivity extends ActivityGroup
 
 		supportHelper.onActivityResult(requestCode, resultCode, data);
 	}
+
+	@Override
+	public void finish() {
+		// TODO Auto-generated method stub
+		super.finish();
+	}
+
+//	@Override
+//	public void finishFromChild(Activity child) {
+//		//super.finishFromChild(child);
+//		finish();
+//	}
 
 	// Lifecyle
 	@Override

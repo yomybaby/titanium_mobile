@@ -541,11 +541,7 @@ bool KrollSetProperty(TiContextRef jsContext, TiObjectRef object, TiStringRef pr
 	{
 		// this is a request for a setter method
 		// a.setFoo('bar')
-		SEL selector = NSSelectorFromString([NSString stringWithFormat:@"%@:",key]);
-		if ([target respondsToSelector:selector])
-		{
-			return [[[KrollMethod alloc] initWithTarget:target selector:selector argcount:1 type:KrollMethodSetter name:nil context:[self context]] autorelease];
-		}
+		SEL selector;
 		// setter can also have a special 2nd parameter, let's check that
 		// right now we only support 2 but easy to add more
 		// form is foo.setFoo('bar','foo')
@@ -553,6 +549,11 @@ bool KrollSetProperty(TiContextRef jsContext, TiObjectRef object, TiStringRef pr
 		if ([target respondsToSelector:selector])
 		{
 			return [[[KrollMethod alloc] initWithTarget:target selector:selector argcount:2 type:KrollMethodSetter name:nil context:[self context]] autorelease];
+		}
+		selector = NSSelectorFromString([NSString stringWithFormat:@"%@:",key]);
+		if ([target respondsToSelector:selector])
+		{
+			return [[[KrollMethod alloc] initWithTarget:target selector:selector argcount:1 type:KrollMethodSetter name:nil context:[self context]] autorelease];
 		}
 		// we simply return a method delegator against the target to set the property directly on the target
 		return [[[KrollMethod alloc] initWithTarget:target selector:selector argcount:1 type:KrollMethodPropertySetter name:[self _propertyGetterSetterKey:key] context:[self context]] autorelease];
@@ -696,23 +697,20 @@ bool KrollSetProperty(TiContextRef jsContext, TiObjectRef object, TiStringRef pr
 		value = nil;
 	}
 	NSString *name = [self propercase:key index:0];
-	SEL selector = NSSelectorFromString([NSString stringWithFormat:@"set%@:",name]);
+	SEL selector = NSSelectorFromString([NSString stringWithFormat:@"set%@:withObject:",name]);
+	if ([target respondsToSelector:selector])
+	{
+		[target performSelector:selector withObject:value withObject:nil];
+		return;
+	}
+	selector = NSSelectorFromString([NSString stringWithFormat:@"set%@:",name]);
 	if ([target respondsToSelector:selector])
 	{
 		[target performSelector:selector withObject:value];
 	}
 	else 
 	{
-		// see if we support a with object
-		selector = NSSelectorFromString([NSString stringWithFormat:@"set%@:withObject:",name]);
-		if ([target respondsToSelector:selector])
-		{
-			[target performSelector:selector withObject:value withObject:nil];
-		}
-		else
-		{
-			[target setValue:value forKey:key];
-		}
+		[target setValue:value forKey:key];
 	}
 }
 

@@ -7,230 +7,190 @@
 
 #import "TiUITableViewProxy.h"
 #import "TiUITableView.h"
+#import "TiUITableViewRowProxy.h"
+#import "TiUITableViewSectionProxy.h"
+#import "TiUITableViewAction.h"
 #import "TiUtils.h"
 #import "WebFont.h"
-#import "TiUITableViewBase.h"
 #import "TiViewProxy.h"
-
-NSArray * tableKeys = nil;
 
 @implementation TiUITableViewProxy
 
-#pragma mark Internal
+#pragma mark Internal 
 
--(id<NSFastEnumeration>)validKeys
+-(TiUITableViewRowProxy*)newTableViewRowFromDict:(NSDictionary*)data
 {
-	if (tableKeys == nil) {
-		tableKeys = [[NSArray alloc] initWithObjects:@"template",
-					  @"rowHeight",@"backgroundColor",@"borderColor",
-					  @"marginTop",@"marginLeft",@"marginRight",@"marginBottom",
-					  @"sections",@"editing",@"moving",@"editable",
-					  @"search",@"filterAttribute",@"index",
-					  @"data",nil];
-	}
-	return tableKeys;
-}
-
--(void)_configure
-{	
-	// initialize to FALSE values so you can access their values before invoking the first state change
-	[self replaceValue:[NSNumber numberWithBool:NO] forKey:@"editing" notification:NO];
-	[self replaceValue:[NSNumber numberWithBool:NO] forKey:@"moving" notification:NO];
-}
-
--(void)_initWithCallback:(KrollCallback*)callback_
-{
-	[self addEventListener:[NSArray arrayWithObjects:@"click",callback_,nil]];
-}
-
--(TiUIView*)newView
-{
-	return [[TiUITableView alloc] initWithFrame:CGRectZero];
-}
-
--(void)enqueueActionOnMainThread:(id)args
-{
-	TiUITableViewDispatchType type = [[args objectAtIndex:0] intValue];
-	NSArray *a = [args objectAtIndex:1];
-	TiUITableViewBase *table = (TiUITableViewBase*)self.modelDelegate;
-	[table dispatchAction:a withType:type];
-}
-
--(void)enqueueAction:(id)args withType:(TiUITableViewDispatchType)type
-{
-	// if we don't have a view attached don't dispatch
-	if (self.modelDelegate==nil || [self viewAttached]==NO)
-	{
-		return;
-	}
-	if ([NSThread isMainThread])
-	{
-		TiUITableViewBase *table = (TiUITableViewBase*)self.modelDelegate;
-		[table dispatchAction:args withType:type];
-	}
-	else 
-	{
-		[self performSelectorOnMainThread:@selector(enqueueActionOnMainThread:) withObject:[NSArray arrayWithObjects:[NSNumber numberWithInt:type],args,nil] waitUntilDone:NO];
-	}
-
+	TiUITableViewRowProxy *proxy = [[[TiUITableViewRowProxy alloc] _initWithPageContext:[self executionContext]] autorelease];
+	[proxy _initWithProperties:data];
+	return proxy;
 }
 
 
 #pragma mark Public APIs
 
--(void)setData:(id)data withObject:(id)obj
+-(NSNumber*)getIndexByName:(id)args
 {
-	// replace our internal data value but don't notify the modelDelegate, we'll do that ourselves below
-	[self replaceValue:data forKey:@"data" notification:NO];
-	[self enqueueAction:[NSArray arrayWithObjects:data,obj,nil] withType:TiUITableViewDispatchSetDataWithAnimation];
-}
-
-- (NSNumber *) indexByName:(id)name
-{
-	ENSURE_SINGLE_ARG(name,NSString);
-	NSMutableArray *data = [self valueForKey:@"data"];
-	if (data!=nil)
+	ENSURE_SINGLE_ARG(args,NSString);
+	
+	int c = 0;
+	
+	for (TiUITableViewSectionProxy *section in [self valueForKey:@"data"])
 	{
-		unsigned int index = 0;
-		for (NSDictionary* row in data)
+		for (TiUITableViewRowProxy *row in [section rows])
 		{
-			id value = [row objectForKey:@"name"];
-			if ([name isEqualToString:value])
+			if ([args isEqualToString:[row valueForKey:@"name"]])
 			{
-				return [NSNumber numberWithInt:index];
-			}				
-			index++;
+				return NUMINT(c);
+			}
+			c++;
 		}
 	}
-	return [NSNumber numberWithInt:-1];
+	return NUMINT(-1);
 }
 
-- (void) insertRowAfter:(NSArray *)args
+-(void)updateRow:(id)args
 {
-	if ([args count] < 2) 
+	// this is for backwards compat
+	
+	int index = [TiUtils intValue:[args objectAtIndex:0]];
+	NSDictionary *data = [args objectAtIndex:1];
+	NSDictionary *anim = [args count] > 2 ? [args objectAtIndex:2] : nil;
+	
+	NSArray *existingData = [self valueForKey:@"data"];
+	if (existingData!=nil)
 	{
-		[self throwException:TiExceptionNotEnoughArguments subreason:nil location:CODELOCATION];
-	}
-	
-	int row = [[args objectAtIndex:0] intValue];
-	NSDictionary *newdata = [args objectAtIndex:1];
-	NSMutableArray *data = [self valueForKey:@"data"];
-	
-	if (row < 0 || row >= [data count])
-	{
-		[self throwException:TiExceptionRangeError subreason:nil location:CODELOCATION];
-	}
-
-	[data insertObject:newdata atIndex:row+1];
-	
-	[self enqueueAction:args withType:TiUITableViewDispatchInsertRowAfter];
-}
-
-- (void) insertRowBefore:(NSArray *)args
-{
-	if ([args count] < 2) 
-	{
-		[self throwException:TiExceptionNotEnoughArguments subreason:nil location:CODELOCATION];
-	}
-	
-	int row = [[args objectAtIndex:0] intValue];
-	NSDictionary *newdata = [args objectAtIndex:1];
-	NSMutableArray *data = [self valueForKey:@"data"];
-	
-	if (row < 0 || row >= [data count])
-	{
-		[self throwException:TiExceptionRangeError subreason:nil location:CODELOCATION];
-	}
-	
-	[data insertObject:newdata atIndex:row-1];
-	
-	[self enqueueAction:args withType:TiUITableViewDispatchInsertRowBefore];
-}
-
-- (void) deleteRow:(NSArray *)args
-{
-	if ([args count] < 1) 
-	{
-		[self throwException:TiExceptionNotEnoughArguments subreason:nil location:CODELOCATION];
-	}
-	
-	int row = [[args objectAtIndex:0] intValue];
-	NSMutableArray *data = [self valueForKey:@"data"];
-	
-	if (row < 0 || row >= [data count])
-	{
-		[self throwException:TiExceptionRangeError subreason:nil location:CODELOCATION];
-	}
-	
-	[data removeObjectAtIndex:row];
-	
-	[self enqueueAction:args withType:TiUITableViewDispatchDeleteRow];
-}
-
-- (void) updateRow:(NSArray *)args
-{
-	if ([args count] < 2) 
-	{
-		[self throwException:TiExceptionNotEnoughArguments subreason:nil location:CODELOCATION];
-	}
-	
-	int row = [[args objectAtIndex:0] intValue];
-	NSDictionary *newdata = [args objectAtIndex:1];
-	NSMutableArray *data = [self valueForKey:@"data"];
-	
-	if (row < 0 || row >= [data count])
-	{
-		[self throwException:TiExceptionRangeError subreason:nil location:CODELOCATION];
-	}
-	
-	[data replaceObjectAtIndex:row withObject:newdata];
-
-	[self enqueueAction:args withType:TiUITableViewDispatchUpdateRow];
-}
-
-- (void) appendRow:(NSArray *)args
-{
-	if ([args count] < 1) 
-	{
-		[self throwException:TiExceptionNotEnoughArguments subreason:nil location:CODELOCATION];
-	}
-	
-	NSDictionary *newdata = [args objectAtIndex:0];
-	NSMutableArray *data = [self valueForKey:@"data"];
-	
-	[data addObject:newdata];
-	
-	[self enqueueAction:args withType:TiUITableViewDispatchAppendRow];
-}
-
-- (void) scrollToIndex:(NSArray *)args
-{
-	if ([self viewAttached])
-	{
-		[self enqueueAction:args withType:TiUITableViewDispatchScrollToIndex];
+		TiUITableView *table = (TiUITableView*) [self view];
+		TiUITableViewRowProxy *row = [table rowForIndex:index section:nil];
+		if (row!=nil)
+		{
+			[row updateRow:data withObject:anim];
+		}
 	}
 }
 
-- (void) setEditing:(NSNumber*)edit withObject:(id)obj
+-(void)deleteRow:(id)args
 {
-	// do it without notification since we notify below
-	[self replaceValue:[NSArray arrayWithObjects:edit,obj,nil] forKey:@"editing" notification:NO];
+	// this is for backwards compat
 	
-	if ([self viewAttached])
+	int index = [TiUtils intValue:[args objectAtIndex:0]];
+	NSDictionary *anim = [args count] > 1 ? [args objectAtIndex:1] : nil;
+	
+	NSArray *existingData = [self valueForKey:@"data"];
+	if (existingData!=nil)
 	{
-		[self enqueueAction:[NSArray arrayWithObjects:edit,obj,nil] withType:TiUITableViewDispatchSetEditing];
+		TiUITableView *table = (TiUITableView*) [self view];
+		TiUITableViewRowProxy *row = [table rowForIndex:index section:nil];
+		if (row!=nil)
+		{
+			[table deleteRow:row animation:anim];
+		}
 	}
 }
 
-- (void) setMoving:(NSNumber*)move withObject:(id)obj
+-(void)insertRowBefore:(id)args
 {
-	// do it without notification since we notify below
-	[self replaceValue:[NSArray arrayWithObjects:move,obj,nil] forKey:@"moving" notification:NO];
+	// this is for backwards compat
 	
-	if ([self viewAttached])
+	int index = [TiUtils intValue:[args objectAtIndex:0]];
+	NSDictionary *data = [args objectAtIndex:1];
+	NSDictionary *anim = [args count] > 2 ? [args objectAtIndex:2] : nil;
+	
+	NSArray *existingData = [self valueForKey:@"data"];
+	if (existingData!=nil)
 	{
-		[self enqueueAction:[NSArray arrayWithObjects:move,obj,nil] withType:TiUITableViewDispatchSetMoving];
+		TiUITableView *table = (TiUITableView*) [self view];
+		TiUITableViewRowProxy *newrow = [self newTableViewRowFromDict:data];
+		TiUITableViewRowProxy *row = [table rowForIndex:index section:nil];
+		[table insertRow:newrow before:row animation:anim];
 	}
+}
+
+-(void)insertRowAfter:(id)args
+{
+	// this is for backwards compat
+	
+	int index = [TiUtils intValue:[args objectAtIndex:0]];
+	NSDictionary *data = [args objectAtIndex:1];
+	NSDictionary *anim = [args count] > 2 ? [args objectAtIndex:2] : nil;
+	
+	NSArray *existingData = [self valueForKey:@"data"];
+	if (existingData!=nil)
+	{
+		TiUITableView *table = (TiUITableView*) [self view];
+		TiUITableViewRowProxy *newrow = [self newTableViewRowFromDict:data];
+		TiUITableViewRowProxy *row = [table rowForIndex:index section:nil];
+		[table insertRow:newrow after:row animation:anim];
+	}
+}
+
+-(void)appendRow:(id)args
+{
+	// this is for backwards compat
+	
+	NSDictionary *data = [args objectAtIndex:0];
+	NSDictionary *anim = [args count] > 1 ? [args objectAtIndex:1] : nil;
+	
+	NSArray *existingData = [self valueForKey:@"data"];
+	if (existingData!=nil)
+	{
+		TiUITableView *table = (TiUITableView*) [self view];
+		TiUITableViewRowProxy *newrow = [self newTableViewRowFromDict:data];
+		[table appendRow:newrow animation:anim];
+	}
+}
+
+-(void)setData:(id)args 
+{
+	ENSURE_ARRAY(args);
+	
+	// this is on the non-UI thread. let's do the work here before we pass
+	// it over to the view which will be on the UI thread
+	
+	NSMutableArray *data = [NSMutableArray arrayWithCapacity:[args count]];
+
+	Class dictionaryClass = [NSDictionary class];
+	Class sectionClass = [TiUITableViewSectionProxy class];
+	Class rowClass = [TiUITableViewRowProxy class];
+	
+	TiUITableViewSectionProxy *section = nil;
+	
+	for (id row in args)
+	{
+		if ([row isKindOfClass:dictionaryClass])
+		{
+			NSDictionary *dict = (NSDictionary*)row;
+			TiUITableViewRowProxy *rowProxy = [self newTableViewRowFromDict:dict];
+			NSString *header = [dict objectForKey:@"header"];
+			if (section == nil || header!=nil)
+			{
+				section = [[[TiUITableViewSectionProxy alloc] _initWithPageContext:[self executionContext] args:nil] autorelease];
+				[section setValue:header forUndefinedKey:@"headerTitle"];
+				NSString *footer = [dict objectForKey:@"footer"];
+				if (footer!=nil)
+				{
+					[section setValue:footer forUndefinedKey:@"footerTitle"];
+				}
+				[data addObject:section];
+			}
+			[section add:rowProxy];
+		}
+		else if ([row isKindOfClass:sectionClass])
+		{
+			section = (TiUITableViewSectionProxy*)row;
+			[data addObject:section];
+		}
+		else if ([row isKindOfClass:rowClass])
+		{
+			if (section == nil)
+			{
+				section = [[[TiUITableViewSectionProxy alloc] _initWithPageContext:[self executionContext] args:nil] autorelease];
+				[data addObject:section];
+			}
+			[section add:row];
+		}
+	}
+	
+	[self replaceValue:data forKey:@"data" notification:YES];
 }
 
 @end 

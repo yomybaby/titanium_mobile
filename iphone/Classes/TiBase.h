@@ -47,7 +47,7 @@ CGPoint midpointBetweenPoints(CGPoint a, CGPoint b);
 
 #define ENSURE_UI_THREAD_1_ARG(x)	\
 if (![NSThread isMainThread]) { \
-[self performSelectorOnMainThread:_cmd withObject:x waitUntilDone:NO]; \
+[self performSelectorOnMainThread:_cmd withObject:x waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]]; \
 return; \
 } \
 
@@ -179,18 +179,30 @@ if ([x count]<c)\
 [self throwException:TiExceptionNotEnoughArguments subreason:[NSString stringWithFormat:@"expected %d arguments, received: %d",c,[x count]] location:CODELOCATION]; \
 }\
 
+#define VALUE_AT_INDEX_OR_NIL(x,i)	\
+({ NSArray * y = (x); ([y count]>i)?[y objectAtIndex:i]:nil; })
+
+
 #define ENSURE_CONSISTENCY(x) \
 if (!(x)) \
 { \
 [self throwException:TiExceptionInternalInconsistency subreason:nil location:CODELOCATION]; \
 }\
 
-#define ENSURE_VALUE_CONSISTENCY(x,v) ENSURE_CONSISTENCY((x)==(v))\
+#define ENSURE_VALUE_CONSISTENCY(x,v) \
+{	\
+__typeof__(x) __x = (x);	\
+__typeof__(v) __v = (v);	\
+if(__x != __v)	\
+{	\
+[self throwException:TiExceptionInternalInconsistency subreason:[NSString stringWithFormat:@"(" #x ") was not (" #v ")"] location:CODELOCATION];	\
+}	\
+}
 
 #define ENSURE_VALUE_RANGE(x,minX,maxX) \
 if (((x)<(minX)) || ((x)>(maxX))) \
 { \
-[self throwException:TiExceptionRangeError subreason:[NSString stringWithFormat:@"%d was > %d and < %d",x,maxX,minX] location:CODELOCATION]; \
+[self throwException:TiExceptionRangeError subreason:[NSString stringWithFormat:@"%d was not > %d and < %d",x,maxX,minX] location:CODELOCATION]; \
 }\
 
 
@@ -346,10 +358,12 @@ return value;\
 	if (__s[0]=='[')\
 	{\
 	    fprintf(stderr,"%s\n", __s);\
+		fflush(stderr);\
 	}\
 	else\
 	{\
 	    fprintf(stderr,"[DEBUG] %s\n", __s);\
+		fflush(stderr);\
 	}\
 }
 

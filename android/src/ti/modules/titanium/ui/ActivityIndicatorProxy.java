@@ -2,10 +2,11 @@ package ti.modules.titanium.ui;
 
 import org.appcelerator.titanium.TiContext;
 import org.appcelerator.titanium.TiDict;
+import org.appcelerator.titanium.proxy.TiViewProxy;
 import org.appcelerator.titanium.view.TiUIView;
-import org.appcelerator.titanium.view.TiViewProxy;
 
 import ti.modules.titanium.ui.widget.TiUIActivityIndicator;
+import android.app.Activity;
 
 public class ActivityIndicatorProxy extends TiViewProxy
 {
@@ -15,7 +16,7 @@ public class ActivityIndicatorProxy extends TiViewProxy
 	}
 
 	@Override
-	public TiUIView createView()
+	public TiUIView createView(Activity activity)
 	{
 		return new TiUIActivityIndicator(this);
 	}
@@ -24,7 +25,7 @@ public class ActivityIndicatorProxy extends TiViewProxy
 	protected void handleShow(TiDict options) {
 		super.handleShow(options);
 
-		TiUIActivityIndicator ai = (TiUIActivityIndicator) getView();
+		TiUIActivityIndicator ai = (TiUIActivityIndicator) getView(getTiContext().getActivity());
 		ai.show(options);
 	}
 
@@ -32,7 +33,7 @@ public class ActivityIndicatorProxy extends TiViewProxy
 	protected void handleHide(TiDict options) {
 		super.handleHide(options);
 
-		TiUIActivityIndicator ai = (TiUIActivityIndicator) getView();
+		TiUIActivityIndicator ai = (TiUIActivityIndicator) getView(getTiContext().getActivity());
 		ai.hide(options);
 	}
 }

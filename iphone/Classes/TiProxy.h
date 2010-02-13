@@ -17,6 +17,9 @@ extern NSString * const TiExceptionInvalidType;
 extern NSString * const TiExceptionNotEnoughArguments;
 extern NSString * const TiExceptionRangeError;
 
+//This is when a normally allowed command is not allowed (Say, adding a row to a table when it already is added elsewhere)
+extern NSString * const TiExceptionInternalInconsistency;
+
 //Should be rare, but also useful if arguments are used improperly.
 extern NSString * const TiExceptionInternalInconsistency;
 
@@ -32,20 +35,28 @@ typedef enum {
 } TiProxyBridgeType;
 
 
-//
-// delegate for receiving property changes
-//
 @protocol TiProxyDelegate
 
 @required
 
 -(void)propertyChanged:(NSString*)key oldValue:(id)oldValue newValue:(id)newValue proxy:(TiProxy*)proxy;
+-(BOOL)isRepositionProperty:(NSString*)key;
 
 @optional
+
+-(void)readProxyValuesWithKeys:(id<NSFastEnumeration>)keys;
+
+-(void)repositionChange:(NSString*)key value:(id)inputVal;
+
 -(void)listenerAdded:(NSString*)type count:(int)count;
 -(void)listenerRemoved:(NSString*)type count:(int)count;
 
 @end
+
+SEL SetterForKrollProperty(NSString * key);
+void DoProxyDelegateChangedValuesWithProxy(UIView<TiProxyDelegate> * target, NSString * key, id oldValue, id newValue, TiProxy * proxy);
+void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target, id<NSFastEnumeration> keys, TiProxy * proxy);
+//Why are these here? Because they can be commonly used between TiUIView and TiUITableViewCell.
 
 
 @interface TiProxy : NSObject<KrollDynamicMethodProxy,KrollTargetable> {
@@ -103,6 +114,7 @@ typedef enum {
 -(void)addEventListener:(NSArray*)args;
 -(void)removeEventListener:(NSArray*)args;
 -(void)fireEvent:(NSString*)type withObject:(id)obj;
+-(void)fireEvent:(NSString*)type withObject:(id)obj withSource:(id)source;
 -(NSDictionary*)allProperties;
 -(void)replaceValue:(id)value forKey:(NSString*)key notification:(BOOL)notify;
 -(void)setExecutionContext:(id<TiEvaluator>)context;

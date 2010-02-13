@@ -1,9 +1,9 @@
 // create table view data object
 var data = [
-	{title:'Facebook', hasChild:true, test:'../todo.js'},
+	{title:'Facebook', hasChild:true, test:'../examples/facebook.js'},
 	{title:'YQL', hasChild:true, test:'../todo.js'},
 	{title:'Twitter', hasChild:true, test:'../todo.js'},
-	{title:'SOAP', hasChild:true, test:'../todo.js'},
+	{title:'SOAP', hasChild:true, test:'../examples/soap.js'},
 
 ];
 

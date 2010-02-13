@@ -1,13 +1,14 @@
 package ti.modules.titanium.ui.widget;
 
 import org.appcelerator.titanium.TiDict;
+import org.appcelerator.titanium.proxy.TiViewProxy;
 import org.appcelerator.titanium.util.Log;
 import org.appcelerator.titanium.util.TiConfig;
 import org.appcelerator.titanium.util.TiConvert;
 import org.appcelerator.titanium.view.TiUIView;
-import org.appcelerator.titanium.view.TiViewProxy;
 
 import ti.modules.titanium.ui.TabGroupProxy;
+import ti.modules.titanium.ui.TiTabActivity;
 import android.graphics.drawable.ColorDrawable;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.FrameLayout;
@@ -30,11 +31,12 @@ public class TiUITabGroup extends TiUIView
 	private String lastTabId;
 	private TiDict tabChangeEventData;
 
-	public TiUITabGroup(TiViewProxy proxy)
+	public TiUITabGroup(TiViewProxy proxy, TiTabActivity activity)
 	{
 		super(proxy);
 
-		tabHost = new TabHost(proxy.getContext());
+		tabHost = new TabHost(activity);
+
 		tabHost.setOnTabChangedListener(this);
 
 		tabWidget = new TabWidget(proxy.getContext());
@@ -48,12 +50,14 @@ public class TiUITabGroup extends TiUIView
                   LayoutParams.FILL_PARENT, LayoutParams.WRAP_CONTENT));
 		tabHost.addView(tabContent, new LinearLayout.LayoutParams(
                   LayoutParams.FILL_PARENT, LayoutParams.FILL_PARENT));
+		//tabHost.setup(proxy.getTiContext().getRootActivity().getLocalActivityManager());
+		tabHost.setup(activity.getLocalActivityManager());
 
-		tabHost.setup(proxy.getTiContext().getRootActivity().getLocalActivityManager());
 
         tabHost.setBackgroundDrawable(new ColorDrawable(TiConvert.toColor("#ff1a1a1a")));
 
 		setNativeView(tabHost);
+		activity.getLayout().addView(tabHost);
 
   		lastTabId = null;
 	}
@@ -84,11 +88,8 @@ public class TiUITabGroup extends TiUIView
 		if (DBG) {
 			Log.i(LCAT,"Tab change from " + lastTabId + " to " + id);
 		}
-		TabHost th = (TabHost) getNativeView();
+
 		tabChangeEventData = ((TabGroupProxy) proxy).buildFocusEvent(id, lastTabId);
 		lastTabId = id;
-
-		onFocusChange(getNativeView(), false);
-		onFocusChange(getNativeView(), true);
 	}
 }

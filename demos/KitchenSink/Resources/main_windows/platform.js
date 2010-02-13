@@ -11,6 +11,9 @@ var data = [
 	{title:'JS Includes', hasChild:true, test:'../examples/js_include.js'},
 	{title:'Passing Data (windows)', hasChild:true, test:'../examples/custom_properties.js'},
 	{title:'Sockets', hasChild:true, test:'../examples/sockets.js'},
+	{title:'Set Timeout (timer)', hasChild:true, test:'../examples/set_timeout.js'},
+	{title:'Set Interval (timer)', hasChild:true, test:'../examples/set_interval.js'},
+	{title:'XML DOM', hasChild:true, test:'../examples/xml_dom.js'},
 ];
 
 // create table view

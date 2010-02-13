@@ -1,3 +1,5 @@
+//Titanium.include('my_js_include.js', 'my_js_include_2.js', 'local_include.js');
+
 // this sets the background color of the master UIView (when there are no windows/tab groups on it)
 Titanium.UI.setBackgroundColor('#000');
 
@@ -88,7 +90,7 @@ tabGroup.addEventListener('open',function()
 
 // open tab group with a transition animation
 tabGroup.open({
-	transition:Titanium.UI.iPhone.AnimationStyle.FLIP_FROM_LEFT,
+	transition:Titanium.UI.iPhone.AnimationStyle.FLIP_FROM_LEFT
 });
 
 //
@@ -263,3 +265,9 @@ Titanium.App.addEventListener('hide_indicator', function(e)
 	hideIndicator();
 });
 
+// test for loading in a root-level include
+Ti.include("welcome.js");
+
+// test out logging to developer console
+Ti.API.info("Welcome to Kitchen Sink for Titanium/"+Titanium.version);
+Ti.API.debug("user agent set to "+Titanium.userAgent);

@@ -7,15 +7,20 @@
 package org.appcelerator.titanium.view;
 
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.appcelerator.titanium.TiDict;
 import org.appcelerator.titanium.TiProxy;
 import org.appcelerator.titanium.TiProxyListener;
+import org.appcelerator.titanium.proxy.TiViewProxy;
 import org.appcelerator.titanium.util.Log;
+import org.appcelerator.titanium.util.TiConfig;
 import org.appcelerator.titanium.util.TiConvert;
 import org.appcelerator.titanium.view.TitaniumCompositeLayout.TitaniumCompositeLayoutParams;
 
 import android.content.Context;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.View.OnFocusChangeListener;
 import android.view.inputmethod.InputMethodManager;
 
@@ -23,6 +28,9 @@ public abstract class TiUIView
 	implements TiProxyListener, OnFocusChangeListener
 {
 	private static final String LCAT = "TiUIView";
+	private static final boolean DBG = TiConfig.LOGD;
+
+	private static AtomicInteger idGenerator;
 
 	protected View nativeView; // Native View object
 
@@ -34,8 +42,38 @@ public abstract class TiUIView
 
 	public TiUIView(TiViewProxy proxy)
 	{
+		if (idGenerator == null) {
+			idGenerator = new AtomicInteger(0);
+		}
+
 		this.proxy = proxy;
 		this.layoutParams = new TitaniumCompositeLayout.TitaniumCompositeLayoutParams();
+	}
+
+	public void add(TiUIView child)
+	{
+		if (child != null) {
+			View cv = child.getNativeView();
+			if (cv != null) {
+				View nv = getNativeView();
+				if (nv instanceof ViewGroup) {
+					((ViewGroup) nv).addView(cv, child.getLayoutParams());
+				}
+			}
+		}
+	}
+
+	public void remove(TiUIView child)
+	{
+		if (child != null) {
+			View cv = child.getNativeView();
+			if (cv != null) {
+				View nv = getNativeView();
+				if (nv instanceof ViewGroup) {
+					((ViewGroup) nv).removeView(cv);
+				}
+			}
+		}
 	}
 
 	public TiViewProxy getProxy() {
@@ -56,10 +94,13 @@ public abstract class TiUIView
 	public int getZIndex() {
 		return zIndex;
 	}
-	public View getNativeView() {
+	protected View getNativeView() {
 		return nativeView;
 	}
-	public void setNativeView(View view) {
+	protected void setNativeView(View view) {
+		if (view.getId() == View.NO_ID) {
+			view.setId(idGenerator.incrementAndGet());
+		}
 		this.nativeView = view;
 		nativeView.setOnFocusChangeListener(this);
 	}
@@ -104,13 +145,19 @@ public abstract class TiUIView
 	public void processProperties(TiDict d)
 	{
 		if (TiConvert.fillLayout(d, layoutParams)) {
-			nativeView.requestLayout();
+			if (nativeView != null) {
+				nativeView.requestLayout();
+			}
 		}
 
 		// Default background processing.
 		// Prefer image to color.
 		if (d.containsKey("backgroundImage")) {
-			throw new IllegalArgumentException("Please Implement.");
+			String path = TiConvert.toString(d, "backgroundImage");
+			if (DBG) {
+				Log.d(LCAT, "backgroundImage: " + path);
+			}
+			//throw new IllegalArgumentException("Please Implement.");
 		} else if (d.containsKey("backgroundColor")) {
 			nativeView.setBackgroundDrawable(TiConvert.toColorDrawable(d, "backgroundColor"));
 		}
@@ -148,6 +195,19 @@ public abstract class TiUIView
 	        	imm.hideSoftInputFromWindow(nativeView.getWindowToken(), 0);
 	        }
 			nativeView.clearFocus();
+		}
+	}
+
+	public void release()
+	{
+		Log.i(LCAT, "Release: " + getClass().getSimpleName());
+		View nv = getNativeView();
+		if (nv != null) {
+			if (nv instanceof ViewGroup) {
+				ViewGroup vg = (ViewGroup) nv;
+				Log.d(LCAT, "Group has: " + vg.getChildCount());
+				vg.removeAllViews();
+			}
 		}
 	}
 }
