@@ -13,10 +13,18 @@
 #import "TiUtils.h"
 #import "WebFont.h"
 #import "TiViewProxy.h"
+#import "TiComplexValue.h"
 
 @implementation TiUITableViewProxy
 
 #pragma mark Internal 
+
+-(void)_configure
+{
+	[super _configure];
+	[self replaceValue:NUMBOOL(YES) forKey:@"searchHidden" notification:NO];
+	[self replaceValue:NUMBOOL(NO) forKey:@"autoHideSearch" notification:NO];
+}
 
 -(TiUITableViewRowProxy*)newTableViewRowFromDict:(NSDictionary*)data
 {
@@ -27,6 +35,28 @@
 
 
 #pragma mark Public APIs
+
+-(void)setSearchHidden:(id)args
+{
+	// we implement here to force it regardless of the current state 
+	// since the user can manually change the search field by pulling 
+	// down the row
+	ENSURE_SINGLE_ARG(args,NSObject);
+	[self replaceValue:args forKey:@"searchHidden" notification:YES];
+}
+
+-(void)scrollToIndex:(id)args
+{
+	ENSURE_UI_THREAD(scrollToIndex,args);
+	
+	NSInteger index = [TiUtils intValue:[args objectAtIndex:0]];
+	NSDictionary *options = [args count] > 1 ? [args objectAtIndex:1] : nil;
+
+	UITableViewScrollPosition scrollPosition = [TiUtils intValue:@"position" properties:options def:UITableViewScrollPositionNone];
+	BOOL animated = [TiUtils boolValue:@"animated" properties:options def:YES];
+	
+	[(TiUITableView*)[self view] scrollToIndex:index position:scrollPosition animated:animated];
+}
 
 -(NSNumber*)getIndexByName:(id)args
 {
@@ -139,7 +169,7 @@
 	}
 }
 
--(void)setData:(id)args 
+-(void)setData:(id)args withObject:(id)properties
 {
 	ENSURE_ARRAY(args);
 	
@@ -147,7 +177,7 @@
 	// it over to the view which will be on the UI thread
 	
 	NSMutableArray *data = [NSMutableArray arrayWithCapacity:[args count]];
-
+	
 	Class dictionaryClass = [NSDictionary class];
 	Class sectionClass = [TiUITableViewSectionProxy class];
 	Class rowClass = [TiUITableViewRowProxy class];
@@ -165,12 +195,12 @@
 			{
 				section = [[[TiUITableViewSectionProxy alloc] _initWithPageContext:[self executionContext] args:nil] autorelease];
 				[section setValue:header forUndefinedKey:@"headerTitle"];
-				NSString *footer = [dict objectForKey:@"footer"];
-				if (footer!=nil)
-				{
-					[section setValue:footer forUndefinedKey:@"footerTitle"];
-				}
 				[data addObject:section];
+			}
+			NSString *footer = [dict objectForKey:@"footer"];
+			if (footer!=nil)
+			{
+				[section setValue:footer forUndefinedKey:@"footerTitle"];
 			}
 			[section add:rowProxy];
 		}
@@ -190,7 +220,13 @@
 		}
 	}
 	
-	[self replaceValue:data forKey:@"data" notification:YES];
+	TiComplexValue *value = [[[TiComplexValue alloc] initWithValue:data properties:properties] autorelease];
+	[self replaceValue:value forKey:@"data" notification:YES];
+}
+
+-(void)setData:(id)args
+{
+	[self setData:args withObject:nil];
 }
 
 @end 

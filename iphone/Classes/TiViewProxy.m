@@ -14,7 +14,7 @@
 
 @implementation TiViewProxy
 
-@synthesize children;
+@synthesize children, parent;
 
 #pragma mark Internal
 
@@ -127,7 +127,7 @@
 
 #pragma mark View
 
--(void)setParent:(TiViewProxy*)parent_
+-(void)setParent:(TiProxy*)parent_
 {
 	parent = parent_;
 }
@@ -249,6 +249,20 @@
 	[self didFirePropertyChanges];
 }
 
+-(void)exchangeView:(TiUIView*)newview
+{
+	//NOTE: this is dangerous and should only be called
+	//when you know what the heck you intend to do.
+	//used by tableview currently for view swapping
+	if (view!=nil)
+	{
+		view.proxy = nil;
+		RELEASE_TO_NIL(view);
+	}
+	view = [newview retain];
+	view.proxy = self;
+}
+
 -(TiUIView*)view
 {
 	if (view == nil)
@@ -257,7 +271,6 @@
 		
 		// on open we need to create a new view
 		view = [self newView];
-		view.hidden = YES;
 		view.proxy = self;
 		view.parent = self;
 		view.layer.transform = CATransform3DIdentity;
@@ -270,6 +283,7 @@
 		{
 			TiUIView *childView = [(TiViewProxy*)child view];
 			[childView setParent:self];
+			[view addSubview:childView];
 		}
 		
 		[self viewDidAttach];
@@ -314,7 +328,6 @@
 	{
 		[self layoutChild:child bounds:bounds];
 	}
-	[view setHidden:NO];
 }
 
 -(CGRect)appFrame
@@ -378,7 +391,7 @@
 
 -(void)_listenerAdded:(NSString*)type count:(int)count
 {
-	if (self.modelDelegate!=nil)
+	if (self.modelDelegate!=nil && [(NSObject*)self.modelDelegate respondsToSelector:@selector(listenerAdded:count:)])
 	{
 		[self.modelDelegate listenerAdded:type count:count];
 	}
@@ -386,7 +399,7 @@
 
 -(void)_listenerRemoved:(NSString*)type count:(int)count
 {
-	if (self.modelDelegate!=nil)
+	if (self.modelDelegate!=nil && [(NSObject*)self.modelDelegate respondsToSelector:@selector(listenerRemoved:count:)])
 	{
 		[self.modelDelegate listenerRemoved:type count:count];
 	}
@@ -394,6 +407,7 @@
 
 #pragma mark Invocation
 
+//FIXME: review this, i think it can be removed -JGH
 -(id)resultForUndefinedMethod:(NSString*)name args:(NSArray*)args
 {
 	// support dynamic forwarding to model delegate methods if attached

@@ -5,23 +5,25 @@
  * Please see the LICENSE included with this distribution for details.
  */
 
-#import "TiProxy.h"
+#import "TiViewProxy.h"
+#import "TiDimension.h"
 
 @class TiUITableView;
 @class TiUITableViewSectionProxy;
 
-@interface TiUITableViewRowProxy : TiProxy 
+@interface TiUITableViewRowProxy : TiViewProxy <TiProxyDelegate>
 {
 @private
-	NSString *className;
+	NSString *tableClass;
 	TiUITableView *table;
 	TiUITableViewSectionProxy *section;
+	TiDimension height;
 	NSInteger row;
 }
 
 #pragma mark Public APIs
 
-@property(nonatomic,readonly) NSString *className;
+@property(nonatomic,readonly)	NSString *tableClass;
 
 #pragma mark Framework
 
@@ -31,6 +33,7 @@
 
 -(void)initializeTableViewCell:(UITableViewCell*)cell;
 -(void)renderTableViewCell:(UITableViewCell*)cell;
+-(CGFloat)rowHeight:(CGRect)bounds;
 
 -(void)updateRow:(NSDictionary*)data withObject:(NSDictionary*)properties;
 

@@ -24,5 +24,7 @@ var started = new Date().getTime();
 setTimeout(function()
 {
 	act.hide();
+
 	label.text = "3 sec timer fired in\n" + (new Date().getTime()-started)/1000 + " seconds";
 },3000);
+	

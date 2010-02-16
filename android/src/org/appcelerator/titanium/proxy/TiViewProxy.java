@@ -17,12 +17,19 @@ import org.appcelerator.titanium.kroll.KrollCallback;
 import org.appcelerator.titanium.util.AsyncResult;
 import org.appcelerator.titanium.util.Log;
 import org.appcelerator.titanium.util.TiConfig;
+import org.appcelerator.titanium.util.TiConvert;
 import org.appcelerator.titanium.view.TiUIView;
 
+import ti.modules.titanium.ui._2DMatrixProxy;
 import android.app.Activity;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Message;
+import android.view.animation.Animation;
+import android.view.animation.AnimationSet;
+import android.view.animation.RotateAnimation;
+import android.view.animation.ScaleAnimation;
+import android.view.animation.TranslateAnimation;
 
 public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 {
@@ -40,6 +47,7 @@ public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 	private static final int MSG_FOCUS = MSG_FIRST_ID + 106;
 	private static final int MSG_SHOW = MSG_FIRST_ID + 107;
 	private static final int MSG_HIDE = MSG_FIRST_ID + 108;
+	private static final int MSG_ANIMATE = MSG_FIRST_ID + 109;
 
 	protected static final int MSG_LAST_ID = MSG_FIRST_ID + 999;
 
@@ -52,19 +60,34 @@ public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 		public Object[] args;
 	}
 
+	public static class PendingAnimation
+	{
+		public TiDict options;
+		public KrollCallback callback;
+	}
+
 	// Ti Properties force using accessors.
 	private Double zIndex;
-	private int opaque;
-	private int opacity;
-	private String bgColor; // We've spelled out background in other places.
 
 	protected TiUIView view;
+	protected PendingAnimation pendingAnimation;
 
 	public TiViewProxy(TiContext tiContext, Object[] args)
 	{
 		super(tiContext);
 		if (args.length > 0) {
 			setProperties((TiDict) args[0]);
+		}
+	}
+
+	public PendingAnimation getPendingAnimation() {
+		return pendingAnimation;
+	}
+
+	public void clearAnimation() {
+		if (pendingAnimation != null) {
+			pendingAnimation.callback = null;
+			pendingAnimation.options = null;
 		}
 	}
 
@@ -112,6 +135,10 @@ public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 			}
 			case MSG_HIDE : {
 				handleHide((TiDict) msg.obj);
+				return true;
+			}
+			case MSG_ANIMATE : {
+				handleAnimate();
 				return true;
 			}
 		}
@@ -297,8 +324,11 @@ public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 			getUIHandler().obtainMessage(MSG_SHOW, options).sendToTarget();
 		}
 	}
-	protected void handleShow(TiDict options) {
 
+	protected void handleShow(TiDict options) {
+		if (view != null) {
+			view.show();
+		}
 	}
 
 	public void hide(TiDict options) {
@@ -309,12 +339,34 @@ public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 		}
 
 	}
-	protected void handleHide(TiDict options) {
 
+	protected void handleHide(TiDict options) {
+		if (view != null) {
+			view.hide();
+		}
 	}
 
-	public void animate(TiDict options, KrollCallback callback) {
+	public void animate(TiDict options, KrollCallback callback)
+	{
+		if (pendingAnimation == null) {
+			pendingAnimation = new PendingAnimation();
+		}
+		pendingAnimation.options = new TiDict(options);
+		pendingAnimation.callback = callback;
 
+		if (getTiContext().isUIThread()) {
+			handleAnimate();
+		} else {
+			getUIHandler().obtainMessage(MSG_ANIMATE).sendToTarget();
+		}
+	}
+
+	protected void handleAnimate() {
+		TiUIView tiv = peekView();
+
+//		if (tiv != null) {
+//			tiv.animate();
+//		}
 	}
 
 	public void blur()

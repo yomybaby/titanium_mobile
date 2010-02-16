@@ -8,16 +8,29 @@
 #import "TiAnimation.h"
 #import "LayoutConstraint.h"
 
+//By declaring a scrollView protocol, TiUITextWidget can access 
+@class TiUIView;
+@protocol TiUIScrollView
+
+-(void)keyboardDidShowAtHeight:(CGFloat)keyboardTop forView:(TiUIView *)firstResponderView;
+-(void)keyboardDidHide;
+
+@end
+
+
+
 @class TiViewProxy;
 
 @interface TiUIView : UIView<TiProxyDelegate,LayoutAutosizing> 
 {
 @private
-	TiViewProxy *proxy;
+	TiProxy *proxy;
 	TiViewProxy *parent;
 	TiAnimation *animation;
 	LayoutConstraint layout;
 	id transformMatrix;
+	BOOL childrenInitialized;
+
 	
 	unsigned int zIndex;
 	unsigned int animationDelayGuard;
@@ -35,7 +48,7 @@
 	BOOL repositioning;
 }
 
-@property(nonatomic,readwrite,assign)	TiViewProxy *proxy;
+@property(nonatomic,readwrite,assign)	TiProxy *proxy;
 @property(nonatomic,readwrite,assign)	TiViewProxy *parent;
 @property(nonatomic,readonly)			unsigned	int zIndex;
 @property(nonatomic,readonly)			LayoutConstraint *layout;

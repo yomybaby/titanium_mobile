@@ -19,8 +19,10 @@ import java.util.List;
 
 import org.appcelerator.titanium.util.Log;
 import org.appcelerator.titanium.util.TiConfig;
+import org.appcelerator.titanium.view.ITiWindowHandler;
 
 import android.app.Application;
+import android.os.Process;
 
 // Naming TiHost to more closely match other implementations
 public class TiApplication extends Application
@@ -33,6 +35,7 @@ public class TiApplication extends Application
 	private HashMap<String, SoftReference<TiProxy>> proxyMap;
 	private TiRootActivity rootActivity;
 	private TiProperties appProperties;
+	private ITiWindowHandler windowHandler;
 
 	public TiApplication() {
 		Log.checkpoint("checkpoint, app created.");
@@ -42,14 +45,16 @@ public class TiApplication extends Application
 	public void onCreate()
 	{
 		super.onCreate();
+		final TiApplication me = this;
 
 		final UncaughtExceptionHandler defaultHandler = Thread.getDefaultUncaughtExceptionHandler();
 		Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
 
 			public void uncaughtException(Thread t, Throwable e) {
-				Log.e("TiUncaughtHandler", "Sending event: exception on thread: " + t.getName() + " msg:" + e.toString());
+				Log.e("TiUncaughtHandler", "Sending event: exception on thread: " + t.getName() + " msg:" + e.toString(), e);
 				//postAnalyticsEvent(TitaniumAnalyticsEventFactory.createErrorEvent(t, e));
 				defaultHandler.uncaughtException(t, e);
+				//Process.killProcess(Process.myPid());
 			}
 		});
 
@@ -70,10 +75,23 @@ public class TiApplication extends Application
 	public void setRootActivity(TiRootActivity rootActivity) {
 		//TODO consider weakRef
 		this.rootActivity = rootActivity;
+		this.windowHandler = rootActivity;
 	}
 
 	public TiRootActivity getRootActivity() {
 		return rootActivity;
+	}
+
+	public ITiWindowHandler getWindowHandler() {
+		return windowHandler;
+	}
+
+	public void setWindowHandler(ITiWindowHandler windowHandler) {
+		if (windowHandler == null) {
+			this.windowHandler = rootActivity;
+		} else {
+			this.windowHandler = windowHandler; //TODO weakRef?
+		}
 	}
 
 	public String getBaseUrl() {

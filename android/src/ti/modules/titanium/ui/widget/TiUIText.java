@@ -42,6 +42,8 @@ public class TiUIText extends TiUIView
 	public static final int RETURNKEY_YAHOO = 6;
 	public static final int RETURNKEY_DONE = 7;
 	public static final int RETURNKEY_EMERGENCY_CALL = 8;
+	public static final int RETURNKEY_DEFAULT = 9;
+	public static final int RETURNKEY_SEND = 10;
 
 	private static final int KEYBOARD_ASCII = 0;
 	private static final int KEYBOARD_NUMBERS_PUNCTUATION = 1;
@@ -49,6 +51,7 @@ public class TiUIText extends TiUIView
 	private static final int KEYBOARD_NUMBER_PAD = 3;
 	private static final int KEYBOARD_PHONE_PAD = 4;
 	private static final int KEYBOARD_EMAIL_ADDRESS = 5;
+	private static final int KEYBOARD_DEFAULT = 6;
 
 	private boolean field;
 
@@ -89,9 +92,9 @@ public class TiUIText extends TiUIView
 		if (d.containsKey("color")) {
 			tv.setTextColor(TiConvert.toColor(d, "color"));
 		}
-		if (d.containsKey("backgroundColor")) {
-			tv.setBackgroundColor(TiConvert.toColor(d, "backgroundColor"));
-		}
+//		if (d.containsKey("backgroundColor")) {
+//			tv.setBackgroundColor(TiConvert.toColor(d, "backgroundColor", "opacity"));
+//		}
 		if (d.containsKey("passwordMask")) {
 			if (d.getBoolean("passwordMask")) {
 				tv.setTransformationMethod(PasswordTransformationMethod.getInstance());
@@ -144,6 +147,12 @@ public class TiUIText extends TiUIView
 			case RETURNKEY_EMERGENCY_CALL :
 				tv.setImeOptions(EditorInfo.IME_ACTION_GO);
 				break;
+			case RETURNKEY_DEFAULT :
+				tv.setImeOptions(EditorInfo.IME_ACTION_UNSPECIFIED);
+				break;
+			case RETURNKEY_SEND :
+				tv.setImeOptions(EditorInfo.IME_ACTION_SEND);
+				break;
 			}
 		}
 		if (d.containsKey("keyboardType"))
@@ -174,6 +183,9 @@ public class TiUIText extends TiUIView
 					tv.setKeyListener(TextKeyListener.getInstance(autocorrect, Capitalize.NONE));
 					tv.setRawInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
 					break;
+				case KEYBOARD_DEFAULT :
+					tv.setKeyListener(TextKeyListener.getInstance(autocorrect, Capitalize.NONE));
+					break;
 			}
 		}
 	}
@@ -190,8 +202,8 @@ public class TiUIText extends TiUIView
 			tv.setText((String) newValue);
 		} else if (key.equals("color")) {
 			tv.setTextColor(TiConvert.toColor((String) newValue));
-		} else if (key.equals("backgroundColor")) {
-			tv.setBackgroundColor(TiConvert.toColor((String) newValue));
+//		} else if (key.equals("backgroundColor")) {
+//			tv.setBackgroundColor(TiConvert.toColor((String) newValue));
 		} else if (key.equals("hintText")) {
 			tv.setHint((String) newValue);
 		} else {

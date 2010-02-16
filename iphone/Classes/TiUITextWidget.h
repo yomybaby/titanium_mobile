@@ -15,8 +15,6 @@
 #pragma mark Public APIs
 
 -(BOOL)hasText;
--(void)blur;
--(void)focus;
 
 @end
 
@@ -32,7 +30,10 @@
 	NSArray *toolbarItems;
 	BOOL toolbarVisible;
 
+	TiUIView<TiUIScrollView> *	parentScrollView;
 @private
+
+
 
 }
 
