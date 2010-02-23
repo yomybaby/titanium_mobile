@@ -41,4 +41,7 @@
 -(TiBlob*)read:(id)unused;
 -(void)write:(id)arg;
 
+@property(readonly, nonatomic) NSString* hostName;
+@property(readonly, nonatomic) NSNumber* port;
+
 @end

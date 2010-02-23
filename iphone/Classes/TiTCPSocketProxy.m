@@ -18,6 +18,7 @@ const unsigned int bufferSize = 4096;
 // TODO: Add sockaddr for better error reporting about which remote host disconnected -
 // We can get that data from the 'address' passed to handleSocketConnection.  Maybe this
 // will be useful in some situations.
+// IN FACT: This might be useful in Bonjour communication!  Add this feature when bonjour is finished.
 typedef struct {
     CFReadStreamRef inputStream;
     CFWriteStreamRef outputStream;
@@ -178,6 +179,16 @@ const CFOptionFlags writeStreamEventFlags =
 -(NSNumber*)mode
 {
     return [NSNumber numberWithInt:mode];
+}
+
+-(NSString*)hostName
+{
+    return hostName;
+}
+
+-(NSNumber*)port
+{
+    return [NSNumber numberWithInt:port];
 }
 
 -(NSNumber*)dataAvailable:(id)unused
