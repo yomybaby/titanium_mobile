@@ -9,13 +9,14 @@ win.backgroundImage = '../images/tableview/easycustom/gradientBackground.png';
 var data = [];
 
 var headerView = Ti.UI.createView({
-	width:300,
 	height:60
 });
 
 var headerLabel = Ti.UI.createLabel({
 	top:10,
 	left:20,
+	width:'auto',
+	height:'auto',
 	text:'Cocoa with Love',
 	color:'white',
 	shadowColor:'black',
@@ -26,6 +27,8 @@ var headerLabel = Ti.UI.createLabel({
 var footerLabel = Ti.UI.createLabel({
 	text:'Thanks for Matt Gallagher for this awesome example (in Cocoa)',
 	color:'white',
+	width:'auto',
+	height:'auto',
 	textAlign:'center',
 	shadowColor:'black',
 	shadowOffset:{x:0,y:1},
@@ -33,7 +36,6 @@ var footerLabel = Ti.UI.createLabel({
 });
 
 var footerView = Ti.UI.createView({
-	width:300,
 	height:60
 });
 
@@ -79,9 +81,16 @@ for (var c=0;c<30;c++)
 		textAlign:'left',
 		top:20,
 		left:85,
+		width: 'auto',
+		height:'auto',
 		font:{fontWeight:'bold',fontSize:18}
 	});
 	row.add(label);
+	
+	label.addEventListener('click',function(e)
+	{
+		Ti.API.info("clicked on label "+e.source);
+	});
 
 	var label2 = Ti.UI.createLabel({
 		text: "Other information could go here if you'd like",
@@ -91,6 +100,7 @@ for (var c=0;c<30;c++)
 		shadowOffset:{x:0,y:1},
 		font:{fontWeight:'bold',fontSize:13},
 		bottom:22,
+		height:'auto',
 		left:85,
 		right:50
 	});
@@ -107,6 +117,11 @@ var tableview = Titanium.UI.createTableView({
 	maxRowHeight:100,
 	minRowHeight:100,
 	separatorStyle: Ti.UI.iPhone.TableViewSeparatorStyle.NONE
+});
+
+tableview.addEventListener('click',function(e)
+{
+	Ti.API.info("clicked on table view = "+e.source);
 });
 
 

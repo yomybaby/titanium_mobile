@@ -19,6 +19,7 @@
 
 -(void)_destroy
 {
+	self.modelDelegate = nil;
 	RELEASE_TO_NIL(rows);
 	[super _destroy];
 }
@@ -28,6 +29,15 @@
 	[super _initWithProperties:properties];
 	self.modelDelegate = self;
 }	
+
+-(void)reorderRows
+{
+	NSInteger index = 0;
+	for (TiUITableViewRowProxy *row in rows)
+	{
+		row.row = index++;
+	}
+}
 
 -(void)triggerSectionUpdate
 {

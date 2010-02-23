@@ -11,14 +11,16 @@
 @interface TiViewProxy : TiProxy<LayoutAutosizing> 
 {
 @private
+	NSRecursiveLock *childLock;
 	NSMutableArray *children;
 	TiUIView *view;
-	TiProxy *parent;
+	TiViewProxy *parent;
 	BOOL viewInitialized;
 }
 
 @property(nonatomic,readonly) NSArray *children;
-@property(nonatomic,readonly) TiProxy *parent;
+@property(nonatomic,readonly) TiViewProxy *parent;
+@property(nonatomic,readonly) TiPoint *center;
 
 #pragma mark Public
 -(void)add:(id)arg;
@@ -30,6 +32,7 @@
 #pragma mark Framework
 -(TiUIView*)view;
 -(BOOL)viewAttached;
+-(BOOL)viewInitialized;
 -(void)layoutChildren:(CGRect)bounds;
 -(void)layoutChild:(TiViewProxy*)child bounds:(CGRect)bounds;
 -(void)animationCompleted:(TiAnimation*)animation;
@@ -41,6 +44,8 @@
 -(void)removeNavBarButtonView;
 -(CGRect)appFrame;
 -(void)firePropertyChanges;
+-(void)willFirePropertyChanges;
+-(void)didFirePropertyChanges;
 -(TiUIView*)newView;
 -(BOOL)viewReady;
 -(void)windowDidClose;

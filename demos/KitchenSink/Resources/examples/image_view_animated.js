@@ -16,13 +16,17 @@ for (var i=1;i<18;i++)
 
 var imageView = Titanium.UI.createImageView({
 	images:images,
-	duration:100, // in miliseconds, the time before next frame is shown
-	repeatCount:0  // 0 means animation repeats indefinitely, use > 1 to control repeat count
+	duration:100, // in milliseconds, the time before next frame is shown
+	repeatCount:0,  // 0 means animation repeats indefinitely, use > 1 to control repeat count
+	top:0,
 });
+
 
 var frame = Ti.UI.createLabel({
 	text:'',
 	color:'white',
+	width:'auto',
+	height:'auto',
 	font:{fontSize:48,fontFamily:'Helvetica Neue'}
 });
 
@@ -180,7 +184,9 @@ win.add(durationDown);
 var l = Titanium.UI.createLabel({
 	text:'Duration = 110 ms (re-start to apply)',
 	bottom:10,
-	color:'white'
+	color:'white',
+	width:'auto',
+	height:'auto'
 });
 win.add(l);
 

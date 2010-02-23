@@ -78,10 +78,12 @@ DEFINE_EXCEPTIONS
 			[proxy _hasListeners:@"dblclick"];
 } 
 
--(void)initializerState
+-(void)initializeState
 {
+	virtualParentTransform = CGAffineTransformIdentity;
 	multipleTouches = NO;
 	twoFingerTapIsPossible = NO;
+	touchEnabled = YES;
 	BOOL touchEventsSupported = [self viewSupportsBaseTouchEvents];
 	handlesTaps = touchEventsSupported && [self proxyHasTapListener];
 	handlesTouches = touchEventsSupported && [self proxyHasTouchListener];
@@ -94,11 +96,29 @@ DEFINE_EXCEPTIONS
 	self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 }
 
+-(void)willSendConfiguration
+{
+}
+
+-(void)didSendConfiguration
+{
+	configured = YES;
+}
+
+-(void)configurationSet
+{
+	// can be used to trigger things after all properties are set
+}
+
+-(BOOL)viewConfigured
+{
+	return configured;
+}
+
 -(void)setProxy:(TiProxy *)p
 {
 	proxy = p;
 	proxy.modelDelegate = self;
-	[self initializerState];
 }
 
 -(void)setParent:(TiViewProxy *)p
@@ -132,12 +152,7 @@ DEFINE_EXCEPTIONS
 
 -(void)setLayout:(LayoutConstraint *)layout_
 {
-	layout.left = layout_->left;
-	layout.right = layout_->right;
-	layout.width = layout_->width;
-	layout.top = layout_->top;
-	layout.bottom = layout_->bottom;
-	layout.height = layout_->height;
+	layout = *layout_;
 }
 
 -(void)insertIntoView:(UIView*)newSuperview bounds:(CGRect)bounds
@@ -189,8 +204,18 @@ DEFINE_EXCEPTIONS
 
 -(void)performZIndexRepositioning
 {
+	if ([[self subviews] count] == 0)
+	{
+		return;
+	}
+	
+	if (![NSThread isMainThread])
+	{
+		[self performSelectorOnMainThread:@selector(performZIndexRepositioning) withObject:nil waitUntilDone:NO];
+		return;
+	}
+	
 	// sort by zindex
-	/*
 	NSArray *children = [[NSArray arrayWithArray:[self subviews]] sortedArrayUsingFunction:zindexSort context:NULL];
 						 
 	// re-configure all the views by zindex order
@@ -200,7 +225,7 @@ DEFINE_EXCEPTIONS
 		[child removeFromSuperview];
 		[self addSubview:child];
 		[child release];
-	}*/
+	}
 }
 
 -(unsigned int)zIndex
@@ -210,7 +235,11 @@ DEFINE_EXCEPTIONS
 
 -(void)repositionZIndex
 {
-	[[parent view] performZIndexRepositioning];
+	if (parent!=nil && [parent viewAttached])
+	{
+		TiUIView *parentView = [parent view];
+		[parentView performZIndexRepositioning];
+	}
 }
 
 -(BOOL)animationFromArgument:(id)args
@@ -286,6 +315,28 @@ DEFINE_EXCEPTIONS
 	return result;
 }
 
+-(void)updateTransform
+{
+	if ([transformMatrix isKindOfClass:[Ti2DMatrix class]])
+	{
+		self.transform = CGAffineTransformConcat(virtualParentTransform, [(Ti2DMatrix*)transformMatrix matrix]);
+	}
+	else if ([transformMatrix isKindOfClass:[Ti3DMatrix class]])
+	{
+		self.layer.transform = CATransform3DConcat(CATransform3DMakeAffineTransform(virtualParentTransform),[(Ti3DMatrix*)transformMatrix matrix]);
+	}
+	else
+	{
+		self.transform = virtualParentTransform;
+	}
+}
+
+
+-(void)setVirtualParentTransform:(CGAffineTransform)newTransform
+{
+	virtualParentTransform = newTransform;
+	[self updateTransform];
+}
 
 #pragma mark Public APIs
 
@@ -347,14 +398,7 @@ DEFINE_EXCEPTIONS
 {
 	RELEASE_TO_NIL(transformMatrix);
 	transformMatrix = [transform_ retain];
-	if ([transformMatrix isKindOfClass:[Ti2DMatrix class]])
-	{
-		self.transform = [(Ti2DMatrix*)transformMatrix matrix];
-	}
-	else if ([transformMatrix isKindOfClass:[Ti3DMatrix class]])
-	{
-		self.layer.transform = [(Ti3DMatrix*)transformMatrix matrix];
-	}
+	[self updateTransform];
 }
 
 -(void)setCenter_:(id)point
@@ -377,6 +421,11 @@ DEFINE_EXCEPTIONS
 {
 	[self.proxy replaceValue:nil forKey:@"animation" notification:NO];
 	[self animate:arg];
+}
+
+-(void)setTouchEnabled_:(id)arg
+{
+	touchEnabled = [TiUtils boolValue:arg];
 }
 
 -(void)animate:(id)arg
@@ -527,17 +576,48 @@ return;\
 	}
 }
 
+- (BOOL)interactionDefault
+{
+	return YES;
+}
+
+- (BOOL)interactionEnabled
+{
+	if (touchEnabled)
+	{
+		// we allow the developer to turn off touch with this property but make the default the
+		// result of the internal method interactionDefault. some components (like labels) by default
+		// don't want or need interaction if not explicitly enabled through an addEventListener
+		return [self interactionDefault];
+	}
+	return NO;
+}
+
+- (BOOL)hasTouchableListener
+{
+	return (handlesSwipes|| handlesTaps || handlesTouches);
+}
+
 - (UIView *)hitTest:(CGPoint) point withEvent:(UIEvent *)event 
 {
-    UIView* subview = [super hitTest:point withEvent:event];
+	BOOL hasTouchListeners = [self hasTouchableListener];
 	
 	// delegate to our touch delegate if we're hit but it's not for us
-	if (subview==nil && touchDelegate!=nil)
+	if (hasTouchListeners==NO && touchDelegate!=nil)
 	{
 		return touchDelegate;
 	}
 	
-    return subview;
+	// if we don't have any touch listeners, see if interaction should
+	// be handled at all.. NOTE: we don't turn off the views interactionEnabled
+	// property since we need special handling ourselves and if we turn it off
+	// on the view, we'd never get this event
+	if (hasTouchListeners == NO && [self interactionEnabled]==NO)
+	{
+		return nil;
+	}
+	
+    return [super hitTest:point withEvent:event];
 }
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event 
@@ -574,17 +654,22 @@ return;\
 		
 		if ([proxy _hasListeners:@"touchstart"])
 		{
-			[proxy fireEvent:@"touchstart" withObject:evt];
+			[proxy fireEvent:@"touchstart" withObject:evt propagate:(touchDelegate==nil)];
 		}
 		
 		if ([touch tapCount] == 1 && [proxy _hasListeners:@"click"])
 		{
-			[proxy fireEvent:@"click" withObject:evt];
+			[proxy fireEvent:@"click" withObject:evt propagate:(touchDelegate==nil)];
 		}
 		else if ([touch tapCount] == 2 && [proxy _hasListeners:@"dblclick"])
 		{
-			[proxy fireEvent:@"dblclick" withObject:evt];
+			[proxy fireEvent:@"dblclick" withObject:evt propagate:(touchDelegate==nil)];
 		}
+	}
+	
+	if (touchDelegate!=nil)
+	{
+		[touchDelegate touchesBegan:touches withEvent:event];
 	}
 }
 
@@ -597,7 +682,7 @@ return;\
 		NSDictionary *evt = [TiUtils pointToDictionary:point];
 		if ([proxy _hasListeners:@"touchmove"])
 		{
-			[proxy fireEvent:@"touchmove" withObject:evt];
+			[proxy fireEvent:@"touchmove" withObject:evt propagate:(touchDelegate==nil)];
 		}
 	}
 	if (handlesSwipes)
@@ -618,6 +703,11 @@ return;\
 			}
 		}
 	}
+	
+	if (touchDelegate!=nil)
+	{
+		[touchDelegate touchesMoved:touches withEvent:event];
+	}
 }
 
 - (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event 
@@ -627,7 +717,8 @@ return;\
 		BOOL allTouchesEnded = ([touches count] == [[event touchesForView:self] count]);
 		
 		// first check for plain single/double tap, which is only possible if we haven't seen multiple touches
-		if (!multipleTouches) {
+		if (!multipleTouches) 
+		{
 			UITouch *touch = [touches anyObject];
 			tapLocation = [touch locationInView:self];
 			
@@ -706,12 +797,17 @@ return;\
 		NSDictionary *evt = [TiUtils pointToDictionary:point];
 		if ([proxy _hasListeners:@"touchend"])
 		{
-			[proxy fireEvent:@"touchend" withObject:evt];
+			[proxy fireEvent:@"touchend" withObject:evt propagate:(touchDelegate==nil)];
 		}
 	}
 	if (handlesSwipes)
 	{
 		touchLocation = CGPointZero;
+	}
+	
+	if (touchDelegate!=nil)
+	{
+		[touchDelegate touchesEnded:touches withEvent:event];
 	}
 }
 
@@ -729,12 +825,17 @@ return;\
 		NSDictionary *evt = [TiUtils pointToDictionary:point];
 		if ([proxy _hasListeners:@"touchcancel"])
 		{
-			[proxy fireEvent:@"touchcancel" withObject:evt];
+			[proxy fireEvent:@"touchcancel" withObject:evt propagate:(touchDelegate==nil)];
 		}
 	}
 	if (handlesSwipes)
 	{
 		touchLocation = CGPointZero;
+	}
+	
+	if (touchDelegate!=nil)
+	{
+		[touchDelegate touchesCancelled:touches withEvent:event];
 	}
 }
 

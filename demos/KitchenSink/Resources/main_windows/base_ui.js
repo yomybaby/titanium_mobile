@@ -3,17 +3,21 @@ var data = [
 	{title:'Tab Groups', hasChild:true, test:'../examples/tab_groups.js'},
 	{title:'Tabs', hasChild:true, test:'../examples/tabs.js'},
 	{title:'Window Properties', hasChild:true, test:'../examples/window_properties.js'},
-	{title:'Window NavBar', hasChild:true, test:'../examples/window_navbar.js'},
-	{title:'Window Toolbar', hasChild:true, test:'../examples/window_toolbar.js'},
 	{title:'Window Layout', hasChild:true, test:'../examples/window_layout.js'},
 	{title:'Window (Standalone)', hasChild:true, test:'../examples/window_standalone.js'},
-	{title:'Window Constructor', hasChild:true, test:'../examples/window_constructor.js'},
 	{title:'Window Events', hasChild:true, test:'../examples/window_events.js'},
 	{title:'Views', hasChild:true, test:'../examples/views.js'},
 	{title:'Animation', hasChild:true, test:'../examples/animation.js'},
 	{title:'Custom Events', hasChild:true, test:'../examples/custom_events.js'},
-
 ];
+
+// add iphone specific tests
+if (Titanium.Platform.name == 'iPhone OS')
+{
+	data.push({title:'Window NavBar', hasChild:true, test:'../examples/window_navbar.js'});
+	data.push({title:'Window Toolbar', hasChild:true, test:'../examples/window_toolbar.js'});
+	data.push({title:'Window Constructor', hasChild:true, test:'../examples/window_constructor.js'});
+}
 
 // create table view
 var tableview = Titanium.UI.createTableView({
@@ -25,11 +29,21 @@ tableview.addEventListener('click', function(e)
 {
 	if (e.rowData.test)
 	{
-		var win = Titanium.UI.createWindow({
-			url:e.rowData.test,
-			title:e.rowData.title,
-			backgroundColor:'#fff'
-		});
+		var win = null;
+		if (Ti.Platform.name == "android") {
+			win = Titanium.UI.createWindow({
+				url:e.rowData.test,
+				title:e.rowData.title
+			});	
+		} else {
+			win = Titanium.UI.createWindow({
+				url:e.rowData.test,
+				title:e.rowData.title,
+				backgroundColor:'#fff'
+			});
+		}
+		
+		
 		if (e.index == 3)
 		{
 			win.hideTabBar();
@@ -62,7 +76,9 @@ var view = Titanium.UI.createView({
 var label = Titanium.UI.createLabel({
 	color:'#fff',
 	font:{fontSize:13},
-	textAlign:'center'
+	textAlign:'center',
+	width:'auto',
+	height:'auto'
 });
 win.add(view);
 win.add(label);

@@ -15,12 +15,21 @@
 
 - (void) dealloc
 {
+	[[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardDidHideNotification object:nil];
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillHideNotification object:nil];
 	[[NSNotificationCenter defaultCenter] removeObserver:self name:UIKeyboardWillShowNotification object:nil];
 	RELEASE_TO_NIL(textWidgetView);
+	[toolbar removeFromSuperview];
 	RELEASE_TO_NIL(toolbar);
 	RELEASE_TO_NIL(toolbarItems);
 	[super dealloc];
+}
+
+-(BOOL)hasTouchableListener
+{
+	// since this guy only works with touch events, we always want them
+	// just always return YES no matter what listeners we have registered
+	return YES;
 }
 
 #pragma mark Must override
@@ -200,7 +209,6 @@
 	NSValue *v3 = [userInfo valueForKey:UIKeyboardCenterBeginUserInfoKey];
 	CGPoint kbStartPoint = [v3 CGPointValue];
 	
-	CGFloat kbStartTop = kbStartPoint.y - (kbBounds.size.height / 2);
 	CGFloat kbEndTop = kbEndPoint.y - (kbBounds.size.height / 2);
 
 	if ((toolbar!=nil) && !toolbarVisible)
@@ -209,7 +217,7 @@
 
 		NSArray *windows = [[UIApplication sharedApplication] windows];
 		UIWindow *window = nil;
-		
+
 		// in a keyboard situation, a new UIWindow is insert into the heirarchy
 		// temporarily and we need to find that view.  in testing, it seems to 
 		// be on the 2nd index from our window
@@ -222,31 +230,26 @@
 			window = [windows objectAtIndex:0];
 		}
 
-		[window addSubview:toolbar];
-		[toolbar setHidden:NO];
-
 		kbEndTop -= height;	//This also affects tweaking the scroll view.
 		
-		if ([[TitaniumApp app] isKeyboardShowing])
-		{
-			toolbar.frame = CGRectMake(0, kbEndTop, kbBounds.size.width, height);
-			[self attachKeyboardToolbar];
-		}
-		else
-		{
-			// start at the top
-			toolbar.frame = CGRectMake(0, kbStartTop-height, kbBounds.size.width , height);
-			[self attachKeyboardToolbar];
-			
-			// now animate with the keyboard as it moves up
-			[UIView beginAnimations:nil context:nil];
-			[UIView setAnimationCurve:[[userInfo valueForKey:UIKeyboardAnimationCurveUserInfoKey] intValue]];
-			[UIView setAnimationDuration:[[userInfo valueForKey:UIKeyboardAnimationDurationUserInfoKey] floatValue]];
-			toolbar.frame = CGRectMake(0, kbEndTop, kbBounds.size.width, height);
-			[UIView commitAnimations];
-		}
-		toolbarVisible = YES;
+		[[self window] addSubview:toolbar];
+
+		[toolbar setHidden:NO];
+
+		toolbar.bounds = CGRectMake(0, 0, kbBounds.size.width, height);
 		
+		// start at the top
+		toolbar.center = CGPointMake(kbStartPoint.x, kbStartPoint.y - (kbBounds.size.height - height)/2);
+		[self attachKeyboardToolbar];
+		
+		// now animate with the keyboard as it moves up
+		[UIView beginAnimations:nil context:nil];
+		[UIView setAnimationCurve:[[userInfo valueForKey:UIKeyboardAnimationCurveUserInfoKey] intValue]];
+		[UIView setAnimationDuration:[[userInfo valueForKey:UIKeyboardAnimationDurationUserInfoKey] floatValue]];
+		toolbar.center = CGPointMake(kbEndPoint.x, kbEndPoint.y - (kbBounds.size.height + height)/2);
+		[UIView commitAnimations];
+
+		toolbarVisible = YES;
 	}
 
 	if (parentScrollView == nil)
@@ -266,16 +269,24 @@
 	}
 }
 
-- (void)keyboardHiddenAnimationComplete:(id)note
+- (void)keyboardDidHide:(NSNotification*)notification
 {
-	if (toolbar!=nil)
+	if (!toolbarVisible)
 	{
-		[toolbar setHidden:YES];
+		[toolbar removeFromSuperview];
 	}
 }
 
-- (void)keyboardWillHide:(NSNotification*)notification 
+- (void)keyboardWillHideForReal:(NSNotification*)notification 
 {
+	BOOL stillIsResponder = NO;
+	if ([self isFirstResponder])
+	{
+		[self setNeedsDisplay];
+		[self setNeedsLayout];
+		stillIsResponder = YES;
+	}
+
 	if (toolbarVisible)
 	{
 		for (UIView * view in [toolbar subviews])
@@ -284,16 +295,57 @@
 			{
 				[view setNeedsDisplay];
 				[view setNeedsLayout];
-				return;
+				stillIsResponder = YES;
+				break;
 			}
 		}
-		[toolbar removeFromSuperview];
-		toolbarVisible = NO;
+		
+		NSDictionary *userInfo = notification.userInfo;
+		NSValue *v = [userInfo valueForKey:UIKeyboardBoundsUserInfoKey];
+		CGRect kbBounds = [v CGRectValue];
+
+		NSValue *v2 = [userInfo valueForKey:UIKeyboardCenterEndUserInfoKey];
+		CGPoint kbEndPoint = [v2 CGPointValue];
+
+		[UIView beginAnimations:nil context:nil];
+		[UIView setAnimationCurve:[[userInfo valueForKey:UIKeyboardAnimationCurveUserInfoKey] intValue]];
+		[UIView setAnimationDuration:[[userInfo valueForKey:UIKeyboardAnimationDurationUserInfoKey] floatValue]];
+		
+		CGFloat height = [toolbar bounds].size.height;
+		
+		CGPoint newCenter;
+		newCenter.x = kbEndPoint.x;
+
+		if (stillIsResponder)
+		{
+			NSValue *v3 = [userInfo valueForKey:UIKeyboardCenterBeginUserInfoKey];
+			CGPoint kbStartPoint = [v3 CGPointValue];
+			newCenter.y = kbStartPoint.y - (kbBounds.size.height + height)/2;
+		}
+		else
+		{
+			newCenter.y = kbEndPoint.y - (kbBounds.size.height - height)/2;
+		}
+
+		toolbar.center = newCenter;
+		[UIView commitAnimations];
+
+		toolbarVisible = stillIsResponder;
 	}
 
-	[parentScrollView keyboardDidHide];
-	RELEASE_TO_NIL(parentScrollView);
+	if (!stillIsResponder)
+	{
+		[parentScrollView keyboardDidHide];
+		RELEASE_TO_NIL(parentScrollView);
+	}
 }
+
+- (void)keyboardWillHide:(NSNotification*)notification 
+{
+	[self performSelector:@selector(keyboardWillHideForReal:) withObject:notification afterDelay:0.0 inModes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
+}
+
+
 
 
 @end

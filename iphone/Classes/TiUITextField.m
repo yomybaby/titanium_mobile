@@ -182,40 +182,42 @@
 	return NO;
 }
 
--(void)setLeftViewMode:(UITextFieldViewMode)mode
-{
-	leftMode = mode;
-	[self updateMode:mode forView:left];
-}
-
--(void)setRightViewMode:(UITextFieldViewMode)mode
-{
-	rightMode = mode;
-	[self updateMode:mode forView:right];
-}
-
 -(void)setLeftView:(UIView*)value
 {
-	RELEASE_TO_NIL(leftView);
-	leftView = [value retain];
-	[self updateLeftView];
-	for (UIView *view in [NSArray arrayWithArray:[left subviews]])
+	if ((value != nil) && (paddingLeft > 0.5))
 	{
-		[view removeFromSuperview];
+		CGRect wrapperFrame = [value bounds];
+		wrapperFrame.size.width += paddingLeft;
+		UIView * wrapperView = [[UIView alloc] initWithFrame:wrapperFrame];
+		
+		CGPoint valueCenter = [value center];
+		valueCenter.x += paddingLeft;
+		[value setCenter:valueCenter];
+		
+		[wrapperView addSubview:value];
+		value = wrapperView;
+		[wrapperView autorelease];
 	}
-	
-	leftView.frame = CGRectMake(paddingLeft, 0, leftView.frame.size.width, leftView.frame.size.height);
-	[left addSubview:leftView];
-	
-	//TODO: get with blain to figure out the appropriate way to handle this
-	//[(TiUIView*)value insertIntoView:leftView bounds:leftView.frame];
-	
-	[self repaintMode];
+
+NSLog(@"Left view (%fx%f) %@",[value bounds].size.width,[value bounds].size.height,value);
+	[super setLeftView:value];
 }
 
 -(void)setRightView:(UIView*)value
 {
-	//TODO:
+	if ((value != nil) && (paddingRight > 0.5))
+	{
+		CGRect wrapperFrame = [value bounds];
+		wrapperFrame.size.width += paddingRight;
+		UIView * wrapperView = [[UIView alloc] initWithFrame:wrapperFrame];
+
+		[wrapperView addSubview:value];
+		value = wrapperView;
+		[wrapperView autorelease];
+	}
+
+NSLog(@"Right view (%fx%f) %@",[value bounds].size.width,[value bounds].size.height,value);
+	[super setRightView:value];
 }
 
 
@@ -245,6 +247,7 @@
 		[self addSubview:textWidgetView];
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillHide:) name:UIKeyboardWillHideNotification object:nil];
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillShow:) name:UIKeyboardWillShowNotification object:nil];
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardDidHide:) name:UIKeyboardDidHideNotification object:nil];
 	}
 	return textWidgetView;
 }
@@ -401,11 +404,21 @@
 
 - (BOOL)textField:(UITextField *)tf shouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string
 {
-	NSString *value = [NSString stringWithFormat:@"%@%@",[tf text],string];
-	[self.proxy replaceValue:value forKey:@"value" notification:NO];
+	NSString *curText = [tf text];
+	
+	if ([string isEqualToString:@""])
+	{
+		curText = [curText substringToIndex:[curText length]-range.length];
+	}
+	else
+	{
+		curText = [NSString stringWithFormat:@"%@%@",curText,string];
+	}
+
+	[self.proxy replaceValue:curText forKey:@"value" notification:NO];
 	if ([self.proxy _hasListeners:@"change"])
 	{
-		[self.proxy fireEvent:@"change" withObject:[NSDictionary dictionaryWithObject:value forKey:@"value"]];
+		[self.proxy fireEvent:@"change" withObject:[NSDictionary dictionaryWithObject:curText forKey:@"value"]];
 	}
 	return YES;
 }

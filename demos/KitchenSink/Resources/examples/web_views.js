@@ -10,7 +10,9 @@ var data = [
 	{title:'Inline HTML', hasChild:true, text:'<html><body>Hello from inline HTML.</body></html>'},
 	{title:'Inline HTML w/ Trans Bg', hasChild:true, text:'<html><body><div style="color:white;">Hello from inline HTML. You should see white text and black background</div></body></html>', bgcolor:'black'},
 	{title:'Inline HTML w/ Color Bg', hasChild:true, text:'<html><body><div style="color:red;">Hello from inline HTML. You should see red text and yellow background</div></body></html>', bgcolor:'yellow'},
-	{title:'Inline HTML w/ Border', hasChild:true, text:'<html><body><div>Hello from inline HTML. You should see red border</div></body></html>', border: true}
+	{title:'Inline HTML w/ Border', hasChild:true, text:'<html><body><div>Hello from inline HTML. You should see red border</div></body></html>', border: true},
+	{title:'Logging and Unicode', hasChild:true, url:'webview_logging.html'},
+	{title:'Local Pinch/Zoom', hasChild:true, url:'local_webview_pinchzoom.html', scale:true},
 ];
 
 // create table view
@@ -31,6 +33,12 @@ tableview.addEventListener('click', function(e)
 	else
 	{
 		webview.html = rowdata.text;
+	}
+	if (rowdata.scale)
+	{
+		// override the default pinch/zoom behavior of local (or remote) webpages
+		// and either allow pinch/zoom (set to true) or not (set to false)
+		webview.scalesPageToFit = true;
 	}
 	webview.addEventListener('load',function(e)
 	{

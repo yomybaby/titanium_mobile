@@ -3,7 +3,7 @@ var data = [];
 
 var header = Ti.UI.createView({
 	backgroundColor:'#111',
-	header:20
+	height:20
 });
 
 var headerLabel = Ti.UI.createLabel({
@@ -11,7 +11,9 @@ var headerLabel = Ti.UI.createLabel({
 	text:'Custom Header',
 	color:'#191',
 	textAlign:'left',
-	left:10
+	left:10,
+	width:'auto',
+	height:'auto'
 });
 
 header.add(headerLabel);

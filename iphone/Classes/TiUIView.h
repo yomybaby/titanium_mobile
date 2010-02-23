@@ -28,10 +28,13 @@
 	TiViewProxy *parent;
 	TiAnimation *animation;
 	LayoutConstraint layout;
+	
+	CGAffineTransform virtualParentTransform;
 	id transformMatrix;
 	BOOL childrenInitialized;
+	BOOL configured;
+	BOOL touchEnabled;
 
-	
 	unsigned int zIndex;
 	unsigned int animationDelayGuard;
 	
@@ -60,6 +63,15 @@
 -(void)animate:(id)arg;
 
 #pragma mark Framework
+
+-(void)initializeState;
+-(void)willSendConfiguration;
+-(void)configurationSet;
+-(void)didSendConfiguration;
+-(BOOL)viewConfigured;
+-(void)setVirtualParentTransform:(CGAffineTransform)newTransform;
+-(void)setTransform_:(id)matrix;
+
 -(void)performZIndexRepositioning;
 -(void)repositionZIndex;
 -(UIImage*)loadImage:(id)image;
@@ -70,11 +82,15 @@
 -(void)updateLayout:(LayoutConstraint*)layout withBounds:(CGRect)bounds;
 -(void)relayout:(CGRect)bounds;
 -(void)reposition;
+-(void)frameSizeChanged:(CGRect)frame bounds:(CGRect)bounds;
 -(void)insertIntoView:(UIView*)view bounds:(CGRect)bounds;
 -(void)makeRootViewFirstResponder;
 -(void)animationCompleted;
 
 +(void)throwException:(NSString *) reason subreason:(NSString*)subreason location:(NSString *)location;
 -(void)throwException:(NSString *) reason subreason:(NSString*)subreason location:(NSString *)location;
+
+-(BOOL)interactionDefault;
+-(BOOL)hasTouchableListener;
 
 @end

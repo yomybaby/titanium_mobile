@@ -210,13 +210,13 @@ NSStringEncoding ExtractEncodingFromData(NSData * inputData)
 	{
 		[self _fireEventToListener:@"readystatechange" withObject:nil listener:onreadystatechange thisObject:thisPointer];
 	}
-	if (onload!=nil && state==NetworkClientStateDone)
+	if (onload!=nil && state==NetworkClientStateDone && connected)
 	{
 		[self _fireEventToListener:@"load" withObject:nil listener:onload thisObject:thisPointer];
 	}
 }
 
--(void)abort
+-(void)abort:(id)args
 {
 	if (request!=nil && connected)
 	{
@@ -254,10 +254,13 @@ NSStringEncoding ExtractEncodingFromData(NSData * inputData)
 		[request setDownloadProgressDelegate:self];
 	}
 	
-	//TODO: setup useragent, etc
 	[request addRequestHeader:@"User-Agent" value:[[TitaniumApp app] userAgent]];
 	[request setRequestMethod:method];
 	[request setDefaultResponseEncoding:NSUTF8StringEncoding];
+	// don't cache credentials, session etc since each request might be to
+	// different URI and cause security compromises if we do 
+	[request setUseSessionPersistance:NO];
+	[request setUseKeychainPersistance:NO];
 	[self _fireReadyStateChange:NetworkClientStateOpened];
 	[self _fireReadyStateChange:NetworkClientStateHeaders];
 }

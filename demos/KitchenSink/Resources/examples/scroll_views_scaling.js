@@ -16,19 +16,20 @@ var scrollView = Titanium.UI.createScrollView({
 	minZoomScale:0.1
 });
 
-var view = Ti.UI.createImageView({url:'../images/flook09_m_50.jpg'});
-/*
+
 var view = Ti.UI.createView({
 	backgroundColor:'#336699',
 	borderRadius:10,
 	width:300,
 	height:500,
 	top:10
-});*/
+});
 
 var label = Ti.UI.createLabel({
 	font:{fontSize:18,fontWeight:'bold',fontFamily:'Helvetica Neue'},
-	text:'Pinch or Zoom'
+	text:'Pinch or Zoom',
+	width:'auto',
+	height:'auto'
 });
 
 view.add(label);
@@ -43,7 +44,9 @@ var messageView = Ti.UI.createView({
 
 var message = Ti.UI.createLabel({
 	font:{fontSize:14,fontFamily:'Helvetica Neue'},
-	color:'yellow'
+	color:'yellow',
+	width:'auto',
+	height:'auto'
 });
 
 messageView.add(message);

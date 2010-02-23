@@ -14,6 +14,8 @@ win.add(imageView);
 var l = Titanium.UI.createLabel({
 	text:'Click Image of Appcelerator Logo',
 	bottom:20,
+	width:'auto',
+	height:'auto',
 	color:'#999'
 });
 win.add(l);

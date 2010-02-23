@@ -335,19 +335,7 @@
 
 #pragma mark Public APIs
 
-- (void)login:(id)args
-{
-	if (session!=nil && ([session expirationDate]==nil || [session resume]==NO))
-	{
-		[self performSelectorOnMainThread:@selector(showDialog) withObject:nil waitUntilDone:NO];
-	}
-	else if (session!=nil)
-	{
-		[self fetchPermissions:nil];
-	}
-}
-
-- (void)logout:(id)args 
+- (void)logout
 {
 	if (session!=nil)
 	{
@@ -445,9 +433,9 @@
 	{
 		dataParam = [(TiBlob*)data data];
 	}
-	else 
+	else if (data != nil && ![data isKindOfClass:[NSNull class]])
 	{
-		NSString *msg = [NSString stringWithFormat:@"data should either be a path or blob, was: %@",[data class]];
+		NSString *msg = [NSString stringWithFormat:@"data should either be a path, blob or null, was: %@",[data class]];
 		THROW_INVALID_ARG(msg);
 	}
 	
@@ -480,7 +468,7 @@
 	
 	if ([session resume]==NO)
 	{
-		[self logout:nil];
+		[self logout];
 	}
 }
 

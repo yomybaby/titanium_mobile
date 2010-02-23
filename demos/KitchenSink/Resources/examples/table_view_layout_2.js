@@ -32,7 +32,10 @@ row.height = 40;
 var clickLabel = Titanium.UI.createLabel({
 	text:'Click different parts of the row',
 	color:'#fff',
-	font:{fontSize:14}
+	textAlign:'center',
+	font:{fontSize:14},
+	width:'auto',
+	height:'auto'
 });
 row.className = 'header';
 row.add(clickLabel);
@@ -54,7 +57,9 @@ updateRow.isUpdateRow = true;
 var updateRowText = Ti.UI.createLabel({
 	color:'#fff',
 	font:{fontSize:20, fontWeight:'bold'},
-	text:'You clicked on...'
+	text:'You clicked on...',
+	width:'auto',
+	height:'auto'
 });
 updateRow.add(updateRowText);
 
@@ -69,6 +74,7 @@ for (var c=1;c<50;c++)
 	row.selectedBackgroundColor = '#fff';
 	row.height  =100;
 	row.className = 'datarow';
+
 	
 	var photo = Ti.UI.createView({
 		backgroundImage:'../images/custom_tableview/user.png',
@@ -84,7 +90,8 @@ for (var c=1;c<50;c++)
 		// use rowNum property on object to get row number
 		var rowNum = e.source.rowNum;
 		updateRowText.text = 'You clicked on the photo';
-		tableView.updateRow(rowNum,updateRow,{animationStyle:Titanium.UI.iPhone.RowAnimationStyle.LEFT});	
+		//TODO: FIX UPDATE ROW
+		//tableView.updateRow(rowNum,updateRow,{animationStyle:Titanium.UI.iPhone.RowAnimationStyle.LEFT});	
 		
 	});
 	photo.rowNum = c;
@@ -105,7 +112,8 @@ for (var c=1;c<50;c++)
 		// use rowNum property on object to get row number
 		var rowNum = e.source.rowNum;
 		updateRowText.text = 'You clicked on the user';
-		tableView.updateRow(rowNum,updateRow,{animationStyle:Titanium.UI.iPhone.RowAnimationStyle.LEFT});				
+		// TODO: FIX UPDATE ROW
+		//tableView.updateRow(rowNum,updateRow,{animationStyle:Titanium.UI.iPhone.RowAnimationStyle.LEFT});				
 	});
 	
 	user.rowNum = c;
@@ -125,7 +133,9 @@ for (var c=1;c<50;c++)
 		// use rowNum property on object to get row number
 		var rowNum = e.source.rowNum;
 		updateRowText.text = 'You clicked on the comment';
-		tableView.updateRow(rowNum,updateRow,{animationStyle:Titanium.UI.iPhone.RowAnimationStyle.LEFT});				
+		
+		// TODO: FIX UPDATE ROW
+		//tableView.updateRow(rowNum,updateRow,{animationStyle:Titanium.UI.iPhone.RowAnimationStyle.LEFT});				
 	});
 	
 	comment.rowNum = c;
@@ -143,7 +153,9 @@ for (var c=1;c<50;c++)
 		// use rowNum property on object to get row number
 		var rowNum = e.source.rowNum;
 		updateRowText.text = 'You clicked on the calendar';
-		tableView.updateRow(rowNum,updateRow,{animationStyle:Titanium.UI.iPhone.RowAnimationStyle.LEFT});				
+
+		// TODO: FIX UPDATE ROW
+		//tableView.updateRow(rowNum,updateRow,{animationStyle:Titanium.UI.iPhone.RowAnimationStyle.LEFT});				
 	});
 	
 	calendar.rowNum = c;
@@ -161,7 +173,9 @@ for (var c=1;c<50;c++)
 		// use rowNum property on object to get row number
 		var rowNum = e.source.rowNum;
 		updateRowText.text = 'You clicked on the comment button';
-		tableView.updateRow(rowNum,updateRow,{animationStyle:Titanium.UI.iPhone.RowAnimationStyle.LEFT});				
+
+		// TODO: FIX UPDATE ROW
+		//tableView.updateRow(rowNum,updateRow,{animationStyle:Titanium.UI.iPhone.RowAnimationStyle.LEFT});				
 	});
 
 	button.rowNum = c;
@@ -181,7 +195,9 @@ for (var c=1;c<50;c++)
 		// use rowNum property on object to get row number
 		var rowNum = e.source.rowNum;
 		updateRowText.text = 'You clicked on the date text';
-		tableView.updateRow(rowNum,updateRow,{animationStyle:Titanium.UI.iPhone.RowAnimationStyle.LEFT});				
+
+		// TODO: FIX UPDATE ROW
+		//tableView.updateRow(rowNum,updateRow,{animationStyle:Titanium.UI.iPhone.RowAnimationStyle.LEFT});				
 	});
 	
 	date.rowNum = c;
@@ -203,7 +219,8 @@ tableView.addEventListener('click', function(e)
 {
 	if (currentRow != null && e.row.isUpdateRow == false)
 	{
-		tableView.updateRow(currentRowIndex, currentRow, {animationStyle:Titanium.UI.iPhone.RowAnimationStyle.RIGHT});
+		//TODO: FIX UPDATE ROW
+		//tableView.updateRow(currentRowIndex, currentRow, {animationStyle:Titanium.UI.iPhone.RowAnimationStyle.RIGHT});
 	}
 	currentRow = e.row;
 	currentRowIndex = e.index;

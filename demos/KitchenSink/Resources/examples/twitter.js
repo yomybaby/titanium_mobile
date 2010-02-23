@@ -31,7 +31,10 @@ win.add(button);
 button.addEventListener('click', function()
 {
 	var xhr = Titanium.Network.createHTTPClient();
-	
+	xhr.error = function(e)
+	{
+		Ti.API.info("ERROR " + e.error)
+	}
 	xhr.onload = function()
 	{
 		label.hide();
@@ -76,5 +79,6 @@ var status = Titanium.UI.createLabel({
 	width:250,
 	height:'auto',
 	top:20,
+	text:'',
 	textAlign:'center'
 });

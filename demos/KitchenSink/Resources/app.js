@@ -11,7 +11,7 @@ var tabGroup = Titanium.UI.createTabGroup();
 //
 var win1 = Titanium.UI.createWindow({  
     url:'main_windows/base_ui.js',
-    title:'Base UI'
+    titleImage:'images/slider_thumb.png'
 });
 var tab1 = Titanium.UI.createTab({  
     icon:'images/tabs/KS_nav_views.png',
@@ -99,20 +99,23 @@ var messageWin = Titanium.UI.createWindow({
 	height:30,
 	width:250,
 	bottom:70,
-	borderRadius:10
+	borderRadius:10,
+	touchEnabled:false
 });
 var messageView = Titanium.UI.createView({
 	height:30,
 	width:250,
 	borderRadius:10,
 	backgroundColor:'#000',
-	opacity:0.7
+	opacity:0.7,
+	touchEnabled:false
 });
 
 var messageLabel = Titanium.UI.createLabel({
 	text:'',
 	color:'#fff',
 	width:250,
+	height:'auto',
 	font:{
 		fontFamily:'Helvetica Neue',
 		fontSize:13
@@ -158,8 +161,8 @@ tabGroup.addEventListener('focus', function(e)
 	messageWin.open();
 	setTimeout(function()
 	{
-		Ti.API.info('tab ' + e.tab.title  + ' prevTab = ' + e.previousTab.title);
-		messageLabel.text = 'active title ' + e.tab.title + ' old title ' + e.previousTab.title;
+		Ti.API.info('tab ' + e.tab.title  + ' prevTab = ' + (e.previousTab ? e.previousTab.title : null));
+		messageLabel.text = 'active title ' + e.tab.title + ' old title ' + (e.previousTab ? e.previousTab.title : null);
 	},1000);
 	
 	setTimeout(function()
@@ -235,6 +238,8 @@ function showIndicator()
 	var message = Titanium.UI.createLabel({
 		text:'Loading',
 		color:'#fff',
+		width:'auto',
+		height:'auto',
 		font:{fontSize:20,fontWeight:'bold'},
 		bottom:20
 	});

@@ -10,6 +10,7 @@
 #import "TiUIViewProxy.h"
 #import "ImageLoader.h"
 #import "TiComplexValue.h"
+#import "TitaniumApp.h"
 
 @implementation TiUIWindowProxy
 
@@ -40,6 +41,11 @@
 	// happen after the JS context is fully up and ready
 	if (contextReady && context!=nil)
 	{
+		focused = YES;
+		if ([self _hasListeners:@"focus"])
+		{
+			[self fireEvent:@"focus" withObject:nil];
+		}
 		return YES;
 	}
 	
@@ -95,6 +101,16 @@
 		BOOL animate = args!=nil && [args count]>0 ? [TiUtils boolValue:@"animate" properties:[args objectAtIndex:0] def:YES] : YES;
 		[tab windowClosing:self animated:animate];
 	}
+	else
+	{
+		// if we don't have a tab, we need to fire blur
+		// events ourselves
+		focused = NO;
+		if ([self _hasListeners:@"blur"])
+		{
+			[self fireEvent:@"blur" withObject:nil];
+		}
+	}
 	return YES;
 }
 
@@ -106,7 +122,8 @@
 	{
 		id properties = (args!=nil && [args count] > 0) ? [args objectAtIndex:0] : nil;
 		BOOL animated = [TiUtils boolValue:@"animated" properties:properties def:YES];
-		[navbar setNavigationBarHidden:NO animated:animated];
+		[[controller navigationController] setNavigationBarHidden:NO animated:animated];
+//		[navController setNavigationBarHidden:NO animated:animated];
 	}
 }
 
@@ -118,7 +135,8 @@
 	{
 		id properties = (args!=nil && [args count] > 0) ? [args objectAtIndex:0] : nil;
 		BOOL animated = [TiUtils boolValue:@"animated" properties:properties def:YES];
-		[navbar setNavigationBarHidden:YES animated:animated];
+		[[controller navigationController] setNavigationBarHidden:YES animated:animated];
+//		[navController setNavigationBarHidden:YES animated:animated];
 		//TODO: need to fix height
 	}
 }
@@ -130,19 +148,20 @@
 	[self replaceValue:color forKey:@"barColor" notification:NO];
 	if (controller!=nil)
 	{
+		UINavigationController * ourNC = [controller navigationController];
 		//TODO: do we need to be more flexible in the bar styles?
 		
 		if ([color isEqualToString:@"transparent"])
 		{
-			navbar.navigationBar.barStyle = UIBarStyleBlackTranslucent;
-			navbar.navigationBar.translucent = YES;
+			ourNC.navigationBar.barStyle = UIBarStyleBlackTranslucent;
+			ourNC.navigationBar.translucent = YES;
 		}
 		else 
 		{
 			UIColor *acolor = UIColorWebColorNamed(color);
-			navbar.navigationBar.tintColor = acolor;
-			navbar.toolbar.tintColor = acolor;
-			navbar.navigationBar.barStyle = UIBarStyleDefault;
+			ourNC.navigationBar.tintColor = acolor;
+			ourNC.toolbar.tintColor = acolor;
+			ourNC.navigationBar.barStyle = UIBarStyleDefault;
 		}
 	}
 }
@@ -153,8 +172,14 @@
 	[self replaceValue:value forKey:@"translucent" notification:NO];
 	if (controller!=nil)
 	{
-		navbar.navigationBar.translucent = [TiUtils boolValue:value];
+		[controller navigationController].navigationBar.translucent = [TiUtils boolValue:value];
 	}
+}
+
+-(void)setOrientationModes:(id)value
+{
+	[self replaceValue:value forKey:@"orientationModes" notification:YES];
+	[[[TitaniumApp app] controller] performSelectorOnMainThread:@selector(refreshOrientationModesIfNeeded:) withObject:self waitUntilDone:NO];
 }
 
 -(void)setRightNavButton:(id)proxy withObject:(id)properties
@@ -347,7 +372,7 @@
 		if (path!=nil)
 		{
 			UIImage *image = [[ImageLoader sharedLoader] loadImmediateImage:path];
-			if (path!=nil)
+			if (image!=nil)
 			{
 				UIImageView *imageView = [[UIImageView alloc] initWithImage:image];
 				controller.navigationItem.titleView = imageView;
@@ -391,6 +416,7 @@
 		
 		// detatch the current ones
 		NSArray *existing = [controller toolbarItems];
+		UINavigationController * ourNC = [controller navigationController];
 		if (existing!=nil)
 		{
 			for (id current in existing)
@@ -421,8 +447,8 @@
 			}
 			BOOL animated = [TiUtils boolValue:@"animated" properties:properties def:YES];
 			[controller setToolbarItems:array animated:animated];
-			[navbar setToolbarHidden:NO animated:animated];
-			[navbar.toolbar setTranslucent:translucent];
+			[ourNC setToolbarHidden:NO animated:animated];
+			[ourNC.toolbar setTranslucent:translucent];
 			[array release];
 			hasToolbar=YES;
 		}
@@ -430,8 +456,8 @@
 		{
 			BOOL animated = [TiUtils boolValue:@"animated" properties:properties def:NO];
 			[controller setToolbarItems:nil animated:animated];
-			[navbar setToolbarHidden:YES animated:animated];
-			[navbar.toolbar setTranslucent:translucent];
+			[ourNC setToolbarHidden:YES animated:animated];
+			[ourNC.toolbar setTranslucent:translucent];
 			hasToolbar=NO;
 		}
 	}
@@ -483,9 +509,10 @@ else{\
 
 -(void)setupWindowDecorations
 {
-	if (navbar!=nil)
+	if (controller!=nil)
 	{
-		[navbar setToolbarHidden:!hasToolbar animated:YES];
+		[[controller navigationController] setToolbarHidden:!hasToolbar animated:YES];
+//		[navController setToolbarHidden:!hasToolbar animated:YES];
 	}
 	
 	SETPROP(@"title",setTitle);
@@ -534,11 +561,15 @@ else{\
 {
 	if (focused==NO)
 	{
-		[self setupWindowDecorations];
+		// we can't fire focus here since we 
+		// haven't yet wired up the JS context at this point
+		// and listeners wouldn't be ready
+		focused = YES;
 		if ([self _hasListeners:@"focus"])
 		{
 			[self fireEvent:@"focus" withObject:nil];
 		}
+		[self setupWindowDecorations];
 	}
 	[super _tabFocus];
 }
@@ -547,6 +578,7 @@ else{\
 {
 	if (focused)
 	{
+		focused = NO;
 		if ([self _hasListeners:@"blur"])
 		{
 			[self fireEvent:@"blur" withObject:nil];

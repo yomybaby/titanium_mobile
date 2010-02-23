@@ -197,6 +197,12 @@
 		{
 			return [NSURL fileURLWithPath:object];
 		}
+		if ([object hasPrefix:@"sms:"] || 
+			[object hasPrefix:@"tel:"] ||
+			[object hasPrefix:@"mailto:"])
+		{
+			return [NSURL URLWithString:object];
+		}
 		url = [NSURL URLWithString:object relativeToURL:[proxy _baseURL]];
 		if (url==nil)
 		{
@@ -586,28 +592,23 @@
 
 +(UIDeviceOrientation)orientationValue:(id)value def:(UIDeviceOrientation)def
 {
-	UIDeviceOrientation orientation = def;
-	
 	if ([value isKindOfClass:[NSString class]])
 	{
 		if ([value isEqualToString:@"portrait"])
 		{
-			orientation = UIDeviceOrientationPortrait;
+			return UIDeviceOrientationPortrait;
 		}
-		else if ([value isEqualToString:@"landscape"])
+		if ([value isEqualToString:@"landscape"])
 		{
-			orientation = UIInterfaceOrientationLandscapeRight;
-		}
-		else
-		{
-			orientation = [TiUtils doubleValue:value];
+			return UIInterfaceOrientationLandscapeRight;
 		}
 	}
-	else if ([value isKindOfClass:[NSNumber class]])
+
+	if ([value respondsToSelector:@selector(intValue)])
 	{
-		orientation = [TiUtils doubleValue:value];
+		return [value intValue];
 	}
-	return orientation;
+	return def;
 }
 
 +(BOOL)isOrientationPortait

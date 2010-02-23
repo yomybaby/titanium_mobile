@@ -13,37 +13,44 @@
 
 @interface WindowViewController : UIViewController
 {
-	TiWindowProxy *window;
+	TiWindowProxy *proxy;
 }
 -(id)initWithWindow:(TiWindowProxy*)window;
+@property(nonatomic,readonly)	TiWindowProxy *proxy;
+
 @end
 
 @implementation WindowViewController
-
 
 -(id)initWithWindow:(TiWindowProxy*)window_
 {
 	if (self = [super init])
 	{
-		window = window_;
+		proxy = window_;
 	}
 	return self;
 }
 
 -(void)loadView
 {
-	self.view = [window view];
+	self.view = [proxy view];
+}
+
+-(id)proxy
+{
+	return proxy;
 }
 
 @end
 
 
 @implementation TiWindowProxy
+@synthesize navController, controller;
 
 -(void)dealloc
 {
 	RELEASE_TO_NIL(controller);
-	RELEASE_TO_NIL(navbar);
+	RELEASE_TO_NIL(navController);
 	RELEASE_TO_NIL(tab);
 	RELEASE_TO_NIL(reattachWindows);
 	RELEASE_TO_NIL(closeView);
@@ -71,6 +78,11 @@ BEGIN_UI_THREAD_PROTECTED_VALUE(opened,NSNumber)
 END_UI_THREAD_PROTECTED_VALUE(opened)
 
 
+-(BOOL)handleFocusEvents
+{
+	return YES;
+}
+
 -(BOOL)_handleOpen:(id)args
 {
 	//subclasses can override
@@ -92,6 +104,17 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 	if ([self _hasListeners:@"open"])
 	{
 		[self fireEvent:@"open" withObject:nil];
+	}
+	
+	// we do it here in case we have a window that
+	// neither has tabs nor JS
+	if (focused==NO && [self handleFocusEvents])
+	{
+		focused = YES;
+		if ([self _hasListeners:@"focus"])
+		{
+			[self fireEvent:@"focus" withObject:nil];
+		}
 	}
 	
 	if (reattachWindows!=nil)
@@ -127,7 +150,7 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 	
 	[self windowDidClose];
 
-	RELEASE_TO_NIL(navbar);
+	RELEASE_TO_NIL(navController);
 	RELEASE_TO_NIL(controller);
 }
 
@@ -145,11 +168,6 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 -(TiProxy*)tabGroup
 {
 	return tab!=nil ? [tab tabGroup] : nil;
-}
-
--(UIViewController*)controller
-{
-	return controller;
 }
 
 -(BOOL)_isChildOfTab
@@ -189,18 +207,6 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 	[[[TitaniumApp app] controller] windowBeforeUnfocused:self];
 }
 
--(void)setController:(UIViewController*)controller_
-{
-	RELEASE_TO_NIL(controller);
-	controller = [controller_ retain];
-}
-
--(void)setNavController:(UINavigationController*)navController
-{
-	RELEASE_TO_NIL(navbar);
-	navbar = [navController retain];
-}
-
 -(void)setupWindowDecorations
 {
 }
@@ -210,12 +216,12 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 -(void)_associateTab:(UIViewController*)controller_ navBar:(UINavigationController*)navbar_ tab:(TiProxy<TiTab>*)tab_ 
 {
 	RELEASE_TO_NIL(controller);
-	RELEASE_TO_NIL(navbar);
+	RELEASE_TO_NIL(navController);
 	RELEASE_TO_NIL(tab);
 	
 	if (tab_!=nil)
 	{
-		navbar = [navbar_ retain];
+		navController = [navbar_ retain];
 		controller = [controller_ retain];
 		tab = [tab_ retain];
 		
@@ -260,9 +266,12 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 		return;
 	}
 	
-	modal = NO;
-	fullscreen = NO;
-	opening = YES;
+	if (opening==NO)
+	{
+		modal = [self isModal:args];
+		fullscreen = [self isFullscreen:args];
+		opening = YES;
+	}
 	
 	// ensure on open that we've created our view before we start to use it
 	[self view];
@@ -283,24 +292,24 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 			animation.delegate = self;
 			[animation animate:self];
 		}
-		if ([self isFullscreen:args])
+		if (fullscreen)
 		{
 			fullscreen = YES;
 			restoreFullscreen = [UIApplication sharedApplication].statusBarHidden;
 			[[UIApplication sharedApplication] setStatusBarHidden:YES];
 			[self view].frame = [[[TitaniumApp app] controller] resizeView];
 		}
-		else if ([self isModal:args])
+		else if (modal)
 		{
 			modal = YES;
 			attached = YES;
 			WindowViewController *wc = [[[WindowViewController alloc] initWithWindow:self] autorelease];
-			UINavigationController *navController = [[[UINavigationController alloc] initWithRootViewController:wc] autorelease];
+			UINavigationController *nc = [[[UINavigationController alloc] initWithRootViewController:wc] autorelease];
 			[self setController:wc];
-			[self setNavController:navController];
+			[self setNavController:nc];
 			BOOL animated = args!=nil && [args isKindOfClass:[NSDictionary class]] ? [TiUtils boolValue:@"animated" properties:[args objectAtIndex:0] def:YES] : YES;
 			[self setupWindowDecorations];
-			[[[TitaniumApp app] controller] presentModalViewController:navController animated:animated];
+			[[[TitaniumApp app] controller] presentModalViewController:nc animated:animated];
 		}
 		if (animation==nil)
 		{
@@ -319,6 +328,8 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 		return;
 	}
 	
+	[[[TitaniumApp app] controller] windowClosed:self];
+
 	if (modal)
 	{
 		UIViewController *vc = [self controller];
