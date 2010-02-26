@@ -51,47 +51,52 @@ serviceBrowser.addEventListener('didNotSearch', function(e) {
 	}).show();
 });
 
-var tableView = null;
-updateUI = function(e) {
-	if (tableView == null) {
-		tableView = Titanium.UI.createTableView({
-			style:Titanium.UI.iPhone.TableViewStyle.GROUPED
+var tableView = Titanium.UI.createTableView({
+	style:Titanium.UI.iPhone.TableViewStyle.GROUPED,
+	data:[{title:'No services', hasChild:false}]
+});
+
+tableView.addEventListener('click', function(r) {
+	var service = r.rowData.service;
+	if (service.socket == null) {
+		service.addEventListener('didNotResolve', function(err) {
+			Titanium.UI.createAlertDialog({
+				title:'Resolve failure!',
+				message:e['error']
+			}).show();
 		});
 		
-		tableView.addEventListener('click', function(r) {
-			var service = r.rowData.service;
-			if (service.socket == null) {
-				var resolved = false;
-				service.addEventListener('didNotResolve', function(err) {
-					Titanium.UI.createAlertDialog({
-						title:'Resolve failure!',
-						message:e['error']
-					}).show();
-					resolved = true;
-				});
-				service.addEventListener('resolved', function(s) {
-					resolved = true;
-				});
-				Titanium.Bonjour.resolve(service);
-				while (!resolved) {
-					setTimeout(function() {}, 1000);
-				}
-			}
-			
+		service.addEventListener('resolved', function(s) {
+			service.socket.open();
 			service.socket.write('req');
 		});
-		
-		Titanium.UI.currentWindow.add(tableView);
+		Titanium.Bonjour.resolve(service);
 	}
-	
+	else {
+		service.socket.write('req');
+	}
+});
+		
+Titanium.UI.currentWindow.add(tableView);
+
+updateUI = function(e) {
 	var data = [];
 	var services = e['services'];
 	for (var i=0; i < services.length; i++) {
+		if (!services[i].socket.isValid()) {
+			services[i].socket.open();
+		}
+		
 		var row = Titanium.UI.createTableRow({
 			title:services[i].name,
 			service:services[i]
 		});
 		data.push(row);
+	}
+	if (data.length == 0) {
+		data.push(Titanium.UI.createTableRow({
+			title:'No services'
+		}));
 	}
 	
 	tableView.setData(data);
@@ -103,3 +108,14 @@ serviceBrowser.addEventListener('removedServices', updateUI);
 // TODO: Do we need to call 'search' multiple times, as more services
 // join the network?
 serviceBrowser.search();
+
+// Cleanup
+Titanium.UI.currentWindow.addEventListener('blur', function(e) {
+	bonjourSocket.close();
+	for (var i=0; i < serviceBrowser.services.length; i++) {
+		service = serviceBrowser.services[i];
+		if (service.socket.isValid()) {
+			service.socket.close();
+		}
+	}
+});

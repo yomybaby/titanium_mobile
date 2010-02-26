@@ -126,3 +126,10 @@ modeSwitch.addEventListener('change', function(e) {
 		socket.removeEventListener('newData', passiveRead);
 	}
 });
+
+// Cleanup
+win.addEventListener('blur', function(e) {
+	if (socket.isValid()) {
+		socket.close();
+	}
+});

@@ -29,8 +29,9 @@
 -(id)initWithContext:(id<TiEvaluator>)context_ service:(NSNetService*)service_ socket:(TiTCPSocketProxy*)socket_ local:(bool)local_
 {
     if (self = [super _initWithPageContext:context_]) {
-        service = service_;
-        socket = socket_;
+        socket = [socket_ retain]; // This SHOULD always be autorelease, but let's be safe.
+        
+        service = [service_ retain];
         local = local_;
         
         [service setDelegate:self];
@@ -46,13 +47,21 @@
         // and make sure it's available over IPv4.
         socket = nil;
         
-        service = service_;
+        service = [service_ retain];
         local = local_;
         
         [service setDelegate:self];
     }
     
     return self;
+}
+
+-(void)dealloc
+{
+    [service release];
+    [socket release];
+    
+    [super dealloc];
 }
 
 -(BOOL)isEqual:(id)obj
@@ -143,6 +152,8 @@
                                                            host:[service hostName]
                                                            port:[service port]
                                                            mode:READ_WRITE_MODE] autorelease];
+            [socket retain]; // Avoid retain/release problems in dealloc
+            
             [self fireEvent:@"resolved"
                  withObject:self];
             break;

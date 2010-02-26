@@ -22,8 +22,8 @@
         browser = [[NSNetServiceBrowser alloc] init];
         services = [[[NSMutableArray alloc] init] autorelease];
         
-        serviceType = serviceType_;
-        domain = domain_;
+        serviceType = [serviceType_ retain];
+        domain = [domain_ retain];
         
         [browser setDelegate:self];
     }
@@ -34,6 +34,9 @@
 -(void)dealloc
 {
     [browser release];
+    [serviceType release];
+    [domain release];
+    
     [super dealloc];
 }
 
