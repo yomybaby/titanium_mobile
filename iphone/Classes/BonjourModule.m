@@ -238,19 +238,19 @@ const NSString* socketArg = @"socket";
 
 -(void)netServiceBrowserWillSearch:(NSNetServiceBrowser*)browser
 {
-    [self fireEvent:@"willSearchDomains"
+    [self fireEvent:@"willSearch"
          withObject:nil];
 }
 
 -(void)netServiceBrowser:(NSNetServiceBrowser *)browser didNotSearch:(NSDictionary *)errorDict
 {
-    [self fireEvent:@"didNotSearchDomains"
+    [self fireEvent:@"didNotSearch"
          withObject:[BonjourModule stringForErrorCode:[[errorDict objectForKey:NSNetServicesErrorCode] intValue]]];
 }
 
 -(void)netServiceBrowserDidStopSearch:(NSNetServiceBrowser*)browser
 {
-    [self fireEvent:@"stoppedDomainSearch"
+    [self fireEvent:@"stoppedSearch"
          withObject:nil];
 }
 

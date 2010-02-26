@@ -4,9 +4,7 @@ import org.appcelerator.titanium.TiContext;
 import org.appcelerator.titanium.TiDict;
 import org.appcelerator.titanium.TiModule;
 import org.appcelerator.titanium.TiProxy;
-import org.appcelerator.titanium.kroll.KrollCallback;
 import org.appcelerator.titanium.util.TiConvert;
-import org.appcelerator.titanium.view.TiAnimation;
 
 import android.graphics.drawable.ColorDrawable;
 import android.view.Window;
@@ -88,4 +86,5 @@ public class UIModule extends TiModule
 			super.propertyChanged(key, oldValue, newValue, proxy);
 		}
 	}
+
 }

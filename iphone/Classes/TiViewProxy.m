@@ -9,6 +9,7 @@
 #import "LayoutConstraint.h"
 #import "TitaniumApp.h"
 #import "TiBlob.h"
+#import "TiRect.h"
 #import <QuartzCore/QuartzCore.h>
 
 
@@ -43,7 +44,7 @@
 -(void)layoutChildOnMainThread:(id)arg
 {
 	ENSURE_UI_THREAD(layoutChildOnMainThread,arg);
-	[self layoutChild:arg bounds:view.bounds]; 
+	[self layoutChild:arg]; 
 }
 
 #pragma mark Public
@@ -127,25 +128,43 @@
 	[[self view] animate:arg];
 }
 
--(void)addImageToBlob:(TiBlob*)blob
+-(void)addImageToBlob:(NSArray*)args
 {
+	TiBlob *blob = [args objectAtIndex:0];
 	UIView *myview = [self view];
 	UIGraphicsBeginImageContext(myview.bounds.size);
 	[myview.layer renderInContext:UIGraphicsGetCurrentContext()];
 	UIImage *image = UIGraphicsGetImageFromCurrentImageContext();
 	[blob setImage:image];
 	UIGraphicsEndImageContext();
+	if ([args count] > 1)
+	{
+		KrollCallback *callback = [args objectAtIndex:1];
+		NSDictionary *event = [NSDictionary dictionaryWithObject:blob forKey:@"blob"];
+		[self _fireEventToListener:@"blob" withObject:event listener:callback thisObject:nil];
+	}
 }
 
 -(TiBlob*)toImage:(id)args
 {
+	KrollCallback *callback = [args count] > 0 ? [args objectAtIndex:0] : nil;
 	TiBlob *blob = [[[TiBlob alloc] init] autorelease];
 	// we spin on the UI thread and have him convert and then add back to the blob
-	[self performSelectorOnMainThread:@selector(addImageToBlob:) withObject:blob waitUntilDone:NO];
+	// if you pass a callback function, we'll run the render asynchronously, if you
+	// don't, we'll do it synchronously
+	[self performSelectorOnMainThread:@selector(addImageToBlob:) withObject:[NSArray arrayWithObjects:blob,callback,nil] waitUntilDone:callback==nil ? YES : NO];
 	return blob;
 }
 
 #pragma mark View
+
+
+-(TiRect*)size
+{
+	TiRect *rect = [[[TiRect alloc] init] autorelease];
+	[[self view] performSelectorOnMainThread:@selector(fillBoundsToRect:) withObject:rect waitUntilDone:YES];
+	return rect;
+}
 
 -(void)setParent:(TiViewProxy*)parent_
 {
@@ -353,10 +372,12 @@
 
 #pragma mark Layout 
 
--(void)layoutChild:(TiViewProxy*)child bounds:(CGRect)bounds
+-(void)layoutChild:(TiViewProxy*)child;
 {
 	if (view!=nil)
 	{
+		CGRect bounds = [view bounds];
+
 		// layout out ourself
 		UIView *childView = [child view];
 	
@@ -370,11 +391,11 @@
 		[[child view] updateLayout:&layout withBounds:bounds];
 		
 		// tell our children to also layout
-		[child layoutChildren:childView.bounds];
+		[child layoutChildren];
 	}
 }
 
--(void)layoutChildren:(CGRect)bounds
+-(void)layoutChildren
 {
 	// now ask each of our children for their view
 	if (self.children!=nil)
@@ -382,7 +403,7 @@
 		[childLock lock];
 		for (id child in self.children)
 		{
-			[self layoutChild:child bounds:bounds];
+			[self layoutChild:child];
 		}
 		[childLock unlock];
 	}
@@ -478,7 +499,7 @@
 	return nil;
 }
 
--(void)removeNavBarButtonView
+-(void)removeBarButtonView
 {
 	// called to remove
 }

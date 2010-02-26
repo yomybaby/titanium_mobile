@@ -195,7 +195,7 @@
 			UIBarButtonItem *item = controller.navigationItem.rightBarButtonItem;
 			if (item!=nil && [item isKindOfClass:[TiViewProxy class]])
 			{
-				[(TiViewProxy*)item removeNavBarButtonView];
+				[(TiViewProxy*)item removeBarButtonView];
 			}
 			if (proxy!=nil)
 			{
@@ -233,7 +233,7 @@
 			UIBarButtonItem *item = controller.navigationItem.leftBarButtonItem;
 			if (item!=nil && [item isKindOfClass:[TiViewProxy class]])
 			{
-				[(TiViewProxy*)item removeNavBarButtonView];
+				[(TiViewProxy*)item removeBarButtonView];
 			}
 			if (proxy!=nil)
 			{
@@ -333,6 +333,48 @@
 	}
 }
 
+-(void)updateTitleView
+{
+	UIView * newTitleView = nil;
+	UINavigationItem * ourNavItem = [controller navigationItem];
+
+	TiViewProxy * titleControl = [self valueForKey:@"titleControl"];
+
+	UIView * oldView = [ourNavItem titleView];
+	if ([oldView isKindOfClass:[TiUIView class]])
+	{
+		TiViewProxy * oldProxy = [(TiUIView *)oldView proxy];
+		if (oldProxy != titleControl)
+		{
+			[oldProxy removeNavBarButtonView];
+		}
+	}
+
+	if ([titleControl isKindOfClass:[TiViewProxy class]])
+	{
+		newTitleView = [titleControl barButtonView];
+		if (CGRectIsEmpty([newTitleView bounds]))
+		{
+			CGRect f;
+			f.origin = CGPointZero;
+			f.size = [newTitleView sizeThatFits:[TiUtils navBarTitleViewSize]];
+			[newTitleView setBounds:f];
+		}
+		[newTitleView setAutoresizingMask:UIViewAutoresizingNone];
+	}
+	else
+	{
+		NSURL * path = [TiUtils toURL:[self valueForKey:@"titleImage"] proxy:self];
+		UIImage *image = [[ImageLoader sharedLoader] loadImmediateImage:path];
+		if (image!=nil)
+		{
+			newTitleView = [[UIImageView alloc] initWithImage:image];
+		}
+	}
+
+	[ourNavItem setTitleView:newTitleView];
+}
+
 
 -(void)setTitleControl:(id)proxy
 {
@@ -340,47 +382,18 @@
 	[self replaceValue:proxy forKey:@"titleControl" notification:NO];
 	if (controller!=nil)
 	{
-		ENSURE_TYPE_OR_NIL(proxy,TiViewProxy);
-		
-		if (proxy!=nil)
-		{
-			UIView * newTitleView = [proxy view];
-			if (CGRectIsEmpty([newTitleView bounds]))
-			{
-				CGRect f;
-				f.origin = CGPointZero;
-				f.size = [newTitleView sizeThatFits:[TiUtils navBarTitleViewSize]];
-				[proxy view].bounds = f;
-			}
-			[newTitleView setAutoresizingMask:UIViewAutoresizingNone];
-			controller.navigationItem.titleView = newTitleView;
-		}
-		else 
-		{
-			controller.navigationItem.titleView = nil;
-		}
+		[self updateTitleView];
 	}
 }
 
 -(void)setTitleImage:(id)image
 {
 	ENSURE_UI_THREAD(setTitleImage,image);
-	[self replaceValue:image forKey:@"titleImage" notification:NO];
+	NSURL *path = [TiUtils toURL:image proxy:self];
+	[self replaceValue:[path absoluteString] forKey:@"titleImage" notification:NO];
 	if (controller!=nil)
 	{
-		NSURL *path = [TiUtils toURL:image proxy:self];
-		if (path!=nil)
-		{
-			UIImage *image = [[ImageLoader sharedLoader] loadImmediateImage:path];
-			if (image!=nil)
-			{
-				UIImageView *imageView = [[UIImageView alloc] initWithImage:image];
-				controller.navigationItem.titleView = imageView;
-				[imageView release];
-				return;
-			}
-		}
-		controller.navigationItem.titleView = nil;
+		[self updateTitleView];
 	}
 }
 
@@ -423,7 +436,7 @@
 			{
 				if ([current isKindOfClass:[TiViewProxy class]])
 				{
-					[(TiViewProxy*)current removeNavBarButtonView];
+					[(TiViewProxy*)current removeBarButtonView];
 				}
 			}
 		}
@@ -517,8 +530,9 @@ else{\
 	
 	SETPROP(@"title",setTitle);
 	SETPROP(@"titlePrompt",setTitlePrompt);
-	SETPROP(@"titleImage",setTitleImage);
-	SETPROP(@"titleControl",setTitleControl);
+	[self updateTitleView];
+//	SETPROP(@"titleImage",setTitleImage);
+//	SETPROP(@"titleControl",setTitleControl);
 	SETPROP(@"barColor",setBarColor);
 	SETPROP(@"translucent",setTranslucent);
 
@@ -550,11 +564,12 @@ else{\
 	{
 		[self setupWindowDecorations];
 	}
+	[super _tabBeforeFocus];
 }
 
 -(void)_tabBeforeBlur
 {
-
+	[super _tabBeforeBlur];
 }
 
 -(void)_tabFocus

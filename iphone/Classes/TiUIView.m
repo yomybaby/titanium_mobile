@@ -8,6 +8,7 @@
 #import "TiBase.h"
 #import "TiUIView.h"
 #import "TiColor.h"
+#import "TiRect.h"
 #import "TiUtils.h"
 #import "ImageLoader.h"
 #import "Ti2DMatrix.h"
@@ -255,6 +256,49 @@ DEFINE_EXCEPTIONS
 	// for subclasses to do crap
 }
 
+-(CGSize)sizeThatFits:(CGSize)testSize;
+{
+	CGSize result = testSize;
+
+	switch (layout.width.type)
+	{
+		case TiDimensionTypePixels:
+			result.width = layout.width.value;
+			break;
+		case TiDimensionTypeAuto:
+			if ([self respondsToSelector:@selector(autoWidthForWidth:)])
+			{
+				result.width = [self autoWidthForWidth:result.width];
+			}
+	}
+
+	if ([self respondsToSelector:@selector(verifyWidth:)])
+	{
+		result.width = [self verifyWidth:result.width];
+	}
+
+	switch (layout.height.type)
+	{
+		case TiDimensionTypePixels:
+			result.height = layout.height.value;
+			break;
+		case TiDimensionTypeAuto:
+			if ([self respondsToSelector:@selector(autoHeightForWidth:)])
+			{
+				result.height = [self autoHeightForWidth:result.width];
+			}
+	}
+
+	if ([self respondsToSelector:@selector(verifyHeight:)])
+	{
+		result.height = [self verifyHeight:result.height];
+	}
+
+	return result;
+}
+
+
+
 -(void)setFrame:(CGRect)frame
 {
 	[super setFrame:frame];
@@ -267,7 +311,7 @@ DEFINE_EXCEPTIONS
 		[self.proxy isKindOfClass:[TiViewProxy class]])
 	{
 		childrenInitialized=YES;
-		[(TiViewProxy*)self.proxy layoutChildren:frame];
+		[(TiViewProxy*)self.proxy layoutChildren];
 	}
 }
 
@@ -336,6 +380,12 @@ DEFINE_EXCEPTIONS
 {
 	virtualParentTransform = newTransform;
 	[self updateTransform];
+}
+
+-(void)fillBoundsToRect:(TiRect*)rect
+{
+	CGRect r = [self bounds];
+	[rect setRect:r];
 }
 
 #pragma mark Public APIs

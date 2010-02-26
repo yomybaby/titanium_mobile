@@ -33,15 +33,19 @@
 -(TiUIView*)view;
 -(BOOL)viewAttached;
 -(BOOL)viewInitialized;
--(void)layoutChildren:(CGRect)bounds;
--(void)layoutChild:(TiViewProxy*)child bounds:(CGRect)bounds;
+-(void)layoutChildren;
+-(void)layoutChild:(TiViewProxy*)child;
+
 -(void)animationCompleted:(TiAnimation*)animation;
 -(void)detachView;
 -(void)destroy;
 -(void)setParent:(TiProxy*)parent;
+
 -(BOOL)supportsNavBarPositioning;
 -(UIBarButtonItem*)barButtonItem;
--(void)removeNavBarButtonView;
+-(TiUIView*)barButtonView;
+-(void)removeBarButtonView;
+
 -(CGRect)appFrame;
 -(void)firePropertyChanges;
 -(void)willFirePropertyChanges;

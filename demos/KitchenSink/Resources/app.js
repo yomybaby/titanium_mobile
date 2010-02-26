@@ -11,7 +11,7 @@ var tabGroup = Titanium.UI.createTabGroup();
 //
 var win1 = Titanium.UI.createWindow({  
     url:'main_windows/base_ui.js',
-    titleImage:'images/slider_thumb.png'
+    titleImage:'images/appcelerator_small.png',
 });
 var tab1 = Titanium.UI.createTab({  
     icon:'images/tabs/KS_nav_views.png',
@@ -56,6 +56,7 @@ var win4 = Titanium.UI.createWindow({
 var tab4 = Titanium.UI.createTab({  
     icon:'images/tabs/KS_nav_platform.png',
     title:'Platform',
+active:true,
     window:win4
 });
 
@@ -87,10 +88,13 @@ tabGroup.addEventListener('open',function()
 	Titanium.UI.setBackgroundColor('#fff');
 });
 
+tabGroup.setActiveTab(1);
 // open tab group with a transition animation
 tabGroup.open({
 	transition:Titanium.UI.iPhone.AnimationStyle.FLIP_FROM_LEFT
 });
+
+
 
 //
 //  TAB GROUP EVENTS
@@ -267,6 +271,12 @@ Titanium.App.addEventListener('hide_indicator', function(e)
 {
 	Ti.API.info("IN HIDE INDICATOR");
 	hideIndicator();
+});
+
+// trap app shutdown event
+Titanium.App.addEventListener('close',function(e)
+{
+	Ti.API.info("The application is being shutdown");
 });
 
 // test for loading in a root-level include

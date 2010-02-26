@@ -14,18 +14,25 @@ android_dir = os.path.abspath(os.path.join(template_dir,'android'))
 iphone_dir = os.path.abspath(os.path.join(template_dir,'iphone'))
 osx_dir = os.path.abspath(os.path.join(template_dir,'osx'))
 
+ignoreDirs = ['.DS_Store','.git','.gitignore','libTitanium.a','titanium.jar']
+
 def ignore(file):
-	 for f in ['.DS_Store','.git','.gitignore','libTitanium.a','titanium.jar']:
+	 for f in ignoreDirs:
 		if file == f:
 			return True
 	 return False
 
 def zip_dir(zf,dir,basepath):
-	for f in os.listdir(dir):
-		  if ignore(f) or not os.path.isfile(os.path.join(dir,f)): continue
-		  e = os.path.splitext(f)
-		  if len(e)==2 and e[1]=='.pyc':continue
-		  zf.write(os.path.join(dir,f), basepath + '/' +f)
+	for root, dirs, files in os.walk(dir):
+		for name in ignoreDirs:
+			if name in dirs:
+				dirs.remove(name)	# don't visit ignored directories			  
+		for file in files:
+			e = os.path.splitext(file)
+			if len(e)==2 and e[1]=='.pyc':continue
+			from_ = os.path.join(root, file)	
+			to_ = from_.replace(dir, basepath, 1)
+			zf.write(from_, to_)
 
 def zip_android(zf,basepath):
 	android_dist_dir = os.path.join(top_dir, 'dist', 'android')
@@ -59,9 +66,23 @@ def zip_iphone(zf,basepath):
 	# include our headers such that 3rd party modules can be compiled
 	headers_dir=os.path.join(top_dir,'iphone','Classes')
 	for f in os.listdir(headers_dir):
-		if os.path.isfile(os.path.join(headers_dir,f)) and os.path.splitext(f)[1]=='.h':
-			 zf.write(os.path.join(headers_dir,f),'%s/iphone/include/%s' % (basepath,f))
-	  
+		path = os.path.join(headers_dir,f)
+		if os.path.isfile(path) and os.path.splitext(f)[1]=='.h':
+			 zf.write(path,'%s/iphone/include/%s' % (basepath,f))
+		elif os.path.isdir(path):
+			for df in os.listdir(path):
+				dfpath = os.path.join(headers_dir,f,df)
+				if os.path.isfile(dfpath) and os.path.splitext(df)[1]=='.h':
+					 zf.write(dfpath,'%s/iphone/include/%s/%s' % (basepath,f,df))
+
+	tp_headers_dir=os.path.join(top_dir,'iphone','headers','TiCore')
+	for f in os.listdir(tp_headers_dir):
+		if os.path.isfile(os.path.join(tp_headers_dir,f)) and os.path.splitext(f)[1]=='.h':
+			 zf.write(os.path.join(tp_headers_dir,f),'%s/iphone/include/TiCore/%s' % (basepath,f))
+	
+	xcode_templates_dir =  os.path.join(top_dir,'iphone','templates','xcode') 
+	zip_dir(zf,xcode_templates_dir,basepath+'/iphone/xcode/templates')
+	
 	iphone_lib = os.path.join(top_dir,'iphone','iphone','build')
 	zf.write(os.path.join(iphone_lib,'libTitanium.a'),'%s/iphone/libTitanium.a'%basepath)
 	
@@ -81,7 +102,7 @@ def zip_iphone(zf,basepath):
 				zip_dir(zf,module_images,'%s/iphone/modules/%s/images' % (basepath,module_name))
 	
 		
-def zip_it(dist_dir,osname,version):
+def zip_it(dist_dir,osname,version,android,iphone):
 	if not os.path.exists(dist_dir):
 		os.makedirs(dist_dir)
 	basepath = 'mobilesdk/%s/%s' % (osname,version)
@@ -92,8 +113,8 @@ def zip_it(dist_dir,osname,version):
 	
 	zip_dir(zf,all_dir,basepath)
 	zip_dir(zf,template_dir,basepath)
-	zip_android(zf,basepath)
-	if osname == "osx": zip_iphone(zf,basepath)
+	if android: zip_android(zf,basepath)
+	if iphone and osname == "osx": zip_iphone(zf,basepath)
 
 	zf.close()
 
@@ -101,9 +122,9 @@ class Packager(object):
 	def __init__(self):
 		pass
 	 
-	def build(self,dist_dir,version):
+	def build(self,dist_dir,version,android=True,iphone=True):
 		os_names = { "Windows":"win32", "Linux":"linux", "Darwin":"osx" }
-		zip_it(dist_dir,os_names[platform.system()],version)
+		zip_it(dist_dir,os_names[platform.system()],version,android,iphone)
 
 
 if __name__ == '__main__':

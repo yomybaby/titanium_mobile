@@ -51,7 +51,6 @@ var tableView = Titanium.UI.createTableView({
 	data:data,
 	separatorStyle:Ti.UI.iPhone.TableViewSeparatorStyle.NONE,
 	top:10
-
 });
 
 win.add(tableView);

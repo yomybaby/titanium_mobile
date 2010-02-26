@@ -52,6 +52,8 @@
 
 #pragma mark Service management
 
+// TODO: Should didFind/didRemove only return a list of those services found or removed?  Or should they be rolled into a single event, 'updatedServices'?
+
 -(void)netServiceBrowser:(NSNetServiceBrowser*)browser_ didFindService:(NSNetService*)service moreComing:(BOOL)more
 {
     [services addObject:[[[TiBonjourServiceProxy alloc] initWithContext:[self pageContext]
@@ -81,13 +83,13 @@
 
 -(void)netServiceBrowserWillSearch:(NSNetServiceBrowser*)browser_
 {
-    [self fireEvent:@"willSearchServices"
+    [self fireEvent:@"willSearch"
          withObject:self];
 }
 
 -(void)netServiceBrowser:(NSNetServiceBrowser *)browser_ didNotSearch:(NSDictionary *)errorDict
 {
-    [self fireEvent:@"didNotSearchServices"
+    [self fireEvent:@"didNotSearch"
          withObject:[NSDictionary dictionaryWithObjectsAndKeys:self, @"browser", 
                                                                 [BonjourModule stringForErrorCode:[[errorDict objectForKey:NSNetServicesErrorCode] intValue]], @"error",
                                                                 nil]];
@@ -95,7 +97,7 @@
 
 -(void)netServiceBrowserDidStopSearch:(NSNetServiceBrowser*)browser_
 {
-    [self fireEvent:@"stoppedServiceSearch"
+    [self fireEvent:@"stoppedSearch"
          withObject:self];
 }
 
