@@ -819,26 +819,6 @@
 		B4F97B73111A41C800E2F72C /* TiUIScrollView.m in Sources */ = {isa = PBXBuildFile; fileRef = B4F97B72111A41C800E2F72C /* TiUIScrollView.m */; };
 		B4F97C58111BAD4700E2F72C /* TiUIScrollIndicatorStyleProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = B4F97C56111BAD4700E2F72C /* TiUIScrollIndicatorStyleProxy.h */; };
 		B4F97C5A111BAD4700E2F72C /* TiUIScrollIndicatorStyleProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = B4F97C57111BAD4700E2F72C /* TiUIScrollIndicatorStyleProxy.m */; };
-		DA957C59113487DD0029E47E /* SocketModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DA957C56113487DD0029E47E /* SocketModule.m */; };
-		DA957C5A113487DD0029E47E /* TiTCPSocketProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DA957C58113487DD0029E47E /* TiTCPSocketProxy.m */; };
-		DA957C5B113487DD0029E47E /* SocketModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DA957C56113487DD0029E47E /* SocketModule.m */; };
-		DA957C5C113487DD0029E47E /* TiTCPSocketProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DA957C58113487DD0029E47E /* TiTCPSocketProxy.m */; };
-		DA957C5D113487DD0029E47E /* SocketModule.h in Headers */ = {isa = PBXBuildFile; fileRef = DA957C55113487DD0029E47E /* SocketModule.h */; };
-		DA957C5E113487DD0029E47E /* SocketModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DA957C56113487DD0029E47E /* SocketModule.m */; };
-		DA957C5F113487DD0029E47E /* TiTCPSocketProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = DA957C57113487DD0029E47E /* TiTCPSocketProxy.h */; };
-		DA957C60113487DD0029E47E /* TiTCPSocketProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DA957C58113487DD0029E47E /* TiTCPSocketProxy.m */; };
-		DA957C67113487F00029E47E /* BonjourModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DA957C62113487F00029E47E /* BonjourModule.m */; };
-		DA957C68113487F00029E47E /* TiBonjourBrowserProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DA957C64113487F00029E47E /* TiBonjourBrowserProxy.m */; };
-		DA957C69113487F00029E47E /* TiBonjourServiceProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DA957C66113487F00029E47E /* TiBonjourServiceProxy.m */; };
-		DA957C6A113487F00029E47E /* BonjourModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DA957C62113487F00029E47E /* BonjourModule.m */; };
-		DA957C6B113487F00029E47E /* TiBonjourBrowserProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DA957C64113487F00029E47E /* TiBonjourBrowserProxy.m */; };
-		DA957C6C113487F00029E47E /* TiBonjourServiceProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DA957C66113487F00029E47E /* TiBonjourServiceProxy.m */; };
-		DA957C6D113487F00029E47E /* BonjourModule.h in Headers */ = {isa = PBXBuildFile; fileRef = DA957C61113487F00029E47E /* BonjourModule.h */; };
-		DA957C6E113487F00029E47E /* BonjourModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DA957C62113487F00029E47E /* BonjourModule.m */; };
-		DA957C6F113487F00029E47E /* TiBonjourBrowserProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = DA957C63113487F00029E47E /* TiBonjourBrowserProxy.h */; };
-		DA957C70113487F00029E47E /* TiBonjourBrowserProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DA957C64113487F00029E47E /* TiBonjourBrowserProxy.m */; };
-		DA957C71113487F00029E47E /* TiBonjourServiceProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = DA957C65113487F00029E47E /* TiBonjourServiceProxy.h */; };
-		DA957C72113487F00029E47E /* TiBonjourServiceProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DA957C66113487F00029E47E /* TiBonjourServiceProxy.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -1311,16 +1291,6 @@
 		B4F97B72111A41C800E2F72C /* TiUIScrollView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TiUIScrollView.m; sourceTree = "<group>"; };
 		B4F97C56111BAD4700E2F72C /* TiUIScrollIndicatorStyleProxy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TiUIScrollIndicatorStyleProxy.h; sourceTree = "<group>"; };
 		B4F97C57111BAD4700E2F72C /* TiUIScrollIndicatorStyleProxy.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TiUIScrollIndicatorStyleProxy.m; sourceTree = "<group>"; };
-		DA957C55113487DD0029E47E /* SocketModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SocketModule.h; sourceTree = "<group>"; };
-		DA957C56113487DD0029E47E /* SocketModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SocketModule.m; sourceTree = "<group>"; };
-		DA957C57113487DD0029E47E /* TiTCPSocketProxy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TiTCPSocketProxy.h; sourceTree = "<group>"; };
-		DA957C58113487DD0029E47E /* TiTCPSocketProxy.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TiTCPSocketProxy.m; sourceTree = "<group>"; };
-		DA957C61113487F00029E47E /* BonjourModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BonjourModule.h; sourceTree = "<group>"; };
-		DA957C62113487F00029E47E /* BonjourModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BonjourModule.m; sourceTree = "<group>"; };
-		DA957C63113487F00029E47E /* TiBonjourBrowserProxy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TiBonjourBrowserProxy.h; sourceTree = "<group>"; };
-		DA957C64113487F00029E47E /* TiBonjourBrowserProxy.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TiBonjourBrowserProxy.m; sourceTree = "<group>"; };
-		DA957C65113487F00029E47E /* TiBonjourServiceProxy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TiBonjourServiceProxy.h; sourceTree = "<group>"; };
-		DA957C66113487F00029E47E /* TiBonjourServiceProxy.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TiBonjourServiceProxy.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -1661,8 +1631,6 @@
 				24CA8C1A1111644E0084E2DE /* Map */,
 				24CA8C18111164440084E2DE /* Media */,
 				24CA8C171111643E0084E2DE /* Network */,
-				DA957C53113487A90029E47E /* Sockets */,
-				DA957C54113487AE0029E47E /* Bonjour */,
 				24CA8C11111163C30084E2DE /* Platform */,
 				24CA8C16111164150084E2DE /* Yahoo */,
 				24CA8C14111164040084E2DE /* UI */,
@@ -2387,30 +2355,6 @@
 			name = "Scroll View";
 			sourceTree = "<group>";
 		};
-		DA957C53113487A90029E47E /* Sockets */ = {
-			isa = PBXGroup;
-			children = (
-				DA957C55113487DD0029E47E /* SocketModule.h */,
-				DA957C56113487DD0029E47E /* SocketModule.m */,
-				DA957C57113487DD0029E47E /* TiTCPSocketProxy.h */,
-				DA957C58113487DD0029E47E /* TiTCPSocketProxy.m */,
-			);
-			name = Sockets;
-			sourceTree = "<group>";
-		};
-		DA957C54113487AE0029E47E /* Bonjour */ = {
-			isa = PBXGroup;
-			children = (
-				DA957C61113487F00029E47E /* BonjourModule.h */,
-				DA957C62113487F00029E47E /* BonjourModule.m */,
-				DA957C63113487F00029E47E /* TiBonjourBrowserProxy.h */,
-				DA957C64113487F00029E47E /* TiBonjourBrowserProxy.m */,
-				DA957C65113487F00029E47E /* TiBonjourServiceProxy.h */,
-				DA957C66113487F00029E47E /* TiBonjourServiceProxy.m */,
-			);
-			name = Bonjour;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -2582,11 +2526,6 @@
 				24A1EAF9112F4C02003DA834 /* UIImage+Alpha.h in Headers */,
 				24A1EAFB112F4C02003DA834 /* UIImage+Resize.h in Headers */,
 				24A1EAFD112F4C02003DA834 /* UIImage+RoundedCorner.h in Headers */,
-				DA957C5D113487DD0029E47E /* SocketModule.h in Headers */,
-				DA957C5F113487DD0029E47E /* TiTCPSocketProxy.h in Headers */,
-				DA957C6D113487F00029E47E /* BonjourModule.h in Headers */,
-				DA957C6F113487F00029E47E /* TiBonjourBrowserProxy.h in Headers */,
-				DA957C71113487F00029E47E /* TiBonjourServiceProxy.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2922,11 +2861,6 @@
 				24A1EAF6112F4C02003DA834 /* UIImage+Alpha.m in Sources */,
 				24A1EAF7112F4C02003DA834 /* UIImage+Resize.m in Sources */,
 				24A1EAF8112F4C02003DA834 /* UIImage+RoundedCorner.m in Sources */,
-				DA957C5B113487DD0029E47E /* SocketModule.m in Sources */,
-				DA957C5C113487DD0029E47E /* TiTCPSocketProxy.m in Sources */,
-				DA957C6A113487F00029E47E /* BonjourModule.m in Sources */,
-				DA957C6B113487F00029E47E /* TiBonjourBrowserProxy.m in Sources */,
-				DA957C6C113487F00029E47E /* TiBonjourServiceProxy.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3134,11 +3068,6 @@
 				24A1EAFF112F4C02003DA834 /* UIImage+Alpha.m in Sources */,
 				24A1EB00112F4C02003DA834 /* UIImage+Resize.m in Sources */,
 				24A1EB01112F4C02003DA834 /* UIImage+RoundedCorner.m in Sources */,
-				DA957C59113487DD0029E47E /* SocketModule.m in Sources */,
-				DA957C5A113487DD0029E47E /* TiTCPSocketProxy.m in Sources */,
-				DA957C67113487F00029E47E /* BonjourModule.m in Sources */,
-				DA957C68113487F00029E47E /* TiBonjourBrowserProxy.m in Sources */,
-				DA957C69113487F00029E47E /* TiBonjourServiceProxy.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3346,11 +3275,6 @@
 				24A1EAFA112F4C02003DA834 /* UIImage+Alpha.m in Sources */,
 				24A1EAFC112F4C02003DA834 /* UIImage+Resize.m in Sources */,
 				24A1EAFE112F4C02003DA834 /* UIImage+RoundedCorner.m in Sources */,
-				DA957C5E113487DD0029E47E /* SocketModule.m in Sources */,
-				DA957C60113487DD0029E47E /* TiTCPSocketProxy.m in Sources */,
-				DA957C6E113487F00029E47E /* BonjourModule.m in Sources */,
-				DA957C70113487F00029E47E /* TiBonjourBrowserProxy.m in Sources */,
-				DA957C72113487F00029E47E /* TiBonjourServiceProxy.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
