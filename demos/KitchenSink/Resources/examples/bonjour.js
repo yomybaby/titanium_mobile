@@ -51,8 +51,29 @@ serviceBrowser.addEventListener('didNotSearch', function(e) {
 	}).show();
 });
 
+var searching = false;
+var searchButton = Titanium.UI.createButton({
+	title:'Search...',
+	top:10,
+	height:50,
+	width:200
+});
+
+searchButton.addEventListener('click', function(e) {
+	if (!searching) {
+		serviceBrowser.search();
+		searchButton.title = 'Cancel search...';
+		searching = true;
+	}
+	else {
+		serviceBrowser.stopSearch();
+		searchButton.title = 'Search...';
+	}
+});
+
 var tableView = Titanium.UI.createTableView({
 	style:Titanium.UI.iPhone.TableViewStyle.GROUPED,
+	top:70,
 	data:[{title:'No services', hasChild:false}]
 });
 
@@ -76,8 +97,6 @@ tableView.addEventListener('click', function(r) {
 		service.socket.write('req');
 	}
 });
-		
-Titanium.UI.currentWindow.add(tableView);
 
 updateUI = function(e) {
 	var data = [];
@@ -105,12 +124,9 @@ updateUI = function(e) {
 serviceBrowser.addEventListener('foundServices', updateUI);
 serviceBrowser.addEventListener('removedServices', updateUI);
 
-// TODO: Do we need to call 'search' multiple times, as more services
-// join the network?
-serviceBrowser.search();
-
 // Cleanup
 Titanium.UI.currentWindow.addEventListener('blur', function(e) {
+	serviceBrowser.stopSearch();
 	bonjourSocket.close();
 	for (var i=0; i < serviceBrowser.services.length; i++) {
 		service = serviceBrowser.services[i];
@@ -119,3 +135,6 @@ Titanium.UI.currentWindow.addEventListener('blur', function(e) {
 		}
 	}
 });
+
+Titanium.UI.currentWindow.add(searchButton);
+Titanium.UI.currentWindow.add(tableView);
