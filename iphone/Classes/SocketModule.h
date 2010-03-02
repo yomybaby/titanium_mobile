@@ -18,8 +18,6 @@ typedef enum {
 @interface SocketModule : TiModule {
 }
 
--(id)createTCPSocket:(id)args;
-
 @property(readonly, nonatomic) NSNumber* READ_MODE;
 @property(readonly, nonatomic) NSNumber* WRITE_MODE;
 @property(readonly, nonatomic) NSNumber* READ_WRITE_MODE;

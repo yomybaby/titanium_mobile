@@ -16,9 +16,9 @@
     NSString* domain;
     
     NSMutableArray* services;
+    
+    BOOL searching;
 }
-
--(id)initWithContext:(id<TiEvaluator>)context serviceType:(NSString*)serviceType_ domain:(NSString*)domain_;
 
 -(void)search:(id)unused;
 -(void)stopSearch:(id)unused;

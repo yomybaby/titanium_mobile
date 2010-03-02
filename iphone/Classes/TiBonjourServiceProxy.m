@@ -12,29 +12,21 @@
 #import <netinet/in.h>
 #import <netdb.h>
 
+const NSString* nameKey = @"name";
+const NSString* typeKey = @"type";
+const NSString* domainKey = @"domain";
+const NSString* socketKey = @"socket";
 
 @implementation TiBonjourServiceProxy
 
 @synthesize socket;
 
-#pragma mark Private
-
--(NSNetService*)service
-{
-    return service;
-}
-
 #pragma mark Public
 
--(id)initWithContext:(id<TiEvaluator>)context_ service:(NSNetService*)service_ socket:(TiTCPSocketProxy*)socket_ local:(bool)local_
+-(id)init
 {
-    if (self = [super _initWithPageContext:context_]) {
-        socket = [socket_ retain]; // This SHOULD always be autorelease, but let's be safe.
-        
-        service = [service_ retain];
-        local = local_;
-        
-        [service setDelegate:self];
+    if (self = [super init]) {
+        local = YES;
     }
     
     return self;
@@ -77,6 +69,23 @@
     return false;
 }
 
+-(void)setService:(NSDictionary*)serviceInfo
+{
+    ENSURE_CLASS([serviceInfo objectForKey:nameKey], [NSString class])
+    ENSURE_CLASS([serviceInfo objectForKey:typeKey], [NSString class])
+    ENSURE_CLASS([serviceInfo objectForKey:domainKey], [NSString class])
+    ENSURE_CLASS([serviceInfo objectForKey:socketKey], [TiSocketTCPProxy class])
+    
+    [service release];
+    [socket release];
+    
+    socket = [[serviceInfo objectForKey:socketKey] retain];
+    service = [[NSNetService alloc] initWithDomain:[serviceInfo objectForKey:domainKey] 
+                                              type:[serviceInfo objectForKey:typeKey]
+                                              name:[serviceInfo objectForKey:nameKey]
+                                              port:[[socket port] intValue]];
+}
+
 -(NSString*)name
 {
     return [service name];
@@ -95,6 +104,11 @@
 -(NSNumber*)isLocal
 {
     return [NSNumber numberWithBool:local];
+}
+
+-(NSNetService*)service
+{
+    return service;
 }
 
 #pragma mark Delegate methods
@@ -148,10 +162,11 @@
         const struct sockaddr* address = [addressData bytes];
         if (address->sa_family == AF_INET) {
             // Leave it to the user to open the socket
-            socket = [[[TiTCPSocketProxy alloc] initWithContext:[self pageContext]
-                                                           host:[service hostName]
-                                                           port:[service port]
-                                                           mode:READ_WRITE_MODE] autorelease];
+            socket = [[[TiSocketTCPProxy alloc] _initWithPageContext:[self pageContext]
+                                                                args:[NSArray arrayWithObject:[NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:[service port]], @"port",
+                                                                                                                                        [service hostName], @"hostName",
+                                                                                                                                        [NSNumber numberWithInt:READ_WRITE_MODE], @"mode", nil]]]
+                      autorelease];
             [socket retain]; // Avoid retain/release problems in dealloc
             
             [self fireEvent:@"resolved"

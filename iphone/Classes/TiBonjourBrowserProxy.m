@@ -14,16 +14,50 @@
 
 @synthesize serviceType, domain, services;
 
+#pragma mark Private
+
+-(void)runSearch
+{
+    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+    
+    
+    [browser scheduleInRunLoop:[NSRunLoop currentRunLoop]
+                       forMode:NSDefaultRunLoopMode];   
+    [browser searchForServicesOfType:serviceType 
+                            inDomain:domain];
+    searching = YES;
+    
+    while (searching) {
+        SInt32 result = CFRunLoopRunInMode(kCFRunLoopDefaultMode, 10, YES);
+        
+        if (result == kCFRunLoopRunFinished || result == kCFRunLoopRunStopped) {
+            searching = NO;
+        }
+        
+        // Manage the pool - but it might be a performance hit to constantly dealloc/alloc it
+        // when there's nothing in it.
+        [pool release];
+        pool = [[NSAutoreleasePool alloc] init];        
+    }
+    
+    [browser removeFromRunLoop:[NSRunLoop currentRunLoop]
+                       forMode:NSDefaultRunLoopMode];
+    
+    [pool release];
+}
+
 #pragma mark Public
 
--(id)initWithContext:(id<TiEvaluator>)context serviceType:(NSString*)serviceType_ domain:(NSString*)domain_
+-(id)init
 {
-    if (self = [super _initWithPageContext:context]) {
+    if (self = [super init]) {
         browser = [[NSNetServiceBrowser alloc] init];
         services = [[[NSMutableArray alloc] init] autorelease];
         
-        serviceType = [serviceType_ retain];
-        domain = [domain_ retain];
+        [browser removeFromRunLoop:[NSRunLoop currentRunLoop] 
+                           forMode:NSDefaultRunLoopMode];
+        [browser scheduleInRunLoop:[NSRunLoop mainRunLoop] 
+                           forMode:NSDefaultRunLoopMode];
         
         [browser setDelegate:self];
     }
@@ -40,8 +74,29 @@
     [super dealloc];
 }
 
+-(void)setServiceType:(NSString*)type_
+{
+    if (serviceType == type_) {
+        return;
+    }
+    
+    [serviceType release];
+    serviceType = [type_ retain];
+}
+
+-(void)setDomain:(NSString*)domain_
+{
+    if (domain == domain_) {
+        return;
+    }
+    
+    [domain release];
+    domain = [domain_ retain];
+}
+
 -(void)search:(id)unused
 {
+    //[self performSelectorInBackground:@selector(runSearch) withObject:nil];
     [browser searchForServicesOfType:serviceType 
                             inDomain:domain];
 }
@@ -61,7 +116,7 @@
 {
     [services addObject:[[[TiBonjourServiceProxy alloc] initWithContext:[self pageContext]
                                                                 service:service
-                                                                    local:NO] autorelease]];
+                                                                  local:NO] autorelease]];
     
     if (!more) {
         [self fireEvent:@"foundServices"
@@ -73,7 +128,7 @@
 {
     // Create a temp object to release; this is what -[TiBonjourServiceProxy isEqual:] is for
     [services removeObject:[[[TiBonjourServiceProxy alloc] initWithContext:[self pageContext]
-                                                                    service:service
+                                                                   service:service
                                                                      local:NO] autorelease]];
     
     if (!more) {
@@ -100,6 +155,7 @@
 
 -(void)netServiceBrowserDidStopSearch:(NSNetServiceBrowser*)browser_
 {
+    searching = NO;
     [self fireEvent:@"stoppedSearch"
          withObject:self];
 }

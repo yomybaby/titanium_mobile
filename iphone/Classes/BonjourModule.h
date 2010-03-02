@@ -12,12 +12,11 @@
 @interface BonjourModule : TiModule {
     NSNetServiceBrowser* domainBrowser;
     NSMutableArray* domains;
+    
+    BOOL searching;
 }
 
 +(NSString*)stringForErrorCode:(NSNetServicesError)code;
-
--(id)createBonjourService:(id)args;
--(id)createBonjourBrowser:(id)args;
 
 -(void)searchDomains:(id)unused;
 -(void)stopDomainSearch:(id)unused;

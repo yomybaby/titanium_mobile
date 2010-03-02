@@ -1,7 +1,9 @@
 var win = Titanium.UI.currentWindow;
-var socket = Titanium.Socket.createTCPSocket({host:'localhost', 
-					      port:40404, 
-					      mode:Titanium.Socket.READ_WRITE_MODE});
+var socket = Titanium.Socket.createTCP({
+	hostName:'localhost', 
+	port:40404, 
+	mode:Titanium.Socket.READ_WRITE_MODE
+});
 
 
 var messageLabel = Titanium.UI.createLabel({

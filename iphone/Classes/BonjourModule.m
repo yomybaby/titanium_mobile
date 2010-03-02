@@ -17,9 +17,39 @@ const NSString* socketArg = @"socket";
 
 @implementation BonjourModule
 
-#pragma mark Public
-
 @synthesize domains;
+
+#pragma mark Private
+
+-(void)runSearch
+{
+    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+    
+    [domainBrowser scheduleInRunLoop:[NSRunLoop currentRunLoop]
+                             forMode:NSDefaultRunLoopMode];
+    [domainBrowser searchForBrowsableDomains];
+    
+    searching = YES;
+    while (searching) {
+        SInt32 result = CFRunLoopRunInMode(kCFRunLoopDefaultMode, 10, YES);
+        
+        if (result == kCFRunLoopRunFinished || result == kCFRunLoopRunStopped) {
+            searching = NO;
+        }
+        
+        // Manage the pool - but it might be a performance hit to constantly dealloc/alloc it
+        // when there's nothing in it.
+        [pool release];
+        pool = [[NSAutoreleasePool alloc] init];        
+    }
+    
+    [domainBrowser removeFromRunLoop:[NSRunLoop currentRunLoop]
+                             forMode:NSDefaultRunLoopMode];
+    
+    [pool release];
+}
+
+#pragma mark Public
 
 -(id)init
 {
@@ -27,6 +57,13 @@ const NSString* socketArg = @"socket";
         // TODO: Better to hold all domains, or just temporarily hold domains which are discovered/released?
         domains = [[[NSMutableArray alloc] init] autorelease];
         domainBrowser = [[NSNetServiceBrowser alloc] init];
+        
+        [domainBrowser removeFromRunLoop:[NSRunLoop currentRunLoop] 
+                                 forMode:NSDefaultRunLoopMode];
+        [domainBrowser scheduleInRunLoop:[NSRunLoop mainRunLoop] 
+                                 forMode:NSDefaultRunLoopMode];
+        
+        searching = NO;
     }
     
     return self;
@@ -34,6 +71,7 @@ const NSString* socketArg = @"socket";
 
 -(void)dealloc
 {
+    searching = NO;
     [domainBrowser release];
     [super dealloc];
 }
@@ -68,66 +106,6 @@ const NSString* socketArg = @"socket";
     }
     
     return @"";
-}
-
--(id)createBonjourService:(id)args
-{
-    ENSURE_ARRAY(args)
-    ENSURE_DICT([args objectAtIndex:0]);
-    
-    NSDictionary* argDict = [args objectAtIndex:0];
-    
-    ENSURE_CLASS([argDict objectForKey:nameArg], [NSString class])
-    NSString* serviceName = [argDict objectForKey:nameArg];
-    
-    ENSURE_CLASS([argDict objectForKey:typeArg], [NSString class])
-    NSString* serviceType = [argDict objectForKey:typeArg];
-    
-    ENSURE_CLASS([argDict objectForKey:socketArg], [TiTCPSocketProxy class])
-    TiTCPSocketProxy* socket = [argDict objectForKey:socketArg];
-    
-    NSString* domain;
-    if (IS_NULL_OR_NIL([argDict objectForKey:domainArg])) {
-        domain = @"local.";
-    }
-    else {
-        ENSURE_CLASS([argDict objectForKey:domainArg], [NSString class]);
-        domain = [argDict objectForKey:domainArg];
-    }
-    
-    NSNetService* service = [[NSNetService alloc] initWithDomain:domain 
-                                                            type:serviceType
-                                                            name:serviceName
-                                                            port:[[socket port] intValue]];
-    
-    return [[[TiBonjourServiceProxy alloc] initWithContext:[self pageContext]
-                                                   service:service
-                                                    socket:socket
-                                                     local:YES] autorelease];
-}
-
--(id)createBonjourBrowser:(id)args
-{
-    ENSURE_ARRAY(args)
-    ENSURE_DICT([args objectAtIndex:0])
-    
-    NSDictionary* argDict = [args objectAtIndex:0];
-    
-    ENSURE_CLASS([argDict objectForKey:typeArg], [NSString class])
-    NSString* serviceType = [argDict objectForKey:typeArg];
-    
-    NSString* domain;
-    if (IS_NULL_OR_NIL([argDict objectForKey:domainArg])) {
-        domain = @"local.";
-    }
-    else {
-        ENSURE_CLASS([argDict objectForKey:domainArg], [NSString class]);
-        domain = [argDict objectForKey:domainArg];
-    }
-    
-    return [[[TiBonjourBrowserProxy alloc] initWithContext:[self pageContext]
-                                               serviceType:serviceType
-                                                    domain:domain] autorelease];
 }
 
 -(void)publish:(id)arg
@@ -202,12 +180,14 @@ const NSString* socketArg = @"socket";
 
 -(void)searchDomains:(id)unused
 {
+    //[self performSelectorInBackground:@selector(runSearch) withObject:nil];
     [domainBrowser searchForBrowsableDomains];
 }
 
 -(void)stopDomainSearch:(id)unused
 {
     [domainBrowser stop];
+    searching = NO;
 }
 
 #pragma mark Delegate methods (NSNetServiceBrowser)
@@ -250,6 +230,7 @@ const NSString* socketArg = @"socket";
 
 -(void)netServiceBrowserDidStopSearch:(NSNetServiceBrowser*)browser
 {
+    searching = NO;
     [self fireEvent:@"stoppedSearch"
          withObject:nil];
 }
