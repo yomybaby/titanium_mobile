@@ -7,7 +7,7 @@
 
 #import "SocketModule.h"
 #import "TiBase.h"
-#import "TiTCPSocketProxy.h"
+#import "TiSocketTCPProxy.h"
 
 @implementation SocketModule
 

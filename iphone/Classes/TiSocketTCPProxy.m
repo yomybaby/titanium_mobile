@@ -102,38 +102,6 @@ const CFOptionFlags writeStreamEventFlags =
     [remoteSocketDictionary removeObjectForKey:remoteSocketObject];
 }
 
--(void)runSocket
-{
-    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-    
-    CFRunLoopSourceRef socketRunLoop = CFSocketCreateRunLoopSource(kCFAllocatorDefault,
-                                                                   socket,
-                                                                   1);
-    CFRunLoopAddSource(CFRunLoopGetCurrent(),
-                       socketRunLoop,
-                       kCFRunLoopCommonModes);
-    CFRelease(socketRunLoop);    
-    
-    // WARNING: This may be the cause of innumerable problems!  After open() is called,
-    // there's nothing to stop some (but maybe not all!) calls to some functions which
-    // SHOULD occur on the main thread (like init calls) from being assigned to this run
-    // loop, which can MAJORLY fuck with autorelease.
-    while (VALID && !finished) {
-        SInt32 result = CFRunLoopRunInMode(kCFRunLoopDefaultMode, 10, YES);
-        
-        if (result == kCFRunLoopRunFinished || result == kCFRunLoopRunStopped) {
-            finished = YES;
-        }
-        
-        // Manage the pool - but it might be a performance hit to constantly dealloc/alloc it
-        // when there's nothing in it.
-        [pool release];
-        pool = [[NSAutoreleasePool alloc] init];
-    }
-    
-    [pool release];
-}
-
 #pragma mark Public
 
 -(id)init
@@ -149,7 +117,6 @@ const CFOptionFlags writeStreamEventFlags =
         
         mode = READ_WRITE_MODE;
         activeSockets = 0;
-        finished = NO;
     }
     
     return self;
@@ -310,7 +277,6 @@ const CFOptionFlags writeStreamEventFlags =
     
     CFRelease(addressData);
     
-    finished = false;
     //[self performSelectorInBackground:@selector(runSocket) withObject:nil];
     
     CFRunLoopSourceRef socketRunLoop = CFSocketCreateRunLoopSource(kCFAllocatorDefault,
@@ -346,7 +312,6 @@ const CFOptionFlags writeStreamEventFlags =
     }
     
     socket = NULL;
-    finished = YES;
 }
 
 -(TiBlob*)read:(id)unused
@@ -387,7 +352,7 @@ const CFOptionFlags writeStreamEventFlags =
                     location:CODELOCATION];
     }
     else if (!VALID) {
-        [self throwException:@"Socket is not open"
+        [self throwException:@"Socket is invalid"
                    subreason:nil
                     location:CODELOCATION];
     }
@@ -545,7 +510,7 @@ void handleReadData(CFReadStreamRef input,
 			[[hostSocket readLock] unlock];
             
             [hostSocket fireEvent:@"newData"
-                       withObject:hostSocket];
+                       withObject:nil];
 			break;
 		}
 	}

@@ -12,39 +12,7 @@
 
 @implementation TiBonjourBrowserProxy
 
-@synthesize serviceType, domain, services;
-
-#pragma mark Private
-
--(void)runSearch
-{
-    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-    
-    
-    [browser scheduleInRunLoop:[NSRunLoop currentRunLoop]
-                       forMode:NSDefaultRunLoopMode];   
-    [browser searchForServicesOfType:serviceType 
-                            inDomain:domain];
-    searching = YES;
-    
-    while (searching) {
-        SInt32 result = CFRunLoopRunInMode(kCFRunLoopDefaultMode, 10, YES);
-        
-        if (result == kCFRunLoopRunFinished || result == kCFRunLoopRunStopped) {
-            searching = NO;
-        }
-        
-        // Manage the pool - but it might be a performance hit to constantly dealloc/alloc it
-        // when there's nothing in it.
-        [pool release];
-        pool = [[NSAutoreleasePool alloc] init];        
-    }
-    
-    [browser removeFromRunLoop:[NSRunLoop currentRunLoop]
-                       forMode:NSDefaultRunLoopMode];
-    
-    [pool release];
-}
+@synthesize serviceType, domain;
 
 #pragma mark Public
 
@@ -52,7 +20,7 @@
 {
     if (self = [super init]) {
         browser = [[NSNetServiceBrowser alloc] init];
-        services = [[[NSMutableArray alloc] init] autorelease];
+        services = [[NSMutableArray alloc] init];
         
         [browser removeFromRunLoop:[NSRunLoop currentRunLoop] 
                            forMode:NSDefaultRunLoopMode];
@@ -70,8 +38,19 @@
     [browser release];
     [serviceType release];
     [domain release];
+    [services release];
     
     [super dealloc];
+}
+
+-(NSArray*)services
+{
+    return [[services copy] autorelease];
+}
+
+-(NSString*)description
+{
+    return [NSString stringWithFormat:@"BonjourServiceBrowser: %@ (%d)", [services description], [services retainCount]];
 }
 
 -(void)setServiceType:(NSString*)type_
@@ -106,6 +85,11 @@
     [browser stop];
 }
 
+-(void)purgeServices:(id)unused
+{
+    [services removeAllObjects];
+}
+
 #pragma mark Delegate methods
 
 #pragma mark Service management
@@ -120,7 +104,7 @@
     
     if (!more) {
         [self fireEvent:@"foundServices"
-             withObject:[NSDictionary dictionaryWithObjectsAndKeys:self, @"browser", services, @"services", nil]];
+             withObject:services];
     }
 }
 
@@ -133,7 +117,7 @@
     
     if (!more) {
         [self fireEvent:@"removedServices"
-             withObject:[NSDictionary dictionaryWithObjectsAndKeys:self, @"browser", services, @"services", nil]];
+             withObject:services];
     }
 }
 
@@ -142,22 +126,19 @@
 -(void)netServiceBrowserWillSearch:(NSNetServiceBrowser*)browser_
 {
     [self fireEvent:@"willSearch"
-         withObject:self];
+         withObject:nil];
 }
 
 -(void)netServiceBrowser:(NSNetServiceBrowser *)browser_ didNotSearch:(NSDictionary *)errorDict
 {
     [self fireEvent:@"didNotSearch"
-         withObject:[NSDictionary dictionaryWithObjectsAndKeys:self, @"browser", 
-                                                                [BonjourModule stringForErrorCode:[[errorDict objectForKey:NSNetServicesErrorCode] intValue]], @"error",
-                                                                nil]];
+         withObject:[[BonjourModule stringForErrorCode:[[errorDict objectForKey:NSNetServicesErrorCode] intValue]] autorelease]];
 }
 
 -(void)netServiceBrowserDidStopSearch:(NSNetServiceBrowser*)browser_
 {
-    searching = NO;
     [self fireEvent:@"stoppedSearch"
-         withObject:self];
+         withObject:nil];
 }
 
 @end

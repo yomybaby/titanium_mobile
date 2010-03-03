@@ -11,6 +11,7 @@
 #import <sys/socket.h>
 #import <netinet/in.h>
 #import <netdb.h>
+#import <arpa/inet.h>
 
 const NSString* nameKey = @"name";
 const NSString* typeKey = @"type";
@@ -118,7 +119,7 @@ const NSString* socketKey = @"socket";
 -(void)netServiceWillPublish:(NSNetService*)service_
 {
     [self fireEvent:@"willPublish"
-         withObject:self];
+         withObject:nil];
 }
 
 -(void)netService:(NSNetService*)service_ didNotPublish:(NSDictionary*)errorDict
@@ -126,13 +127,13 @@ const NSString* socketKey = @"socket";
     NSString* errorStr = [BonjourModule stringForErrorCode:[[errorDict valueForKey:NSNetServicesErrorCode] intValue]];
     
     [self fireEvent:@"didNotPublish"
-         withObject:[NSDictionary dictionaryWithObjectsAndKeys:self, @"service", errorStr, @"error", nil]];
+         withObject:errorStr];
 }
 
 -(void)netServiceDidPublish:(NSNetService *)service_
 {
     [self fireEvent:@"didPublish"
-         withObject:self];
+         withObject:nil];
 }
 
 #pragma mark Resolution
@@ -140,7 +141,7 @@ const NSString* socketKey = @"socket";
 -(void)netServiceWillResolve:(NSNetService*)service_
 {
     [self fireEvent:@"willResolve"
-         withObject:self];
+         withObject:nil];
 }
 
 -(void)netService:(NSNetService*)service_ didNotResolve:(NSDictionary*)errorDict
@@ -148,7 +149,7 @@ const NSString* socketKey = @"socket";
     NSString* errorStr = [BonjourModule stringForErrorCode:[[errorDict valueForKey:NSNetServicesErrorCode] intValue]];
     
     [self fireEvent:@"didNotResolve"
-         withObject:[NSDictionary dictionaryWithObjectsAndKeys:self, @"service", errorStr, @"error", nil]];
+         withObject:errorStr];
 }
 
 -(void)netServiceDidResolveAddress:(NSNetService*)service_
@@ -161,16 +162,20 @@ const NSString* socketKey = @"socket";
     while (addressData = [addressEnum nextObject]) {
         const struct sockaddr* address = [addressData bytes];
         if (address->sa_family == AF_INET) {
-            // Leave it to the user to open the socket
+            // This is necessary because otherwise the hostname lookup might muck up, due to local. not being a real domain.
+            const struct sockaddr_in* sock = (struct sockaddr_in*)address;
+            char hostStr[INET_ADDRSTRLEN];
+            inet_ntop(address->sa_family, &(sock->sin_addr), hostStr, INET_ADDRSTRLEN);
+            NSString* hostString = [NSString stringWithUTF8String:hostStr];
             socket = [[[TiSocketTCPProxy alloc] _initWithPageContext:[self pageContext]
                                                                 args:[NSArray arrayWithObject:[NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:[service port]], @"port",
-                                                                                                                                        [service hostName], @"hostName",
+                                                                                                                                        hostString, @"hostName",
                                                                                                                                         [NSNumber numberWithInt:READ_WRITE_MODE], @"mode", nil]]]
                       autorelease];
             [socket retain]; // Avoid retain/release problems in dealloc
             
             [self fireEvent:@"resolved"
-                 withObject:self];
+                 withObject:nil];
             break;
         }
     }
@@ -182,7 +187,7 @@ const NSString* socketKey = @"socket";
 {
     TiBlob* datablob = [[[TiBlob alloc] initWithData:data mimetype:@"application/octet-stream"] autorelease];
     [self fireEvent:@"recordChanged"
-         withObject:[NSDictionary dictionaryWithObjectsAndKeys:self, @"service", datablob, @"data", nil]];
+         withObject:datablob];
 }
 
 #pragma mark Service stoppage
@@ -190,7 +195,7 @@ const NSString* socketKey = @"socket";
 -(void)netServiceDidStop:(NSNetService *)service_
 {
     [self fireEvent:@"stopped"
-         withObject:self];
+         withObject:nil];
 }
 
 @end

@@ -7,10 +7,10 @@ var bonjourSocket = Titanium.Socket.createTCP({
 bonjourSocket.open();
 
 bonjourSocket.addEventListener('newData', function(e) {
-	while (socket.dataAvailable()) {
-		var data = socket.read();
+	while (bonjourSocket.dataAvailable()) {
+		var data = bonjourSocket.read();
 		if (data.toString() == 'req') {
-			socket.write('Hello, from '+Titanium.Platform.id);
+			bonjourSocket.write('Hello, from '+Titanium.Platform.id);
 		}
 		else {
 			Titanium.UI.createAlertDialog({
@@ -40,7 +40,7 @@ Titanium.Bonjour.publish(localService);
 
 // Searcher for finding other services
 var serviceBrowser = Titanium.Bonjour.createBrowser({
-	serviceType:'_dacp._tcp',
+	serviceType:'_utest._tcp',
 	domain:'local.'
 });
 
@@ -79,7 +79,7 @@ var tableView = Titanium.UI.createTableView({
 });
 
 tableView.addEventListener('click', function(r) {
-	var service = r.rowData.service;
+	var service = r['rowData'].service;
 	if (service.socket == null) {
 		service.addEventListener('didNotResolve', function(err) {
 			Titanium.UI.createAlertDialog({
@@ -89,28 +89,30 @@ tableView.addEventListener('click', function(r) {
 		});
 		
 		service.addEventListener('resolved', function(s) {
+			Titanium.API.log(service.socket.hostName+':'+service.socket.port);
 			service.socket.open();
 			service.socket.write('req');
 		});
 		Titanium.Bonjour.resolve(service);
 	}
 	else {
+		if (!service.socket.isValid()) {
+			service.socket.open();
+		}
 		service.socket.write('req');
 	}
 });
 
 updateUI = function(e) {
 	var data = [];
-	var services = e['services'];
+	var services = e['source'].services;
+	
 	for (var i=0; i < services.length; i++) {
-		if (!services[i].socket.isValid()) {
-			services[i].socket.open();
-		}
-		
-		var row = Titanium.UI.createTableRow({
+		var row = Titanium.UI.createTableViewRow({
 			title:services[i].name,
 			service:services[i]
 		});
+		
 		data.push(row);
 	}
 	if (data.length == 0) {
@@ -124,6 +126,9 @@ updateUI = function(e) {
 
 serviceBrowser.addEventListener('foundServices', updateUI);
 serviceBrowser.addEventListener('removedServices', updateUI);
+serviceBrowser.addEventListener('stoppedSearch', function(e) {
+	serviceBrowser.purgeServices();
+});
 
 // Cleanup
 Titanium.UI.currentWindow.addEventListener('blur', function(e) {

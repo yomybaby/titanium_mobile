@@ -12,8 +12,6 @@
 @interface BonjourModule : TiModule {
     NSNetServiceBrowser* domainBrowser;
     NSMutableArray* domains;
-    
-    BOOL searching;
 }
 
 +(NSString*)stringForErrorCode:(NSNetServicesError)code;

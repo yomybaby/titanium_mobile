@@ -16,15 +16,15 @@
     NSString* domain;
     
     NSMutableArray* services;
-    
-    BOOL searching;
 }
 
 -(void)search:(id)unused;
 -(void)stopSearch:(id)unused;
 
+-(void)purgeServices:(id)unused;
+
 @property(readonly, nonatomic) NSString* serviceType;
 @property(readonly, nonatomic) NSString* domain;
-@property(readonly) NSArray* services;
+@property(readonly, nonatomic) NSArray* services;
 
 @end

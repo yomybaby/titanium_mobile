@@ -25,7 +25,6 @@
 	
 	SocketMode mode;
     int activeSockets;
-    bool finished;
 }
 
 // TODO: What function signatures are allowed?  (void)() doesn't work...

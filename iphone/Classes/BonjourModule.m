@@ -19,36 +19,6 @@ const NSString* socketArg = @"socket";
 
 @synthesize domains;
 
-#pragma mark Private
-
--(void)runSearch
-{
-    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-    
-    [domainBrowser scheduleInRunLoop:[NSRunLoop currentRunLoop]
-                             forMode:NSDefaultRunLoopMode];
-    [domainBrowser searchForBrowsableDomains];
-    
-    searching = YES;
-    while (searching) {
-        SInt32 result = CFRunLoopRunInMode(kCFRunLoopDefaultMode, 10, YES);
-        
-        if (result == kCFRunLoopRunFinished || result == kCFRunLoopRunStopped) {
-            searching = NO;
-        }
-        
-        // Manage the pool - but it might be a performance hit to constantly dealloc/alloc it
-        // when there's nothing in it.
-        [pool release];
-        pool = [[NSAutoreleasePool alloc] init];        
-    }
-    
-    [domainBrowser removeFromRunLoop:[NSRunLoop currentRunLoop]
-                             forMode:NSDefaultRunLoopMode];
-    
-    [pool release];
-}
-
 #pragma mark Public
 
 -(id)init
@@ -62,8 +32,6 @@ const NSString* socketArg = @"socket";
                                  forMode:NSDefaultRunLoopMode];
         [domainBrowser scheduleInRunLoop:[NSRunLoop mainRunLoop] 
                                  forMode:NSDefaultRunLoopMode];
-        
-        searching = NO;
     }
     
     return self;
@@ -71,7 +39,6 @@ const NSString* socketArg = @"socket";
 
 -(void)dealloc
 {
-    searching = NO;
     [domainBrowser release];
     [super dealloc];
 }
@@ -187,7 +154,6 @@ const NSString* socketArg = @"socket";
 -(void)stopDomainSearch:(id)unused
 {
     [domainBrowser stop];
-    searching = NO;
 }
 
 #pragma mark Delegate methods (NSNetServiceBrowser)
@@ -230,7 +196,6 @@ const NSString* socketArg = @"socket";
 
 -(void)netServiceBrowserDidStopSearch:(NSNetServiceBrowser*)browser
 {
-    searching = NO;
     [self fireEvent:@"stoppedSearch"
          withObject:nil];
 }
