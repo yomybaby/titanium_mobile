@@ -693,9 +693,12 @@ void handleWriteData(CFWriteStreamRef output,
 			break;
 		}
 		case kCFStreamEventCanAcceptBytes: {
+            [[hostSocket writeLock] lock];
+            
             SocketStreams* streams = 
                 (SocketStreams*)[[[hostSocket remoteSocketDictionary] objectForKey:[NSNumber numberWithInt:remoteSocket]] bytes];
             if ([streams->writeBuffer count] == 0) {
+                [[hostSocket writeLock] unlock];
                 break;
             }
             
@@ -726,6 +729,8 @@ void handleWriteData(CFWriteStreamRef output,
                     streams->bufferPos = 0;
                 }
             } while (streams->bufferPos == 0 && [streams->writeBuffer count] > 0);
+            
+            [[hostSocket writeLock] unlock];
             
             break;
 		}
