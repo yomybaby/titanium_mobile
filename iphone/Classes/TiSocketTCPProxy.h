@@ -18,7 +18,7 @@
     NSMutableDictionary* remoteSocketDictionary; // remoteSocket->{inputStream, outputStream, writeBuffer, writePos}
 
     NSMutableArray* readBuffer;
-    NSData* currentReadData; // See the comment at the head of readData
+    NSData* currentReadData;
     
     NSLock* readLock;
     NSRecursiveLock* writeLock;
@@ -27,8 +27,8 @@
     int activeSockets;
 }
 
-// TODO: What function signatures are allowed?  (void)() doesn't work...
--(void)open:(id)unused;
+-(void)listen:(id)unused;
+-(void)connect:(id)unused;
 -(void)close:(id)unused;
 
 -(NSNumber*)isValid:(id)unused;

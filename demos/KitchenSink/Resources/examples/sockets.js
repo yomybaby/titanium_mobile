@@ -1,6 +1,6 @@
 var win = Titanium.UI.currentWindow;
 var socket = Titanium.Socket.createTCP({
-	hostName:'localhost', 
+	hostName:Titanium.Socket.INADDR_ANY, 
 	port:40404, 
 	mode:Titanium.Socket.READ_WRITE_MODE
 });
@@ -26,7 +26,7 @@ var readLabel = Titanium.UI.createLabel({
 win.add(readLabel);
 
 var connectButton = Titanium.UI.createButton({
-	title:'Open localhost:40404',
+	title:'Listen on 40404',
 	width:200,
 	height:40,
 	top:10
@@ -34,7 +34,7 @@ var connectButton = Titanium.UI.createButton({
 win.add(connectButton);
 connectButton.addEventListener('click', function() {
 	try {
-	    socket.open();
+	    socket.listen();
 	    messageLabel.text = 'Opened!';
 	} catch (e) {
 	    Titanium.API.info('Exception: '+e);

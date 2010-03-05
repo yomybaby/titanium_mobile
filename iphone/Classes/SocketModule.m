@@ -9,6 +9,8 @@
 #import "TiBase.h"
 #import "TiSocketTCPProxy.h"
 
+NSString* const INADDR_ANY_token = @"INADDR_ANY";
+
 @implementation SocketModule
 
 -(NSNumber*)READ_MODE
@@ -24,6 +26,11 @@
 -(NSNumber*)READ_WRITE_MODE
 {
     return [NSNumber numberWithInt:READ_WRITE_MODE];
+}
+
+-(NSString*)INADDR_ANY
+{
+    return INADDR_ANY_token;
 }
 
 @end

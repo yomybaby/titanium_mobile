@@ -17,30 +17,30 @@ const NSString* socketArg = @"socket";
 
 @implementation BonjourModule
 
-@synthesize domains;
-
 #pragma mark Public
 
--(id)init
+-(void)_configure
 {
-    if (self = [super init]) {
-        // TODO: Better to hold all domains, or just temporarily hold domains which are discovered/released?
-        domains = [[[NSMutableArray alloc] init] autorelease];
-        domainBrowser = [[NSNetServiceBrowser alloc] init];
-        
-        [domainBrowser removeFromRunLoop:[NSRunLoop currentRunLoop] 
-                                 forMode:NSDefaultRunLoopMode];
-        [domainBrowser scheduleInRunLoop:[NSRunLoop mainRunLoop] 
-                                 forMode:NSDefaultRunLoopMode];
-    }
+    [super _configure];
+    domains = [[NSMutableArray alloc] init];
+    domainBrowser = [[NSNetServiceBrowser alloc] init];
     
-    return self;
+    [domainBrowser removeFromRunLoop:[NSRunLoop currentRunLoop] 
+                             forMode:NSDefaultRunLoopMode];
+    [domainBrowser scheduleInRunLoop:[NSRunLoop mainRunLoop] 
+                             forMode:NSDefaultRunLoopMode];
 }
 
--(void)dealloc
+-(void)_destroy
 {
+    [domains release];
     [domainBrowser release];
-    [super dealloc];
+    [super _destroy];
+}
+
+-(NSArray*)domains
+{
+    return [[domains copy] autorelease];
 }
 
 +(NSString*)stringForErrorCode:(NSNetServicesError)code

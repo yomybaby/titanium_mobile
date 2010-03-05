@@ -21,5 +21,8 @@ typedef enum {
 @property(readonly, nonatomic) NSNumber* READ_MODE;
 @property(readonly, nonatomic) NSNumber* WRITE_MODE;
 @property(readonly, nonatomic) NSNumber* READ_WRITE_MODE;
+@property(readonly, nonatomic) NSString* INADDR_ANY;
+
+extern NSString* const INADDR_ANY_token;
 
 @end

@@ -6,9 +6,11 @@
  */
 
 #import "TiSocketTCPProxy.h"
+
 #import <sys/socket.h>
 #import <netinet/in.h>
 #import <netdb.h>
+#include <CFNetwork/CFSocketStream.h>
 
 #pragma mark Forward declarations
 
@@ -102,6 +104,55 @@ const CFOptionFlags writeStreamEventFlags =
     [remoteSocketDictionary removeObjectForKey:remoteSocketObject];
 }
 
+-(CFDataRef)createAddressData
+{
+    struct sockaddr_in address;
+    
+    memset(&address, 0, sizeof(address)); // THIS is the finnicky bit: sockaddr_in needs to have 8 bytes of 0 at the end to be compatible with sockaddr
+    address.sin_len = sizeof(address);
+    address.sin_port = htons(port);
+    address.sin_family = AF_INET;
+    
+    if ([hostName isEqual:INADDR_ANY_token]) {
+        address.sin_addr.s_addr = htonl(INADDR_ANY);
+    }
+    else {
+        struct hostent *host;
+        host = gethostbyname([hostName cStringUsingEncoding:[NSString defaultCStringEncoding]]); 
+        if (host == NULL) {
+            if (socket) {
+                CFSocketInvalidate(socket);
+                CFRelease(socket);
+                socket = NULL;
+            }
+            
+            [self throwException:[NSString stringWithFormat:@"Couldn't resolve host %@: %d", hostName, h_errno]
+                       subreason:nil
+                        location:CODELOCATION];
+        }
+        memcpy(&address.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
+    }
+    
+    return CFDataCreate(kCFAllocatorDefault,
+                        (UInt8*)&address,
+                        sizeof(address));
+}
+
+-(void)configureSocketForHandle:(CFSocketNativeHandle)fd
+{
+    if (socket) {
+        return; // Socket already configured, either by listener or previous action
+    }
+    
+    socket = CFSocketCreateWithNative(NULL,
+                                      fd,
+                                      kCFSocketNoCallBack,
+                                      NULL,
+                                      NULL);
+    
+    CFSocketSetSocketFlags(socket, CFSocketGetSocketFlags(socket) & ~kCFSocketCloseOnInvalidate);
+}
+
 #pragma mark Public
 
 -(id)init
@@ -124,7 +175,9 @@ const CFOptionFlags writeStreamEventFlags =
 
 -(void)dealloc
 {
-    [self close:nil];
+    if (VALID) {
+        [self close:nil];
+    }
     
     [hostName release];
     [readBuffer release];
@@ -198,7 +251,7 @@ const CFOptionFlags writeStreamEventFlags =
     return [NSNumber numberWithBool:false];
 }
 
--(void)open:(id)unused
+-(void)listen:(id)unused
 {
     if (VALID) {
         [self throwException:@"Socket already opened"
@@ -234,29 +287,7 @@ const CFOptionFlags writeStreamEventFlags =
                     location:CODELOCATION];
     }
     
-    struct sockaddr_in address;
-    struct hostent *host;
-    
-    memset(&address, 0, sizeof(address)); // THIS is the finnicky bit: sockaddr_in needs to have 8 bytes of 0 at the end to be compatible with sockaddr
-    address.sin_len = sizeof(address);
-    address.sin_port = htons(port);
-    address.sin_family = AF_INET;
-	
-    host = gethostbyname([hostName cStringUsingEncoding:[NSString defaultCStringEncoding]]); 
-    if (host == NULL) {
-        CFSocketInvalidate(socket);
-        CFRelease(socket);
-        socket = NULL;
-        
-        [self throwException:[NSString stringWithFormat:@"Couldn't resolve host %@: %d", hostName, h_errno]
-                   subreason:nil
-                    location:CODELOCATION];
-    }
-    memcpy(&address.sin_addr.s_addr, host->h_addr_list[0], host->h_length);
-    
-    CFDataRef addressData = CFDataCreate(kCFAllocatorDefault,
-                                         (UInt8*)&address,
-                                         sizeof(address));
+    CFDataRef addressData = [self createAddressData];
     
     CFSocketError sockError = CFSocketSetAddress(socket,
 												 addressData);
@@ -286,6 +317,65 @@ const CFOptionFlags writeStreamEventFlags =
                        socketRunLoop,
                        kCFRunLoopCommonModes);
     CFRelease(socketRunLoop); 
+}
+
+-(void)connect:(id)unused
+{
+    if (VALID) {
+        [self throwException:@"Socket already opened"
+                   subreason:nil
+                    location:CODELOCATION];
+    }
+    
+    if (hostName == nil) {
+        [self throwException:@"Host is null"
+                   subreason:nil
+                    location:CODELOCATION];
+    }
+    
+    CFSocketSignature signature;
+    signature.protocolFamily = PF_INET;
+    signature.socketType = SOCK_STREAM;
+    signature.protocol = IPPROTO_TCP;
+    signature.address = [self createAddressData]; // Follows create rule; clean up later
+    
+    
+    CFReadStreamRef inputStream;
+    CFWriteStreamRef outputStream;
+    
+    CFStreamCreatePairWithPeerSocketSignature(NULL, 
+                                              &signature, 
+                                              (mode & READ_MODE) ? &inputStream : NULL, 
+                                              (mode & WRITE_MODE) ? &outputStream : NULL);
+    
+    CFStreamClientContext context;
+    context.version = 0;
+    context.info = self;
+    context.retain = NULL;
+    context.release = NULL;
+    context.copyDescription = NULL;
+    
+    // TODO: Do we catch errors in the stream opening because the stream FD will be NULL in the callback?
+    if (mode & READ_MODE) {
+        CFReadStreamSetClient(inputStream, readStreamEventFlags | kCFStreamEventOpenCompleted, handleReadData, &context);
+        CFReadStreamScheduleWithRunLoop(inputStream, CFRunLoopGetMain(), kCFRunLoopCommonModes);
+        CFReadStreamOpen(inputStream);
+    }
+    
+    if (mode & WRITE_MODE) {
+        CFWriteStreamSetClient(outputStream, writeStreamEventFlags | kCFStreamEventOpenCompleted, handleWriteData, &context);
+        CFWriteStreamScheduleWithRunLoop(outputStream, CFRunLoopGetMain(), kCFRunLoopCommonModes);
+        CFWriteStreamOpen(outputStream);
+    }
+    
+    CFRelease(signature.address);
+    
+    // Simulate blocking - is there a better (re: safer) way to do this?
+    while (!socket &&
+           !(inputStream && (CFReadStreamGetStatus(inputStream) == kCFStreamStatusError)) &&
+           !(outputStream && (CFWriteStreamGetStatus(outputStream) == kCFStreamStatusError))) {
+        usleep(10);
+    }
 }
 
 -(void)close:(id)unused
@@ -379,6 +469,15 @@ const CFOptionFlags writeStreamEventFlags =
     while ((key = [keyEnum nextObject])) {
         NSData* streamData = [remoteSocketDictionary objectForKey:key];
         SocketStreams* streams = (SocketStreams*)[streamData bytes];
+        
+        // In order to prevent the (quite horrifying) race condition where write() is called
+        // before a write buffer is allocated, we block when the streams' writeBuffer is nil.
+        // There could be some highly degenerate cases where this is very, very bad though...
+        // Why can't we just schedule things into a Titanium run loop?  There should be one somewhere.
+        while (streams->writeBuffer == nil) {
+            usleep(10);
+        }
+        
         [streams->writeBuffer addObject:data];
         [self toggleActiveSocket:[key intValue]];
     
@@ -470,6 +569,26 @@ void handleReadData(CFReadStreamRef input,
     CFRelease(remoteSocketData);
     
 	switch (event) {
+        // For 'connect' only
+        case kCFStreamEventOpenCompleted: {
+            SocketStreams* streams = 
+                (SocketStreams*)[[[hostSocket remoteSocketDictionary] objectForKey:[NSNumber numberWithInt:remoteSocket]] bytes];
+            
+            if (!streams) {
+                streams = malloc(sizeof(SocketStreams));
+                streams->outputStream = NULL;
+                streams->writeBuffer = nil;
+
+                [[hostSocket remoteSocketDictionary] setObject:[NSData dataWithBytesNoCopy:streams length:sizeof(SocketStreams)]
+                                                        forKey:[NSNumber numberWithInt:remoteSocket]];
+            }
+            
+            streams->inputStream = input;
+            
+            CFReadStreamSetProperty(input, kCFStreamPropertyShouldCloseNativeSocket, kCFBooleanFalse);
+            [hostSocket configureSocketForHandle:remoteSocket];
+            break;
+        }
 		case kCFStreamEventEndEncountered: {
             [hostSocket closeRemoteSocket:remoteSocket];
 			break;
@@ -541,6 +660,28 @@ void handleWriteData(CFWriteStreamRef output,
     CFRelease(remoteSocketData);
     
     switch (event) {
+        // For 'connect' only
+        case kCFStreamEventOpenCompleted: {
+            SocketStreams* streams = 
+                (SocketStreams*)[[[hostSocket remoteSocketDictionary] objectForKey:[NSNumber numberWithInt:remoteSocket]] bytes];
+            
+            if (!streams) {
+                streams = malloc(sizeof(SocketStreams));
+                streams->inputStream = NULL;
+                streams->writeBuffer = nil;
+                
+                [[hostSocket remoteSocketDictionary] setObject:[NSData dataWithBytesNoCopy:streams length:sizeof(SocketStreams)]
+                                                        forKey:[NSNumber numberWithInt:remoteSocket]];
+            }
+            
+            streams->outputStream = output;
+            streams->writeBuffer = [[NSMutableArray alloc] init];
+            streams->bufferPos = 0;
+            
+            CFWriteStreamSetProperty(output, kCFStreamPropertyShouldCloseNativeSocket, kCFBooleanFalse);
+            [hostSocket configureSocketForHandle:remoteSocket];
+            break;
+        }
         // Let the user handle error recovery, etc...
 		case kCFStreamEventErrorOccurred: {
             NSString* error = getStreamError(output, (CFErrorRef(*)(CFTypeRef))CFReadStreamCopyError);

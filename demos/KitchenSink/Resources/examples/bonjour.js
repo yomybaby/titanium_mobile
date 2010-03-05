@@ -1,15 +1,16 @@
 // Publish a local service on startup
 var bonjourSocket = Titanium.Socket.createTCP({
-	hostName:'localhost',
+	hostName:Titanium.Socket.INADDR_ANY,
 	port:40401,
 	mode:Titanium.Socket.READ_WRITE_MODE
 });
-bonjourSocket.open();
+bonjourSocket.listen();
 
 bonjourSocket.addEventListener('newData', function(e) {
 	while (bonjourSocket.dataAvailable()) {
 		var data = bonjourSocket.read();
-		if (data.toString() == 'req') {
+		var dataStr = data.toString();
+		if (dataStr.substr(dataStr.length-3) == 'req') {
 			bonjourSocket.write('Hello, from '+Titanium.Platform.id);
 		}
 		else {
@@ -89,15 +90,21 @@ tableView.addEventListener('click', function(r) {
 		});
 		
 		service.addEventListener('resolved', function(s) {
-			Titanium.API.log(service.socket.hostName+':'+service.socket.port);
-			service.socket.open();
+			service.socket.addEventListener('newData', function(x) {
+				var data = x['source'].read();
+				Titanium.UI.createAlertDialog({
+					title:'Bonjour message!',
+					message:data.toString()
+				}).show();
+			});
+			service.socket.connect();
 			service.socket.write('req');
 		});
 		Titanium.Bonjour.resolve(service);
 	}
 	else {
 		if (!service.socket.isValid()) {
-			service.socket.open();
+			service.socket.connect();
 		}
 		service.socket.write('req');
 	}
@@ -116,7 +123,7 @@ updateUI = function(e) {
 		data.push(row);
 	}
 	if (data.length == 0) {
-		data.push(Titanium.UI.createTableRow({
+		data.push(Titanium.UI.createTableViewRow({
 			title:'No services'
 		}));
 	}
@@ -126,7 +133,7 @@ updateUI = function(e) {
 
 serviceBrowser.addEventListener('foundServices', updateUI);
 serviceBrowser.addEventListener('removedServices', updateUI);
-serviceBrowser.addEventListener('stoppedSearch', function(e) {
+serviceBrowser.addEventListener('willSearch', function(e) {
 	serviceBrowser.purgeServices();
 });
 
