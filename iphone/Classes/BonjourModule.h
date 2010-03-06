@@ -12,20 +12,16 @@
 @interface BonjourModule : TiModule {
     NSNetServiceBrowser* domainBrowser;
     NSMutableArray* domains;
+    
+    NSString* searchError;
+    BOOL searching;
 }
 
 +(NSString*)stringForErrorCode:(NSNetServicesError)code;
 
 -(void)searchDomains:(id)unused;
 -(void)stopDomainSearch:(id)unused;
-
-// TODO: Should these belong to the module, or the service?
--(void)publish:(id)arg;
--(void)resolve:(id)args;
--(void)stop:(id)arg;
-
--(void)monitorService:(id)arg;
--(void)stopMonitoringService:(id)arg;
+-(NSNumber*)isSearching:(id)unused;
 
 @property(readonly) NSArray* domains;
 

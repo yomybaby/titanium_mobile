@@ -28,6 +28,8 @@
                            forMode:NSDefaultRunLoopMode];
         
         [browser setDelegate:self];
+        searching = NO;
+        error = nil;
     }
     
     return self;
@@ -75,14 +77,30 @@
 
 -(void)search:(id)unused
 {
-    //[self performSelectorInBackground:@selector(runSearch) withObject:nil];
+    RELEASE_TO_NIL(error);
     [browser searchForServicesOfType:serviceType 
                             inDomain:domain];
+    
+    // Block
+    while (!searching && !error) {
+        usleep(10);
+    }
+    
+    if (error) {
+        [self throwException:[@"Failed to search: " stringByAppendingString:error]
+                   subreason:nil
+                    location:CODELOCATION];
+    }
 }
 
 -(void)stopSearch:(id)unused
 {
     [browser stop];
+    
+    // Block
+    while (searching) {
+        usleep(10);
+    }
 }
 
 -(void)purgeServices:(id)unused
@@ -90,11 +108,24 @@
     [services removeAllObjects];
 }
 
+-(NSNumber*)isSearching:(id)unused
+{
+    return [NSNumber numberWithBool:searching];
+}
+
+#pragma mark Private
+
+-(void)setError:(NSString*)error_
+{
+    if (error != error_) {
+        [error release];
+        error = [error_ retain];
+    }
+}
+
 #pragma mark Delegate methods
 
 #pragma mark Service management
-
-// TODO: Should didFind/didRemove only return a list of those services found or removed?  Or should they be rolled into a single event, 'updatedServices'?
 
 -(void)netServiceBrowser:(NSNetServiceBrowser*)browser_ didFindService:(NSNetService*)service moreComing:(BOOL)more
 {
@@ -103,8 +134,8 @@
                                                                   local:NO] autorelease]];
     
     if (!more) {
-        [self fireEvent:@"foundServices"
-             withObject:services];
+        [self fireEvent:@"updatedServices"
+             withObject:nil];
     }
 }
 
@@ -116,8 +147,8 @@
                                                                      local:NO] autorelease]];
     
     if (!more) {
-        [self fireEvent:@"removedServices"
-             withObject:services];
+        [self fireEvent:@"updatedServices"
+             withObject:nil];
     }
 }
 
@@ -125,20 +156,17 @@
 
 -(void)netServiceBrowserWillSearch:(NSNetServiceBrowser*)browser_
 {
-    [self fireEvent:@"willSearch"
-         withObject:nil];
+    searching = YES;
 }
 
 -(void)netServiceBrowser:(NSNetServiceBrowser *)browser_ didNotSearch:(NSDictionary *)errorDict
 {
-    [self fireEvent:@"didNotSearch"
-         withObject:[[BonjourModule stringForErrorCode:[[errorDict objectForKey:NSNetServicesErrorCode] intValue]] autorelease]];
+    [self setError:[BonjourModule stringForErrorCode:[[errorDict objectForKey:NSNetServicesErrorCode] intValue]]];
 }
 
 -(void)netServiceBrowserDidStopSearch:(NSNetServiceBrowser*)browser_
 {
-    [self fireEvent:@"stoppedSearch"
-         withObject:nil];
+    searching = NO;
 }
 
 @end

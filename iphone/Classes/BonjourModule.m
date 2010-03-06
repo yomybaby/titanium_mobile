@@ -29,6 +29,9 @@ const NSString* socketArg = @"socket";
                              forMode:NSDefaultRunLoopMode];
     [domainBrowser scheduleInRunLoop:[NSRunLoop mainRunLoop] 
                              forMode:NSDefaultRunLoopMode];
+    
+    searchError = nil;
+    searching = NO;
 }
 
 -(void)_destroy
@@ -75,85 +78,46 @@ const NSString* socketArg = @"socket";
     return @"";
 }
 
--(void)publish:(id)arg
-{
-    ENSURE_ARRAY(arg)
-    
-    TiBonjourServiceProxy* service = [arg objectAtIndex:0];
-    ENSURE_CLASS(service, [TiBonjourServiceProxy class])
-    if (![[service isLocal] boolValue]) {
-        [self throwException:@"Attempt to republish discovered Bonjour service" 
-                   subreason:nil
-                    location:CODELOCATION];
-    }
-    [[service service] publish];
-}
-
--(void)resolve:(id)args
-{
-    ENSURE_ARRAY(args)
-    if ([args count] > 2) {
-        [self throwException:TiExceptionNotEnoughArguments
-                   subreason:nil
-                    location:CODELOCATION];
-    }
-    
-    ENSURE_CLASS([args objectAtIndex:0], [TiBonjourServiceProxy class])
-    TiBonjourServiceProxy* service = [args objectAtIndex:0];
-    
-    NSTimeInterval timeout = 120.0;
-    if ([args count] == 2 && !IS_NULL_OR_NIL([args objectAtIndex:1])) {
-        ENSURE_CLASS([args objectAtIndex:1], [NSNumber class])
-        timeout = [[args objectAtIndex:1] doubleValue];
-    }
-    
-    if ([[service isLocal] boolValue]) {
-        [self throwException:@"Attempt to resolve local Bonjour service"
-                   subreason:nil
-                    location:CODELOCATION];
-    }
-    [[service service] resolveWithTimeout:timeout];
-}
-
--(void)stop:(id)arg
-{
-    ENSURE_ARRAY(arg)
-    
-    id service = [arg objectAtIndex:0];
-    ENSURE_CLASS(service, [TiBonjourServiceProxy class])
-    
-    [[service service] stop];
-}
-
--(void)monitorService:(id)arg
-{
-    ENSURE_ARRAY(arg)
-    
-    id service = [arg objectAtIndex:0];
-    ENSURE_CLASS(service, [TiBonjourServiceProxy class])
-    
-    [[service service] startMonitoring];
-}
-
--(void)stopMonitoringService:(id)arg
-{
-    ENSURE_ARRAY(arg)
-    
-    id service = [arg objectAtIndex:0];
-    ENSURE_CLASS(service, [TiBonjourServiceProxy class])
-    
-    [[service service] stopMonitoring];
-}
-
 -(void)searchDomains:(id)unused
 {
-    //[self performSelectorInBackground:@selector(runSearch) withObject:nil];
+    RELEASE_TO_NIL(searchError);
     [domainBrowser searchForBrowsableDomains];
+    
+    // Block
+    while (!searching && !searchError) {
+        usleep(10);
+    }
+    
+    if (searchError) {
+        [self throwException:[@"Failed to search: " stringByAppendingString:searchError]
+                   subreason:nil
+                    location:CODELOCATION];        
+    }
 }
 
 -(void)stopDomainSearch:(id)unused
 {
     [domainBrowser stop];
+    
+    // Block
+    while (searching) {
+        usleep(10);
+    }
+}
+
+-(NSNumber*)isSearching:(id)unused
+{
+    return [NSNumber numberWithBool:searching];
+}
+
+#pragma mark Private
+
+-(void)setSearchError:(NSString*)error
+{
+    if (searchError != error) {
+        [searchError release];
+        searchError = [error retain];
+    }
 }
 
 #pragma mark Delegate methods (NSNetServiceBrowser)
@@ -165,8 +129,8 @@ const NSString* socketArg = @"socket";
     [domains addObject:domain];
     
     if (!more) {
-        [self fireEvent:@"foundDomains"
-             withObject:domains];
+        [self fireEvent:@"updatedDomains"
+             withObject:nil];
     }
 }
 
@@ -175,8 +139,8 @@ const NSString* socketArg = @"socket";
     [domains removeObject:domain];
     
     if (!more) {
-        [self fireEvent:@"removedDomains"
-             withObject:domains];
+        [self fireEvent:@"updatedDomains"
+             withObject:nil];
     }
 }
 
@@ -184,20 +148,17 @@ const NSString* socketArg = @"socket";
 
 -(void)netServiceBrowserWillSearch:(NSNetServiceBrowser*)browser
 {
-    [self fireEvent:@"willSearch"
-         withObject:nil];
+    searching = YES;
 }
 
 -(void)netServiceBrowser:(NSNetServiceBrowser *)browser didNotSearch:(NSDictionary *)errorDict
 {
-    [self fireEvent:@"didNotSearch"
-         withObject:[BonjourModule stringForErrorCode:[[errorDict objectForKey:NSNetServicesErrorCode] intValue]]];
+    [self setSearchError:[BonjourModule stringForErrorCode:[[errorDict objectForKey:NSNetServicesErrorCode] intValue]]];
 }
 
 -(void)netServiceBrowserDidStopSearch:(NSNetServiceBrowser*)browser
 {
-    [self fireEvent:@"stoppedSearch"
-         withObject:nil];
+    searching = NO;
 }
 
 @end

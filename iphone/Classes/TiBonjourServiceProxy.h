@@ -15,15 +15,18 @@
     TiSocketTCPProxy* socket;
     NSNetService* service;
     
-    bool local;
+    BOOL local;
+    BOOL published;
+    NSString* error;
 }
 
 -(NSNetService*)service;
 
 -(id)initWithContext:(id<TiEvaluator>)context_ service:(NSNetService*)service_ local:(bool)local_;
 
-// TODO: Add TXTRecord creation
-// TODO: Move publish/stop to this class?
+-(void)publish:(id)arg;
+-(void)resolve:(id)args;
+-(void)stop:(id)arg;
 
 @property(readonly, nonatomic) TiSocketTCPProxy* socket;
 @property(readonly, nonatomic) NSString* name;

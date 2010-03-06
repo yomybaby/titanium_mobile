@@ -43,6 +43,9 @@ const NSString* socketKey = @"socket";
         service = [service_ retain];
         local = local_;
         
+        [service removeFromRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
+        [service scheduleInRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
+        
         [service setDelegate:self];
     }
     
@@ -85,6 +88,10 @@ const NSString* socketKey = @"socket";
                                               type:[serviceInfo objectForKey:typeKey]
                                               name:[serviceInfo objectForKey:nameKey]
                                               port:[[socket port] intValue]];
+    
+    [service removeFromRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
+    [service scheduleInRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
+    [service setDelegate:self];
 }
 
 -(NSString*)name
@@ -112,90 +119,144 @@ const NSString* socketKey = @"socket";
     return service;
 }
 
+-(void)publish:(id)arg
+{
+    RELEASE_TO_NIL(error);
+    
+    if (!local) {
+        [self throwException:@"Attempt to republish discovered Bonjour service" 
+                   subreason:nil
+                    location:CODELOCATION];
+    }
+    if (published) {
+        [self throwException:@"Attempt to republish service"
+                   subreason:nil
+                    location:CODELOCATION];
+    }
+    
+    [service publish];
+    
+    // Block
+    while (!published && !error) {
+        usleep(10);
+    }
+    
+    if (error) {
+        [self throwException:[@"Failed to publish: " stringByAppendingString:error]
+                   subreason:nil
+                    location:CODELOCATION];
+    }
+}
+
+-(void)resolve:(id)args
+{
+    RELEASE_TO_NIL(error);
+    
+    NSTimeInterval timeout = 120.0;
+    if ([args count] != 0 && !IS_NULL_OR_NIL([args objectAtIndex:0])) {
+        ENSURE_CLASS([args objectAtIndex:0], [NSNumber class])
+        timeout = [[args objectAtIndex:0] doubleValue];
+    }
+    
+    if (local) {
+        [self throwException:@"Attempt to resolve local Bonjour service"
+                   subreason:nil
+                    location:CODELOCATION];
+    }
+    if (socket) {
+        [self throwException:@"Attempt to re-resolve service"
+                   subreason:nil
+                    location:CODELOCATION];
+    }
+    
+    [service resolveWithTimeout:timeout];
+    
+    // Block; always up to 'timeout' max, though.
+    while (!socket && !error) {
+        usleep(10);
+    }
+    
+    if (error) {
+        [self throwException:[@"Did not resolve: " stringByAppendingString:error]
+                   subreason:nil
+                    location:CODELOCATION];
+    }
+}
+
+-(void)stop:(id)arg
+{    
+    [service stop];
+    
+    // Block
+    while (published) {
+        usleep(10);
+    }
+}
+
+#pragma mark Private
+
+-(void)setError:(NSString*)error_
+{
+    if (error != error_) {
+        [error release];
+        error = [error_ retain];
+    }
+}
+
+-(void)setSocket:(TiSocketTCPProxy*)socket_
+{
+    if (socket != socket_) {
+        [socket release];
+        socket = [socket_ retain];
+    }
+}
+
 #pragma mark Delegate methods
 
 #pragma mark Publication
 
--(void)netServiceWillPublish:(NSNetService*)service_
-{
-    [self fireEvent:@"willPublish"
-         withObject:nil];
-}
-
 -(void)netService:(NSNetService*)service_ didNotPublish:(NSDictionary*)errorDict
 {
-    NSString* errorStr = [BonjourModule stringForErrorCode:[[errorDict valueForKey:NSNetServicesErrorCode] intValue]];
-    
-    [self fireEvent:@"didNotPublish"
-         withObject:errorStr];
+    [self setError:[BonjourModule stringForErrorCode:[[errorDict valueForKey:NSNetServicesErrorCode] intValue]]];
 }
 
 -(void)netServiceDidPublish:(NSNetService *)service_
 {
-    [self fireEvent:@"didPublish"
-         withObject:nil];
+    published = YES;
 }
 
 #pragma mark Resolution
 
--(void)netServiceWillResolve:(NSNetService*)service_
-{
-    [self fireEvent:@"willResolve"
-         withObject:nil];
-}
-
 -(void)netService:(NSNetService*)service_ didNotResolve:(NSDictionary*)errorDict
 {
-    NSString* errorStr = [BonjourModule stringForErrorCode:[[errorDict valueForKey:NSNetServicesErrorCode] intValue]];
-    
-    [self fireEvent:@"didNotResolve"
-         withObject:errorStr];
+    [self setError:[BonjourModule stringForErrorCode:[[errorDict valueForKey:NSNetServicesErrorCode] intValue]]];
 }
 
 -(void)netServiceDidResolveAddress:(NSNetService*)service_
 {
     // If an IPv4 address has been resolved, open a socket and fire the event.
-    // TODO: Also support IPv6 - but that would be a little more complicated and also require
-    // sockets to support IPv6.
+    // TODO: Do we really need to only check IPv4?  Why not just resolve the first given address?
     NSData* addressData = nil;
     NSEnumerator* addressEnum = [[service addresses] objectEnumerator];
     while (addressData = [addressEnum nextObject]) {
         const struct sockaddr* address = [addressData bytes];
         if (address->sa_family == AF_INET) {
-            // This is necessary because otherwise the hostname lookup might muck up, due to local. not being a real domain.
-            const struct sockaddr_in* sock = (struct sockaddr_in*)address;
-            char hostStr[INET_ADDRSTRLEN];
-            inet_ntop(address->sa_family, &(sock->sin_addr), hostStr, INET_ADDRSTRLEN);
-            NSString* hostString = [NSString stringWithUTF8String:hostStr];
-            socket = [[[TiSocketTCPProxy alloc] _initWithPageContext:[self pageContext]
-                                                                args:[NSArray arrayWithObject:[NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:[service port]], @"port",
-                                                                                                                                        hostString, @"hostName",
-                                                                                                                                        [NSNumber numberWithInt:READ_WRITE_MODE], @"mode", nil]]]
-                      autorelease];
-            [socket retain]; // Avoid retain/release problems in dealloc
-            
-            [self fireEvent:@"resolved"
-                 withObject:nil];
+            [self setSocket:[[[TiSocketTCPProxy alloc] _initWithPageContext:[self pageContext]
+                                                                       args:[NSArray arrayWithObject:[NSDictionary dictionaryWithObjectsAndKeys:
+                                                                                                        [NSNumber numberWithInt:[service port]], @"port",
+                                                                                                        [service hostName], @"hostName",
+                                                                                                        [NSNumber numberWithInt:READ_WRITE_MODE], @"mode", nil]]]
+                      autorelease]];
             break;
         }
     }
 }
 
-#pragma mark Service monitoring
+#pragma mark Stopping
 
--(void)netService:(NSNetService*)service_ didUpdateTXTRecordData:(NSData*)data
+-(void)netServiceDidStop:(NSNetService*)service_
 {
-    TiBlob* datablob = [[[TiBlob alloc] initWithData:data mimetype:@"application/octet-stream"] autorelease];
-    [self fireEvent:@"recordChanged"
-         withObject:datablob];
-}
-
-#pragma mark Service stoppage
-
--(void)netServiceDidStop:(NSNetService *)service_
-{
-    [self fireEvent:@"stopped"
-         withObject:nil];
+    published = NO;
 }
 
 @end

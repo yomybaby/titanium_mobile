@@ -16,10 +16,14 @@
     NSString* domain;
     
     NSMutableArray* services;
+    
+    BOOL searching;
+    NSString* error;
 }
 
 -(void)search:(id)unused;
 -(void)stopSearch:(id)unused;
+-(NSNumber*)isSearching:(id)unused;
 
 -(void)purgeServices:(id)unused;
 
