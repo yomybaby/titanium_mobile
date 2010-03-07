@@ -14,6 +14,7 @@ bonjourSocket.addEventListener('newData', function(e) {
 			bonjourSocket.write('Hello, from '+Titanium.Platform.id);
 		}
 		else {
+			Titanium.API.info('Listener got message...');
 			Titanium.UI.createAlertDialog({
 				title:'Bonjour message!',
 				message:data.toString()
@@ -86,6 +87,7 @@ tableView.addEventListener('click', function(r) {
 		try {
 			service.resolve();
 			service.socket.addEventListener('newData', function(x) {
+				Titanium.API.info('Connector got message...');
 				var data = x['source'].read();
 				Titanium.UI.createAlertDialog({
 					title:'Bonjour message!',

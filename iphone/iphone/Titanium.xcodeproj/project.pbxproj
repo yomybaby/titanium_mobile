@@ -840,13 +840,13 @@
 		DA868C26113CD0790058870A /* TiBonjourBrowserProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DA868C24113CD0790058870A /* TiBonjourBrowserProxy.m */; };
 		DA868C27113CD0790058870A /* TiBonjourBrowserProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DA868C24113CD0790058870A /* TiBonjourBrowserProxy.m */; };
 		DAB4A407113C41B2000CF625 /* SocketModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DAB4A404113C41B2000CF625 /* SocketModule.m */; };
-		DAB4A408113C41B2000CF625 /* TiSocketTCPProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DAB4A406113C41B2000CF625 /* TiSocketTCPProxy.m */; };
+		DAB4A408113C41B2000CF625 /* TiSocketTCPProxy.mm in Sources */ = {isa = PBXBuildFile; fileRef = DAB4A406113C41B2000CF625 /* TiSocketTCPProxy.mm */; };
 		DAB4A409113C41B2000CF625 /* SocketModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DAB4A404113C41B2000CF625 /* SocketModule.m */; };
-		DAB4A40A113C41B2000CF625 /* TiSocketTCPProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DAB4A406113C41B2000CF625 /* TiSocketTCPProxy.m */; };
+		DAB4A40A113C41B2000CF625 /* TiSocketTCPProxy.mm in Sources */ = {isa = PBXBuildFile; fileRef = DAB4A406113C41B2000CF625 /* TiSocketTCPProxy.mm */; };
 		DAB4A40B113C41B2000CF625 /* SocketModule.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB4A403113C41B2000CF625 /* SocketModule.h */; };
 		DAB4A40C113C41B2000CF625 /* SocketModule.m in Sources */ = {isa = PBXBuildFile; fileRef = DAB4A404113C41B2000CF625 /* SocketModule.m */; };
 		DAB4A40D113C41B2000CF625 /* TiSocketTCPProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = DAB4A405113C41B2000CF625 /* TiSocketTCPProxy.h */; };
-		DAB4A40E113C41B2000CF625 /* TiSocketTCPProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = DAB4A406113C41B2000CF625 /* TiSocketTCPProxy.m */; };
+		DAB4A40E113C41B2000CF625 /* TiSocketTCPProxy.mm in Sources */ = {isa = PBXBuildFile; fileRef = DAB4A406113C41B2000CF625 /* TiSocketTCPProxy.mm */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -1332,7 +1332,7 @@
 		DAB4A403113C41B2000CF625 /* SocketModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SocketModule.h; sourceTree = "<group>"; };
 		DAB4A404113C41B2000CF625 /* SocketModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SocketModule.m; sourceTree = "<group>"; };
 		DAB4A405113C41B2000CF625 /* TiSocketTCPProxy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TiSocketTCPProxy.h; sourceTree = "<group>"; };
-		DAB4A406113C41B2000CF625 /* TiSocketTCPProxy.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TiSocketTCPProxy.m; sourceTree = "<group>"; };
+		DAB4A406113C41B2000CF625 /* TiSocketTCPProxy.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = TiSocketTCPProxy.mm; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -2430,7 +2430,7 @@
 				DAB4A403113C41B2000CF625 /* SocketModule.h */,
 				DAB4A404113C41B2000CF625 /* SocketModule.m */,
 				DAB4A405113C41B2000CF625 /* TiSocketTCPProxy.h */,
-				DAB4A406113C41B2000CF625 /* TiSocketTCPProxy.m */,
+				DAB4A406113C41B2000CF625 /* TiSocketTCPProxy.mm */,
 			);
 			name = Sockets;
 			sourceTree = "<group>";
@@ -2951,7 +2951,7 @@
 				245B3C3D11375A6600CE7530 /* UtilsModule.m in Sources */,
 				245B45641139B41800CE7530 /* TiUITableViewCellSelectionStyleProxy.m in Sources */,
 				DAB4A409113C41B2000CF625 /* SocketModule.m in Sources */,
-				DAB4A40A113C41B2000CF625 /* TiSocketTCPProxy.m in Sources */,
+				DAB4A40A113C41B2000CF625 /* TiSocketTCPProxy.mm in Sources */,
 				DA3A956B113CD02100F664E1 /* BonjourModule.m in Sources */,
 				DA3A956C113CD02100F664E1 /* TiBonjourServiceProxy.m in Sources */,
 				DA868C25113CD0790058870A /* TiBonjourBrowserProxy.m in Sources */,
@@ -3165,7 +3165,7 @@
 				245B3C3A11375A6600CE7530 /* UtilsModule.m in Sources */,
 				245B45611139B41800CE7530 /* TiUITableViewCellSelectionStyleProxy.m in Sources */,
 				DAB4A407113C41B2000CF625 /* SocketModule.m in Sources */,
-				DAB4A408113C41B2000CF625 /* TiSocketTCPProxy.m in Sources */,
+				DAB4A408113C41B2000CF625 /* TiSocketTCPProxy.mm in Sources */,
 				DA3A9569113CD02100F664E1 /* BonjourModule.m in Sources */,
 				DA3A956A113CD02100F664E1 /* TiBonjourServiceProxy.m in Sources */,
 				DA868C26113CD0790058870A /* TiBonjourBrowserProxy.m in Sources */,
@@ -3379,7 +3379,7 @@
 				245B3C3C11375A6600CE7530 /* UtilsModule.m in Sources */,
 				245B45631139B41800CE7530 /* TiUITableViewCellSelectionStyleProxy.m in Sources */,
 				DAB4A40C113C41B2000CF625 /* SocketModule.m in Sources */,
-				DAB4A40E113C41B2000CF625 /* TiSocketTCPProxy.m in Sources */,
+				DAB4A40E113C41B2000CF625 /* TiSocketTCPProxy.mm in Sources */,
 				DA3A956E113CD02100F664E1 /* BonjourModule.m in Sources */,
 				DA3A9571113CD02100F664E1 /* TiBonjourServiceProxy.m in Sources */,
 				DA868C27113CD0790058870A /* TiBonjourBrowserProxy.m in Sources */,

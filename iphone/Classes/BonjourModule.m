@@ -85,7 +85,7 @@ const NSString* socketArg = @"socket";
     
     // Block
     while (!searching && !searchError) {
-        usleep(10);
+        usleep(1);
     }
     
     if (searchError) {
@@ -101,7 +101,7 @@ const NSString* socketArg = @"socket";
     
     // Block
     while (searching) {
-        usleep(10);
+        usleep(1);
     }
 }
 

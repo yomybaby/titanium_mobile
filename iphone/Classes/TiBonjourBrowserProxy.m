@@ -83,7 +83,7 @@
     
     // Block
     while (!searching && !error) {
-        usleep(10);
+        usleep(1);
     }
     
     if (error) {
@@ -99,7 +99,7 @@
     
     // Block
     while (searching) {
-        usleep(10);
+        usleep(1);
     }
 }
 

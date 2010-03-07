@@ -138,7 +138,7 @@ const NSString* socketKey = @"socket";
     
     // Block
     while (!published && !error) {
-        usleep(10);
+        usleep(1);
     }
     
     if (error) {
@@ -173,7 +173,7 @@ const NSString* socketKey = @"socket";
     
     // Block; always up to 'timeout' max, though.
     while (!socket && !error) {
-        usleep(10);
+        usleep(1);
     }
     
     if (error) {
@@ -189,7 +189,7 @@ const NSString* socketKey = @"socket";
     
     // Block
     while (published) {
-        usleep(10);
+        usleep(1);
     }
 }
 
