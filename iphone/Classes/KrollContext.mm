@@ -598,7 +598,7 @@ static TiValueRef SetTimeoutCallback (TiContextRef jsContext, TiObjectRef jsFunc
 			loopCount = 0;
 		}
          */
-		
+        
 		[pool_ drain];
 
 		// check to see if we're already stopped and in the flush queue state, in which case,
@@ -610,14 +610,12 @@ static TiValueRef SetTimeoutCallback (TiContextRef jsContext, TiObjectRef jsFunc
 		
 		
 #if CONTEXT_DEBUG == 1	
-		NSLog(@"CONTEXT<%@>: waiting for new event (count=%d)",self,KrollContextCount);
+        NSLog(@"CONTEXT<%@>: waiting for new event (count=%d)",self,KrollContextCount);
 #endif
-	
-        if ([queue count] == 0) {
-            [condition lock];
-            [condition wait];
-            [condition unlock]; 
-        }
+        
+        [condition lock];
+        [condition wait];
+        [condition unlock]; 
 		
 #if CONTEXT_DEBUG == 1	
 		NSLog(@"CONTEXT<%@>: woke up for new event (count=%d)",self,KrollContextCount);

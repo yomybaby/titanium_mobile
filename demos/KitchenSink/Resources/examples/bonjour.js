@@ -10,10 +10,11 @@ var bonjourSocket = Titanium.Socket.createTCP({
 
 bonjourSocket.addEventListener('newData', function(e) {
 	while (bonjourSocket.dataAvailable()) {
+		var remoteSocket = e['from'];
 		var data = bonjourSocket.read();
 		var dataStr = data.toString();
 		if (dataStr.substr(dataStr.length-3) == 'req') {
-			bonjourSocket.write('Hello, from '+Titanium.Platform.id);
+			bonjourSocket.write('Hello, from '+Titanium.Platform.id, remoteSocket);
 		}
 		else {
 			Titanium.UI.createAlertDialog({
@@ -62,36 +63,8 @@ var serviceBrowser = Titanium.Bonjour.createBrowser({
 	domain:'local.'
 });
 
-var searchButton = Titanium.UI.createButton({
-	title:'Search...',
-	top:10,
-	height:50,
-	width:200
-});
-
-searchButton.addEventListener('click', function(e) {
-	if (!serviceBrowser.isSearching()) {
-		serviceBrowser.purgeServices();
-		try {
-			serviceBrowser.search();
-			searchButton.title = 'Cancel search...';
-		}
-		catch (ex) {
-			Titanium.UI.createAlertDialog({
-				title:'Error!',
-				message:ex
-			}).show();
-		}
-	}
-	else {
-		serviceBrowser.stopSearch();
-		searchButton.title = 'Search...';
-	}
-});
-
 var tableView = Titanium.UI.createTableView({
 	style:Titanium.UI.iPhone.TableViewStyle.GROUPED,
-	top:70,
 	data:[{title:'No services', hasChild:false}]
 });
 
@@ -144,15 +117,20 @@ serviceBrowser.addEventListener('updatedServices', updateUI);
 
 // Cleanup
 Titanium.UI.currentWindow.addEventListener('blur', function(e) {
-	serviceBrowser.stopSearch();
-	bonjourSocket.close();
+	if (serviceBrowser.isSearching()) {
+		serviceBrowser.stopSearch();
+	}
+	localService.stop();
+	if (bonjourSocket.isValid()) {
+		bonjourSocket.close();
+	}
 	for (var i=0; i < serviceBrowser.services.length; i++) {
-		service = serviceBrowser.services[i];
+		var service = serviceBrowser.services[i];
 		if (service.socket.isValid()) {
 			service.socket.close();
 		}
 	}
 });
 
-Titanium.UI.currentWindow.add(searchButton);
+serviceBrowser.search();
 Titanium.UI.currentWindow.add(tableView);

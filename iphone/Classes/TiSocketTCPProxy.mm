@@ -15,12 +15,9 @@
 #pragma mark Forward declarations
 
 // Size of the read buffer; ideally should be a multiple of 1024 (1k), up to 4096 (4k, page size)
-const unsigned int bufferSize = 4096;
+const NSUInteger bufferSize = 4096;
 
-// TODO: Add sockaddr for better error reporting about which remote host disconnected -
-// We can get that data from the 'address' passed to handleSocketConnection.  Maybe this
-// will be useful in some situations.
-// IN FACT: This might be useful in Bonjour communication!  Add this feature when bonjour is finished.
+// TODO: Add host information for better error reporting
 typedef struct {
     CFReadStreamRef inputStream;
     CFWriteStreamRef outputStream;
@@ -260,26 +257,38 @@ const CFOptionFlags writeStreamEventFlags =
 { 
     [readLock lock];
     
+    CFSocketNativeHandle remoteSocket = [self getHandleFromStream:input];
+    if (remoteSocket == -1) {
+        [self handleError:input];
+        [readLock unlock];
+        return;
+    }
+    
     BOOL read = NO;
+    // We can't just use -[NSInputStream getBuffer:length:] because the input stream is secretly
+    // based on sockets, according to the CFReadStream it comes from.
     while ([input hasBytesAvailable]) {
         uint8_t* buffer = (uint8_t*)malloc(bufferSize * sizeof(uint8_t));
         NSInteger bytesRead = [input read:buffer maxLength:bufferSize];
-        if (bytesRead == 0) {
-            free(buffer);
-            
+
+        // Not clear whether the failure condition is 0 or -1 bytes read from documentation
+        if (bytesRead == 0 || bytesRead == -1) {
             [self handleError:input];
-            
+            [readLock unlock];
             return;
         }
-        NSData* data = [NSData dataWithBytesNoCopy:buffer length:bytesRead];
+        NSData* data = [NSData dataWithBytes:buffer length:bytesRead];
         [readBuffer addObject:data];
+        
+        free(buffer);
         read = YES;
     }
     
     [readLock unlock];
 
     if (read) {
-        [self fireEvent:@"newData" withObject:nil];
+        [self fireEvent:@"newData" withObject:[NSDictionary dictionaryWithObject:[NSNumber numberWithInt:remoteSocket] 
+                                                                          forKey:@"from"]];
     }
 }
 
@@ -290,6 +299,8 @@ const CFOptionFlags writeStreamEventFlags =
     CFSocketNativeHandle remoteSocket = [self getHandleFromStream:output];
     if (remoteSocket == -1) {
         [self handleError:output];
+        [writeLock unlock];
+        return;
     }
     
     SocketStreams* streams = 
@@ -641,13 +652,22 @@ const CFOptionFlags writeStreamEventFlags =
         THROW_INVALID_ARG(errorStr)
     }
     
+    NSNumber* key = nil;    
+    if ([args count] > 1) {
+        ENSURE_CLASS([args objectAtIndex:1], [NSNumber class])
+        key = [args objectAtIndex:1];
+    }
+    
     [writeLock lock];
 
-    NSEnumerator* keyEnum = [[remoteSocketDictionary allKeys] objectEnumerator];
-    NSNumber* key;
-    
-    while ((key = [keyEnum nextObject])) {
+    if (key) {
         NSData* streamData = [remoteSocketDictionary objectForKey:key];
+        if (streamData == nil) {
+            [self throwException:[NSString stringWithFormat:@"Invalid socket descriptor (%@)", key]
+                       subreason:nil
+                        location:CODELOCATION];
+        }
+        
         SocketStreams* streams = (SocketStreams*)[streamData bytes];
         
         // TODO: This might result in very odd situations where when two sockets are being configured, one "beats out" the other, which is the one being waited on.
@@ -662,9 +682,34 @@ const CFOptionFlags writeStreamEventFlags =
         
         [streams->writeBuffer addObject:data];
         [self toggleActiveSocket:[key intValue]];
-    
+        
         if (CFWriteStreamCanAcceptBytes(streams->outputStream)) {
             [self writeToStream:(NSOutputStream*)(streams->outputStream)];
+        }        
+    }
+    else {
+        NSEnumerator* keyEnum = [[remoteSocketDictionary allKeys] objectEnumerator];
+        
+        while ((key = [keyEnum nextObject])) {
+            NSData* streamData = [remoteSocketDictionary objectForKey:key];
+            SocketStreams* streams = (SocketStreams*)[streamData bytes];
+            
+            // TODO: This might result in very odd situations where when two sockets are being configured, one "beats out" the other, which is the one being waited on.
+            // One way to handle this would be to have a canWriteCondition associated with each stream...
+            // And what about the odd situation in which one stream configures but then there's an error?
+            // This extremely strange corner case COULD happen if the socket is disconnected in the middle of a configure.
+            if (streams->writeBuffer == nil) {
+                [configureCondition lock];
+                [configureCondition wait];
+                [configureCondition unlock];
+            }
+            
+            [streams->writeBuffer addObject:data];
+            [self toggleActiveSocket:[key intValue]];
+            
+            if (CFWriteStreamCanAcceptBytes(streams->outputStream)) {
+                [self writeToStream:(NSOutputStream*)(streams->outputStream)];
+            }
         }
     }
     
@@ -701,13 +746,13 @@ void handleSocketConnection(CFSocketRef socket, CFSocketCallBackType type,
 			
             if (mode & READ_MODE) {
                 CFReadStreamSetClient(inputStream, readStreamEventFlags, handleReadData, &context);
-                CFReadStreamScheduleWithRunLoop(inputStream, CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
+                CFReadStreamScheduleWithRunLoop(inputStream, CFRunLoopGetMain(), kCFRunLoopCommonModes);
                 CFReadStreamOpen(inputStream);
             }
         
             if (mode & WRITE_MODE) {
                 CFWriteStreamSetClient(outputStream, writeStreamEventFlags, handleWriteData, &context);
-                CFWriteStreamScheduleWithRunLoop(outputStream, CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
+                CFWriteStreamScheduleWithRunLoop(outputStream, CFRunLoopGetMain(), kCFRunLoopCommonModes);
                 CFWriteStreamOpen(outputStream);
             }
             
