@@ -27,6 +27,7 @@
 	return self;
 }
 
+
 -(void)dealloc
 {
 	RELEASE_TO_NIL(sections);
@@ -43,10 +44,10 @@
 
 -(void)frameSizeChanged:(CGRect)frame bounds:(CGRect)bounds
 {
-	if (tableview!=nil && CGRectIsEmpty(bounds)==NO)
-	{
-		[TiUtils setView:tableview positionRect:bounds];
-	}
+//	if (tableview!=nil && CGRectIsEmpty(bounds)==NO)
+//	{
+//		[TiUtils setView:tableview positionRect:bounds];
+//	}
 }
 
 -(CGFloat)tableRowHeight:(CGFloat)height
@@ -74,7 +75,7 @@
 	if (tableview==nil)
 	{
 		UITableViewStyle style = [TiUtils intValue:[self.proxy valueForKey:@"style"] def:UITableViewStylePlain];
-		tableview = [[UITableView alloc] initWithFrame:[self frame] style:style];
+		tableview = [[UITableView alloc] initWithFrame:[self bounds] style:style];
 		tableview.delegate = self;
 		tableview.dataSource = self;
 		tableview.autoresizingMask = UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;
@@ -1130,6 +1131,14 @@
 	TiUITableViewSectionProxy *section = [sections objectAtIndex:[indexPath section]];
 	TiUITableViewRowProxy *row = [section rowAtIndex:[indexPath row]];
 	NSString *color = [row valueForKey:@"backgroundColor"];
+	if (color==nil)
+	{
+		color = [self.proxy valueForKey:@"rowBackgroundColor"];
+		if (color==nil)
+		{
+			color = [self.proxy valueForKey:@"backgroundColor"];
+		}
+	}
 	if (color!=nil)
 	{
 		cell.backgroundColor = UIColorWebColorNamed(color);
@@ -1199,14 +1208,18 @@
 	BOOL hasTitle = NO;
 	if (view!=nil)
 	{
-		LayoutConstraint *layout = [view layout];
-		if (TiDimensionIsPixels(layout->height))
+		LayoutConstraint *viewLayout = [view layoutProperties];
+		switch (viewLayout->height.type)
 		{
-			size+=layout->height.value;
-		}
-		else 
-		{
-			size+=DEFAULT_SECTION_HEADERFOOTER_HEIGHT;
+			case TiDimensionTypePixels:
+				size += viewLayout->height.value;
+				break;
+			case TiDimensionTypeAuto:
+				size += [view autoHeightForWidth:[tableView bounds].size.width];
+				break;
+			default:
+				size+=DEFAULT_SECTION_HEADERFOOTER_HEIGHT;
+				break;
 		}
 	}
 	else if ([sectionProxy headerTitle]!=nil)
@@ -1233,14 +1246,18 @@
 	BOOL hasTitle = NO;
 	if (view!=nil)
 	{
-		LayoutConstraint *layout = [view layout];
-		if (TiDimensionIsPixels(layout->height))
+		LayoutConstraint *viewLayout = [view layoutProperties];
+		switch (viewLayout->height.type)
 		{
-			size+=layout->height.value;
-		}
-		else 
-		{
-			size+=DEFAULT_SECTION_HEADERFOOTER_HEIGHT;
+			case TiDimensionTypePixels:
+				size += viewLayout->height.value;
+				break;
+			case TiDimensionTypeAuto:
+				size += [view autoHeightForWidth:[tableView bounds].size.width];
+				break;
+			default:
+				size+=DEFAULT_SECTION_HEADERFOOTER_HEIGHT;
+				break;
 		}
 	}
 	else if ([sectionProxy footerTitle]!=nil)
@@ -1266,6 +1283,9 @@
 
 	lastFocusedView = firstResponderView;
 	CGRect responderRect = [self convertRect:[firstResponderView bounds] fromView:firstResponderView];
+	CGPoint offsetPoint = [tableview contentOffset];
+	responderRect.origin.x += offsetPoint.x;
+	responderRect.origin.y += offsetPoint.y;
 
 	CGRect minimumContentRect = [tableview rectForSection:lastSectionIndex];
 	ModifyScrollViewForKeyboardHeightAndContentHeightWithResponderRect(tableview,keyboardTop,minimumContentRect.size.height + minimumContentRect.origin.y,responderRect);
@@ -1279,6 +1299,42 @@
 	}
 
 	RestoreScrollViewFromKeyboard(tableview);
+}
+
+#pragma Scroll View Delegate
+
+- (BOOL)scrollViewShouldScrollToTop:(UIScrollView *)scrollView 
+{
+	// suspend image loader while we're scrolling to improve performance
+	[[ImageLoader sharedLoader] suspend];
+	return YES;
+}
+
+- (void)scrollViewDidScrollToTop:(UIScrollView *)scrollView 
+{
+	// resume image loader when we're done scrolling
+	[[ImageLoader sharedLoader] resume];
+}
+
+- (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView 
+{
+	// suspend image loader while we're scrolling to improve performance
+	[[ImageLoader sharedLoader] suspend];
+}
+
+- (void)scrollViewDidEndDragging:(UIScrollView *)scrollView willDecelerate:(BOOL)decelerate 
+{
+	if (decelerate==NO)
+	{
+		// resume image loader when we're done scrolling
+		[[ImageLoader sharedLoader] resume];
+	}
+}
+
+- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView 
+{
+	// resume image loader when we're done scrolling
+	[[ImageLoader sharedLoader] resume];
 }
 
 @end

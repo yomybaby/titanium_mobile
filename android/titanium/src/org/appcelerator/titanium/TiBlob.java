@@ -6,14 +6,20 @@
  */
 package org.appcelerator.titanium;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 
+import org.apache.commons.codec.binary.Base64;
 import org.appcelerator.titanium.io.TiBaseFile;
 import org.appcelerator.titanium.util.Log;
 import org.appcelerator.titanium.util.TiConfig;
 import org.appcelerator.titanium.util.TiMimeTypeHelper;
 
 import android.graphics.Bitmap;
+import android.graphics.Bitmap.CompressFormat;
 
 
 public class TiBlob extends TiProxy
@@ -29,7 +35,7 @@ public class TiBlob extends TiProxy
 	private int type;
 	private Object data;
 	private String mimetype;
-
+	private int width, height;
 
 	private TiBlob(TiContext tiContext, int type, Object data, String mimetype)
 	{
@@ -37,6 +43,8 @@ public class TiBlob extends TiProxy
 		this.type = type;
 		this.data = data;
 		this.mimetype = mimetype;
+		this.width = 0;
+		this.height = 0;
 	}
 
 	public static TiBlob blobFromString(TiContext tiContext, String data)
@@ -55,7 +63,16 @@ public class TiBlob extends TiProxy
 	}
 
 	public static TiBlob blobFromImage(TiContext tiContext, Bitmap image) {
-		return new TiBlob(tiContext, TYPE_IMAGE, image, "image/bitmap");
+		ByteArrayOutputStream bos = new ByteArrayOutputStream();
+		byte data[] = new byte[0];
+		if (image.compress(CompressFormat.PNG, 100, bos)) {
+			data = bos.toByteArray();
+		}
+		
+		TiBlob blob = new TiBlob(tiContext, TYPE_IMAGE, data, "image/bitmap");
+		blob.width = image.getWidth();
+		blob.height = image.getHeight();
+		return blob;
 	}
 
 	public static TiBlob blobFromData(TiContext tiContext, byte[] data) {
@@ -77,21 +94,46 @@ public class TiBlob extends TiProxy
 					Log.w(LCAT, e.getMessage(), e);
 				}
 				break;
-			case TYPE_DATA :
+			case TYPE_DATA:
+			case TYPE_IMAGE:
 				//TODO deal with mimetypes.
 				bytes = (byte[]) data;
 				break;
-			case TYPE_FILE :
+			case TYPE_FILE:
 				throw new IllegalStateException("Not yet implemented. TYPE_FILE");
 				//break;
-			case TYPE_IMAGE :
-				throw new IllegalStateException("Not yet implemented TYPE_IMAGE");
-				// break;
 			default :
 				throw new IllegalArgumentException("Unknown Blob type id " + type);
 		}
 
 		return bytes;
+	}
+	
+	public int getLength() {
+		switch (type) {
+			case TYPE_FILE:
+				return (int) ((TiBaseFile)data).getNativeFile().length();
+			case TYPE_DATA:
+			case TYPE_IMAGE:
+				return ((byte[])data).length;
+			default:
+				// this is probably overly expensive.. is there a better way?
+				return getBytes().length;
+		}
+	}
+	
+	public InputStream getInputStream()
+	{
+		switch (type) {
+			case TYPE_FILE:
+			try {
+				return ((TiBaseFile)data).getInputStream();
+			} catch (IOException e) {
+				Log.e(LCAT, e.getMessage(), e);
+			}
+			default:
+				return new ByteArrayInputStream(getBytes());
+		}
 	}
 	
 	public void append(TiBlob blob) {
@@ -104,6 +146,7 @@ public class TiBlob extends TiProxy
 					Log.w(LCAT, e.getMessage(), e);
 				}
 				break;
+			case TYPE_IMAGE:
 			case TYPE_DATA :
 				byte[] dataBytes = (byte[]) data;
 				byte[] appendBytes = blob.getBytes();
@@ -115,9 +158,6 @@ public class TiBlob extends TiProxy
 				break;
 			case TYPE_FILE :
 				throw new IllegalStateException("Not yet implemented. TYPE_FILE");
-				//break;
-			case TYPE_IMAGE :
-				throw new IllegalStateException("Not yet implemented TYPE_IMAGE");
 				// break;
 			default :
 				throw new IllegalArgumentException("Unknown Blob type id " + type);
@@ -134,5 +174,23 @@ public class TiBlob extends TiProxy
 
 	public int getType() {
 		return type;
+	}
+	
+	public int getWidth() {
+		return width;
+	}
+	
+	public int getHeight() {
+		return height;
+	}
+	
+	public String toString()
+	{
+		return "[object TiBlob]";
+	}
+	
+	public String toBase64()
+	{
+		return new String(Base64.encodeBase64(getBytes()));
 	}
 }

@@ -1,3 +1,9 @@
+/**
+ * Appcelerator Titanium Mobile
+ * Copyright (c) 2009-2010 by Appcelerator, Inc. All Rights Reserved.
+ * Licensed under the terms of the Apache Public License
+ * Please see the LICENSE included with this distribution for details.
+ */
 package ti.modules.titanium.ui.widget;
 
 import java.io.IOException;
@@ -20,7 +26,6 @@ import android.view.View.OnClickListener;
 import android.widget.Button;
 
 public class TiUIButton extends TiUIView
-	implements OnClickListener
 {
 	private static final String LCAT = "TiUIButton";
 	private static final boolean DBG = TiConfig.LOGD;
@@ -32,9 +37,10 @@ public class TiUIButton extends TiUIView
 		}
 		Button btn = new Button(proxy.getContext());
 		btn.setOnClickListener(this);
+		btn.setPadding(8, 0, 8, 0);
 		setNativeView(btn);
 	}
-	
+
 	@Override
 	public void processProperties(TiDict d)
 	{
@@ -48,7 +54,7 @@ public class TiUIButton extends TiUIView
 					String url = getProxy().getTiContext().resolveUrl(null, (String)value);
 					TiBaseFile file = TiFileFactory.createTitaniumFile(getProxy().getTiContext(), new String[] { url }, false);
 					Bitmap bitmap = TiUIHelper.createBitmap(file.getInputStream());
-					
+
 					btn.setBackgroundDrawable(new BitmapDrawable(bitmap));
 				} catch (IOException e) {
 					Log.e(LCAT, "Error setting button image", e);
@@ -78,9 +84,5 @@ public class TiUIButton extends TiUIView
 		} else {
 			super.propertyChanged(key, oldValue, newValue, proxy);
 		}
-	}
-
-	public void onClick(View v) {
-		proxy.fireEvent("click", null);
 	}
 }

@@ -15,7 +15,7 @@
 #import "TiDimension.h"
 #import "TiColor.h"
 #import "TiFile.h"
-
+#import "TiBlob.h"
 
 @implementation TiUtils
 
@@ -219,6 +219,25 @@
 	return nil;
 }
 
++(UIImage*)toImage:(id)object proxy:(TiProxy*)proxy
+{
+	if ([object isKindOfClass:[TiBlob class]])
+	{
+		return [(TiBlob *)object image];
+	}
+
+	if ([object isKindOfClass:[TiFile class]])
+	{
+		TiFile *file = (TiFile*)object;
+		UIImage *image = [UIImage imageWithContentsOfFile:[file path]];
+		return image;
+	}
+
+	NSURL * urlAttempt = [self toURL:object proxy:proxy];
+	UIImage * image = [[ImageLoader sharedLoader] loadImmediateImage:urlAttempt];
+	return image;
+	//Note: If url is a nonimmediate image, this returns nil.
+}
 
 +(NSURL*)toURL:(id)object proxy:(TiProxy*)proxy
 {
@@ -761,12 +780,17 @@
 		{
 			NSString *urlstring = [[url standardizedURL] path];
 			NSString *resourceurl = [[NSBundle mainBundle] resourcePath];
-			NSString *appurlstr = [NSString stringWithFormat:@"%@",[urlstring stringByReplacingOccurrencesOfString:[NSString stringWithFormat:@"%@/",resourceurl] withString:@""]];
-			appurlstr = [appurlstr stringByReplacingOccurrencesOfString:@"." withString:@"_"];
+			NSRange range = [urlstring rangeOfString:resourceurl];
+			NSString *appurlstr = urlstring;
+			if (range.location!=NSNotFound)
+			{
+				appurlstr = [urlstring substringFromIndex:range.location + range.length + 1];
+			}
 			if ([appurlstr hasPrefix:@"/"])
 			{
 				appurlstr = [appurlstr substringFromIndex:1];
 			}
+			appurlstr = [appurlstr stringByReplacingOccurrencesOfString:@"." withString:@"_"];
 #ifdef DEBUG			
 			NSLog(@"[DEBUG] loading: %@, resource: %@",urlstring,appurlstr);
 #endif			

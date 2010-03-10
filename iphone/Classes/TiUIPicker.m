@@ -23,6 +23,8 @@
 	[super dealloc];
 }
 
+USE_PROXY_FOR_VERIFY_AUTORESIZING
+
 -(CGFloat)verifyHeight:(CGFloat)suggestedHeight
 {
 	// pickers have a forced height so we use it's height
@@ -89,7 +91,7 @@
 	[self picker];
 }
 
--(void)selectionIndicator_:(id)value
+-(void)setSelectionIndicator_:(id)value
 {
 	if ([self isDatePicker]==NO)
 	{
@@ -160,7 +162,21 @@
 
 - (void)pickerView:(UIPickerView *)pickerView didSelectRow:(NSInteger)row inComponent:(NSInteger)component
 {
-	//TODO: fire event
+	if ([self.proxy _hasListeners:@"change"])
+	{
+		TiUIPickerColumnProxy *proxy = [[self columns] objectAtIndex:component];
+		TiUIPickerRowProxy *rowproxy = [proxy rowAt:row];
+		NSMutableArray *selected = [NSMutableArray array];
+		//TODO: implemented selectedValue
+		NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:
+							   selected,@"selectedValue",
+							   NUMINT(row),@"rowIndex",
+							   NUMINT(component),@"columnIndex",
+							   proxy,@"column",
+							   rowproxy,@"row",
+							   nil];
+		[self.proxy fireEvent:@"change" withObject:event];
+	}
 }
 
 

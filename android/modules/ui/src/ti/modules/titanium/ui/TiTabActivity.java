@@ -1,3 +1,9 @@
+/**
+ * Appcelerator Titanium Mobile
+ * Copyright (c) 2009-2010 by Appcelerator, Inc. All Rights Reserved.
+ * Licensed under the terms of the Apache Public License
+ * Please see the LICENSE included with this distribution for details.
+ */
 package ti.modules.titanium.ui;
 
 import java.lang.ref.WeakReference;
@@ -130,7 +136,9 @@ public class TiTabActivity extends ActivityGroup
 		Intent intent = getIntent();
 		if (intent != null) {
 			if (intent.getBooleanExtra("finishRoot", false)) {
-				((TiApplication) getApplication()).getRootActivity().finish();
+				if (getApplication() != null) {
+					getTiApp().getRootActivity().finish();
+				}
 			}
 		}
 		super.finish();
@@ -139,13 +147,13 @@ public class TiTabActivity extends ActivityGroup
 	@Override
 	protected void onPause() {
 		super.onPause();
-		((TiApplication) getApplication()).setWindowHandler(null);
+		getTiApp().setWindowHandler(null);
 	}
 
 	@Override
 	protected void onResume() {
 		super.onResume();
-		((TiApplication) getApplication()).setWindowHandler(this);
+		getTiApp().setWindowHandler(this);
 	}
 
 }

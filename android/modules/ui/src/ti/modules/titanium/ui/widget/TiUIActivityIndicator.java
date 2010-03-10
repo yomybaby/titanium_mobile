@@ -1,3 +1,9 @@
+/**
+ * Appcelerator Titanium Mobile
+ * Copyright (c) 2009-2010 by Appcelerator, Inc. All Rights Reserved.
+ * Licensed under the terms of the Apache Public License
+ * Please see the LICENSE included with this distribution for details.
+ */
 package ti.modules.titanium.ui.widget;
 
 import org.appcelerator.titanium.TiDict;
@@ -120,7 +126,7 @@ public class TiUIActivityIndicator extends TiUIView
 	protected void handleShow() {
 		TiDict d = proxy.getDynamicProperties();
 
-		String message = "Message not set...";
+		String message = "";
 		if (d.containsKey("message")) {
 			message = d.getString("message");
 		}

@@ -6,6 +6,8 @@
  */
 
 #import "TiUIWebView.h"
+#import "TiUIWebViewProxy.h"
+
 #import "TiUtils.h"
 #import "TiProxy.h"
 #import "SBJSON.h"
@@ -455,6 +457,16 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 	}
 }
 
+
+-(CGFloat)autoHeightForWidth:(CGFloat)value
+{
+	CGRect oldBounds = [[self webview] bounds];
+	[webview setBounds:CGRectMake(0, 0, value, 0)];
+	CGFloat result = [[webview stringByEvaluatingJavaScriptFromString:@"document.height"] floatValue];
+	[webview setBounds:oldBounds];
+	return result;
+}
+
 #pragma mark WebView Delegate
 
 - (BOOL)webView:(UIWebView *)webView shouldStartLoadWithRequest:(NSURLRequest *)request navigationType:(UIWebViewNavigationType)navigationType
@@ -487,6 +499,10 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 		NSDictionary *event = url == nil ? nil : [NSDictionary dictionaryWithObject:[url absoluteString] forKey:@"url"];
 		[self.proxy fireEvent:@"load" withObject:event];
 	}
+	
+	TiViewProxy * ourProxy = (TiViewProxy *)[self proxy];
+	
+	[ourProxy setNeedsRepositionIfAutoSized];
 }
 
 - (void)webView:(UIWebView *)webView didFailLoadWithError:(NSError *)error

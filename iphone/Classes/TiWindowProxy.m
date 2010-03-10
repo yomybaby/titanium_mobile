@@ -41,6 +41,23 @@
 	return proxy;
 }
 
+- (void)viewWillAppear:(BOOL)animated;    // Called when the view is about to made visible. Default does nothing
+{
+	NSLog(@"%@, %@ -> %X",CODELOCATION,self,proxy);
+}
+- (void)viewDidAppear:(BOOL)animated;     // Called when the view has been fully transitioned onto the screen. Default does nothing
+{
+	NSLog(@"%@, %@ -> %X",CODELOCATION,self,proxy);
+}
+- (void)viewWillDisappear:(BOOL)animated; // Called when the view is dismissed, covered or otherwise hidden. Default does nothing
+{
+	NSLog(@"%@, %@ -> %X",CODELOCATION,self,proxy);
+}
+- (void)viewDidDisappear:(BOOL)animated;  // Called after the view was dismissed, covered or otherwise hidden. Default does nothing
+{
+	NSLog(@"%@, %@ -> %X",CODELOCATION,self,proxy);
+}
+
 @end
 
 
@@ -110,11 +127,7 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 	// neither has tabs nor JS
 	if (focused==NO && [self handleFocusEvents])
 	{
-		focused = YES;
-		if ([self _hasListeners:@"focus"])
-		{
-			[self fireEvent:@"focus" withObject:nil];
-		}
+		[self fireFocus:YES];
 	}
 	
 	if (reattachWindows!=nil)
@@ -451,6 +464,18 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 -(NSNumber*)focused
 {
 	return NUMBOOL(focused);
+}
+
+-(void)fireFocus:(BOOL)newFocused;
+{
+	if (newFocused == focused)
+	{
+		NSLog(@"[WARN] Setting focus to %d when it's already set to that.",focused);
+//		return;
+	}
+
+	[self fireEvent: newFocused?@"focus":@"blur" ];
+	focused = newFocused;
 }
 
 #pragma mark Animation Delegates

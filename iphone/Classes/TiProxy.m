@@ -83,13 +83,8 @@ void DoProxyDelegateChangedValuesWithProxy(UIView<TiProxyDelegate> * target, NSS
 		}
 		else
 		{
-			[target performSelectorOnMainThread:sel withObject:newValue waitUntilDone:NO];
+			[target performSelectorOnMainThread:sel withObject:newValue waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
 		}
-	}
-	
-	if (([target superview]!=nil) && [target isRepositionProperty:key])
-	{
-		[target repositionChange:key value:newValue];
 	}
 }
 
@@ -154,7 +149,7 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 		}
 		else
 		{
-			[target performSelectorOnMainThread:sel withObject:newValue waitUntilDone:NO];
+			[target performSelectorOnMainThread:sel withObject:newValue waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
 		}
 
 	}
@@ -523,9 +518,9 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 
 #pragma mark Public
 
--(id<NSFastEnumeration>)validKeys
+-(id<NSFastEnumeration>)allKeys
 {
-	return nil;
+	return [dynprops allKeys];
 }
 
 -(void)addEventListener:(NSArray*)args
@@ -593,9 +588,14 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 	[self _listenerRemoved:type count:count];
 }
 
+-(void)fireEvent:(NSString*)type
+{
+	[self fireEvent:type withObject:nil withSource:self propagate:YES];
+}
+
 -(void)fireEvent:(NSString*)type withObject:(id)obj
 {
-	[self fireEvent:type withObject:obj withSource:self];
+	[self fireEvent:type withObject:obj withSource:self propagate:YES];
 }
 
 -(void)fireEvent:(NSString*)type withObject:(id)obj withSource:(id)source
@@ -610,6 +610,11 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 
 -(void)fireEvent:(NSString*)type withObject:(id)obj withSource:(id)source propagate:(BOOL)propagate
 {
+	if (![self _hasListeners:type])
+	{
+		return;
+	}
+
 	[destroyLock lock];
 	
 	if (listeners!=nil)
@@ -756,13 +761,13 @@ DEFINE_EXCEPTIONS
 - (void) setValue:(id)value forUndefinedKey: (NSString *) key
 {
 	// if the object specifies a validKeys set, we enforce setting against only those keys
-	if (self.validKeys!=nil)
-	{
-		if ([(id)self.validKeys containsObject:key]==NO)
-		{
-			[self throwException:[NSString stringWithFormat:@"property '%@' not supported",key] subreason:nil location:CODELOCATION];
-		}
-	}
+//	if (self.validKeys!=nil)
+//	{
+//		if ([(id)self.validKeys containsObject:key]==NO)
+//		{
+//			[self throwException:[NSString stringWithFormat:@"property '%@' not supported",key] subreason:nil location:CODELOCATION];
+//		}
+//	}
 	
 	id current = nil;
 	if (dynPropsLock==nil)

@@ -33,12 +33,14 @@
 	
 	BOOL keyboardShowing;
 	id remoteNotificationDelegate;
-	id remoteNotification;
+	NSDictionary* remoteNotification;
+	
+	NSString *sessionId;
 }
 
 @property (nonatomic, retain) IBOutlet UIWindow *window;
 @property (nonatomic, assign) id remoteNotificationDelegate;
-@property (nonatomic, readonly) id remoteNotification;
+@property (nonatomic, readonly) NSDictionary* remoteNotification;
 
 +(TitaniumApp*)app;
 
@@ -59,6 +61,7 @@
 -(void)dismissModalController:(BOOL)animated;
 
 -(NSString*)userAgent;
+-(NSString*)sessionId;
 
 -(BOOL)isKeyboardShowing;
 

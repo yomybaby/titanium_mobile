@@ -1,6 +1,24 @@
 var win = Titanium.UI.currentWindow;
 win.backgroundColor = 'black';
 
+// initialize to all modes
+win.orientationModes = [
+	Titanium.UI.PORTRAIT,
+	Titanium.UI.LANDSCAPE_LEFT,
+	Titanium.UI.LANDSCAPE_RIGHT,
+];
+
+
+//
+// orientation change listener
+//
+Ti.Gesture.addEventListener('orientationchange',function(e)
+{
+
+	// get orienation from event object
+	var orientation = getOrientation(e.orientation);
+});
+
 var view1 = Ti.UI.createView({
 	backgroundColor:'red'
 });
@@ -50,12 +68,13 @@ var scrollView = Titanium.UI.createScrollableView({
 	views:[view1,view2,view3,view4],
 	showPagingControl:true,
 	pagingControlHeight:30,
-	maxZoomScale:2.0
+	maxZoomScale:2.0,
+	currentPage:1
 });
 
 win.add(scrollView);
 
-var i=0;
+var i=1;
 var activeView = view1;
 
 scrollView.addEventListener('scroll', function(e)
@@ -157,35 +176,53 @@ var flexSpace = Titanium.UI.createButton({
 	systemButton:Titanium.UI.iPhone.SystemButton.FLEXIBLE_SPACE
 });
 
-if (Titanium.Platform.name == 'iphone') {
+if (Titanium.Platform.osname == 'iphone')
+{
 	// set toolbar
 	win.setToolbar([flexSpace,left,change,add,jump,right,flexSpace]);
-} else {
+}
+else
+{
 	var toolbar = Titanium.UI.createView({
-		bottom: 5,
-		width: 'auto',
-		height: 30,
-		backgroundColor: '#333'
+		bottom: 10,
+		height: 50,
+		backgroundColor: '#333333',
+		borderRadius: 10,
+		opacity: 0.3,
+		left: 10,
+		right: 10
 	});
-	left.left = 25;
+
+	var floater = Titanium.UI.createView({
+		width:320,
+		height: 'auto',
+		opacity: 0
+	})
+
+	toolbar.add(floater);
+
+	left.left = 10;
 	left.width = 30;
-	
+
 	change.left = 50;
-	change.width = 100;
-	
-	add.left = 155;
-	add.width = 50;
-	
+	change.width = 70;
+	change.height = 35;
+
+	add.left = 130;
+	add.width = 70;
+	add.height = 35;
+
 	jump.left = 210;
-	jump.width = 65;
-	
-	right.left = 280;
+	jump.width = 70;
+	jump.height = 35;
+
+	right.right = 10;
 	right.width = 30;
-	
-	toolbar.add(left);
-	toolbar.add(change);
-	toolbar.add(add);
-	toolbar.add(jump);
-	toolbar.add(right);
+
+	floater.add(left);
+	floater.add(change);
+	floater.add(add);
+	floater.add(jump);
+	floater.add(right);
 	win.add(toolbar);
 }

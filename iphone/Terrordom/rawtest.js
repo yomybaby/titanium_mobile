@@ -1,43 +1,38 @@
-// anchor_stretch.js
-
-// test case showing anchorPoint having no effect on animating width
-// Kosso
-
-
 var win = Titanium.UI.currentWindow;
+win.backgroundImage = 'Default.png';
 
-var label = Titanium.UI.createLabel({
-	text:'Click the rectangle to animate its width to 50 pixels over 1 second.\n\nShould be anchorPoint top-left\n set using:\nanchorPoint:{x:0,y:0}',
-	top:20,
-	width:290,
-	borderWidth:1,
-	borderColor:'#444',
-	height:'auto',
-	color:'#000',
-	textAlign:'center',
-	layout:'vertical'
-});
+var imgWidth = (273/2);
+var imgHeight = (613/2);
 
-win.add(label);
+var bodyTone = Ti.UI.createMaskedImage({mask:'body_mask.png',
+	top:50,left:10,height:imgHeight,width:imgWidth,
+	tint:'white'
+	});
 
+var bodyOutline = Ti.UI.createMaskedImage({mask:'body_lines.png',
+	top:50,left:10,height:imgHeight,width:imgWidth,
+	tint:'black'
+	});
 
-// create a rectangular view with anchorPoint top-left
-var rectangle = Titanium.UI.createView({
-	height:50,
-	width:300,
-	borderWidth:1,
-	borderColor:'#444',
-	backgroundColor:'#FF0',
-	top:20,
-//	center:{x:0,y:0},
-	anchorPoint:{x:0,y:0},
-	layout:'vertical'
-});
+var head = Ti.UI.createMaskedImage({mask:'head_mask.png',
+	top:-10,left:25,height:120,width:80,
+	});
 
-win.add(rectangle);
+win.add(bodyTone);
+win.add(bodyOutline);
+win.add(head);
 
+var changeHead = Ti.UI.createButton({width:60,top:10,right:10,height:30,title:'Use Pic...'});
+win.add(changeHead);
 
-// on click animate width to 50 over 1 second
-rectangle.addEventListener('click', function(){
-	rectangle.animate({width:50, duration:1000});	
+changeHead.addEventListener('click',function(e){
+	Titanium.Media.openPhotoGallery({
+	success:function(event)
+	{
+		var image = event.media;
+		// set image view
+		head.image = image;
+	},
+	allowImageEditing:true,
+	});
 });

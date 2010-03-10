@@ -11,7 +11,7 @@
 #import "TiBlob.h"
 #import "TiRect.h"
 #import <QuartzCore/QuartzCore.h>
-
+#import <libkern/OSAtomic.h>
 
 @implementation TiViewProxy
 
@@ -94,7 +94,7 @@
 	if (view!=nil)
 	{
 		TiUIView *childView = [(TiViewProxy *)arg view];
-		BOOL verticalNeedsRearranging = TiLayoutRuleIsVertical([childView layout]->layout);
+		BOOL verticalNeedsRearranging = TiLayoutRuleIsVertical([view layoutProperties]->layout);
 		if ([NSThread isMainThread])
 		{
 			[childView removeFromSuperview];
@@ -108,7 +108,7 @@
 			[self performSelectorOnMainThread:@selector(removeFromSuperview) withObject:childView waitUntilDone:NO];
 			if (verticalNeedsRearranging)
 			{
-				[self performSelectorOnMainThread:@selector(layout) withObject:nil waitUntilDone:NO];
+				[self performSelectorOnMainThread:@selector(layout) withObject:nil waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
 			}
 		}
 	}
@@ -211,6 +211,14 @@
 	return view!=nil;
 }
 
+//CAUTION: TO BE USED ONLY WITH TABLEVIEW MAGIC
+-(void)setView:(TiUIView *)newView
+{
+	[view release];
+	view = [newView retain];
+	self.modelDelegate = newView;
+}
+
 -(void)detachView
 {
 	if (view!=nil)
@@ -306,11 +314,7 @@
 {
 	[self willFirePropertyChanges];
 	
-	id<NSFastEnumeration> values = [self validKeys];
-	if (values == nil)
-	{
-		values = [dynprops allKeys];
-	}
+	id<NSFastEnumeration> values = [self allKeys];
 	
 	[view readProxyValuesWithKeys:values];
 
@@ -370,9 +374,9 @@
 		[self viewDidAttach];
 
 		// make sure we do a layout of ourselves
-		LayoutConstraint layout;
-		ReadConstraintFromDictionary(&layout,[self allProperties]);
-		[view updateLayout:&layout withBounds:view.bounds];
+//		LayoutConstraint layout;
+//		ReadConstraintFromDictionary(&layout,[self allProperties]);
+		[view updateLayout:NULL withBounds:view.bounds];
 		
 		viewInitialized = YES;
 	}
@@ -398,16 +402,18 @@
 		[view addSubview:childView];
 	}
 	
-	LayoutConstraint ourLayoutConstraint;
-	ReadConstraintFromDictionary(&ourLayoutConstraint,[child allProperties]);
+//	LayoutConstraint ourLayoutConstraint;
+//	ReadConstraintFromDictionary(&ourLayoutConstraint,[child allProperties]);
 
-	if(TiLayoutRuleIsVertical(ourLayoutConstraint.layout)){
+	if(TiLayoutRuleIsVertical(layoutProperties.layout)){
 		bounds.origin.y += verticalLayoutBoundary;
 		bounds.size.height = [child minimumParentHeightForWidth:bounds.size.width];
 		verticalLayoutBoundary += bounds.size.height;
 	}
 
-	[[child view] updateLayout:&ourLayoutConstraint withBounds:bounds];
+//	[child setLayoutProperties:<#(LayoutConstraint *)#>
+
+	[[child view] updateLayout:NULL withBounds:bounds];
 	
 	// tell our children to also layout
 	[child layoutChildren];
@@ -417,6 +423,11 @@
 {
 	verticalLayoutBoundary = 0.0;
 	// now ask each of our children for their view
+	if (view==nil)
+	{
+		return;
+	}
+	OSAtomicTestAndSetBarrier(NEEDS_LAYOUT_CHILDREN, &dirtyflags);
 	if (self.children!=nil)
 	{
 		[childLock lock];
@@ -426,6 +437,7 @@
 		}
 		[childLock unlock];
 	}
+	OSAtomicTestAndClearBarrier(NEEDS_LAYOUT_CHILDREN, &dirtyflags);
 }
 
 -(CGRect)appFrame
@@ -513,7 +525,7 @@
 	return NO;
 }
 
--(TiUIView *)barButtonView
+- (TiUIView *)barButtonViewForSize:(CGSize)bounds
 {
 	return nil;
 }
@@ -530,41 +542,201 @@
 
 #pragma mark For autosizing of table views
 
-
--(CGFloat)minimumParentHeightForWidth:(CGFloat)suggestedWidth
+-(LayoutConstraint *)layoutProperties
 {
-	if ([self viewAttached])
+	return &layoutProperties;
+}
+
+-(void)setLayoutProperties:(LayoutConstraint *)newLayout
+{
+	layoutProperties = *newLayout;
+}
+
+
+-(CGFloat)autoWidthForWidth:(CGFloat)suggestedWidth
+{
+	CGFloat result = 0.0;
+	for (TiViewProxy * thisChildProxy in children)
 	{
-		//Since it's expensive to extract from properties, let's cheat if the view already is there.
-		return [view minimumParentHeightForWidth:suggestedWidth];
+		result = MAX(result,[thisChildProxy minimumParentWidthForWidth:suggestedWidth]);
 	}
+	return MIN(suggestedWidth,result);
+//	return MIN(suggestedWidth,AutoWidthForView([self view], suggestedWidth));
+}
 
-	TiDimension topDimension = TiDimensionFromObject([self valueForKey:@"top"]);
-	TiDimension botDimension = TiDimensionFromObject([self valueForKey:@"bottom"]);
-	TiDimension heightDimension = TiDimensionFromObject([self valueForKey:@"height"]);	
+-(CGFloat)autoHeightForWidth:(CGFloat)width
+{
+	BOOL isVertical = TiLayoutRuleIsVertical(layoutProperties.layout);
+	CGFloat result=0.0;
 
-	CGFloat result = TiDimensionCalculateValue(topDimension, 0)
-			+ TiDimensionCalculateValue(botDimension, 0);
-	switch (heightDimension.type)
+	for (TiViewProxy * thisChildProxy in children)
 	{
-		case TiDimensionTypePixels:
+		CGFloat thisHeight = [thisChildProxy minimumParentHeightForWidth:width];
+		if (isVertical)
 		{
-			result += heightDimension.value;
-			break;
+			result += thisHeight;
 		}
-		case TiDimensionTypeAuto:
+		else if(result<thisHeight)
 		{
-			if ([self respondsToSelector:@selector(autoHeightForWidth:)])
-			{
-				TiDimension leftDimension = TiDimensionFromObject([self valueForKey:@"left"]);
-				TiDimension rightDimension = TiDimensionFromObject([self valueForKey:@"right"]);
-				suggestedWidth -= TiDimensionCalculateValue(leftDimension, 0)
-						+ TiDimensionCalculateValue(rightDimension, 0);
-				result += [self autoHeightForWidth:suggestedWidth];
-			}
+			result = thisHeight;
 		}
 	}
 	return result;
 }
+
+-(CGFloat)minimumParentWidthForWidth:(CGFloat)suggestedWidth
+{
+	CGFloat result = TiDimensionCalculateValue(layoutProperties.left, 0)
+			+ TiDimensionCalculateValue(layoutProperties.right, 0);
+	if (TiDimensionIsPixels(layoutProperties.width))
+	{
+		result += layoutProperties.width.value;
+	}
+	else if(TiDimensionIsAuto(layoutProperties.width))
+	{
+		result += [self autoWidthForWidth:suggestedWidth - result];
+	}
+	return result;
+}
+
+-(CGFloat)minimumParentHeightForWidth:(CGFloat)suggestedWidth
+{
+	CGFloat result = TiDimensionCalculateValue(layoutProperties.top, 0)
+			+ TiDimensionCalculateValue(layoutProperties.bottom, 0);
+
+	if (TiDimensionIsPixels(layoutProperties.height))
+	{
+		result += layoutProperties.height.value;
+	}
+	else if(TiDimensionIsAuto(layoutProperties.height))
+	{
+		result += [self autoHeightForWidth:TiDimensionCalculateMargins(layoutProperties.left, layoutProperties.right, suggestedWidth)];
+	}
+	return result;
+}
+
+-(void)layoutChildrenIfNeeded
+{
+	BOOL wasSet=OSAtomicTestAndSetBarrier(NEEDS_LAYOUT_CHILDREN, &dirtyflags);
+	if (wasSet && [self viewAttached])
+	{
+		[self repositionIfNeeded];
+		[self layoutChildren];
+	}
+}
+
+-(void)childResized:(TiViewProxy *)child
+{
+	BOOL alreadySet = OSAtomicTestAndSetBarrier(NEEDS_LAYOUT_CHILDREN, &dirtyflags);
+	if (alreadySet)
+	{
+		return;
+	}
+	
+	ENSURE_CONSISTENCY([children containsObject:child]);
+	[self setNeedsRepositionIfAutoSized];
+
+	if (TiLayoutRuleIsVertical(layoutProperties.layout))
+	{
+		[self performSelectorOnMainThread:@selector(layoutChildrenIfNeeded) withObject:nil waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
+	}
+}
+
+-(void)repositionWithBounds:(CGRect)bounds
+{
+	OSAtomicTestAndClearBarrier(NEEDS_REPOSITION, &dirtyflags);
+	[[self view] relayout:bounds];
+	[self layoutChildren];
+}
+
+-(void)reposition
+{
+	if (![self viewAttached])
+	{
+		return;
+	}
+	if ([NSThread isMainThread])
+	{	//NOTE: This will cause problems with ScrollableView, or is a new wrapper needed?
+		[self repositionWithBounds:[[self view] superview].bounds];
+	}
+	else 
+	{
+		[self performSelectorOnMainThread:@selector(reposition) withObject:nil waitUntilDone:NO];
+	}
+
+}
+
+-(void)repositionIfNeeded
+{
+	BOOL wasSet=OSAtomicTestAndClearBarrier(NEEDS_REPOSITION, &dirtyflags);
+	if (wasSet && [self viewAttached])
+	{
+		[self reposition];
+	}
+}
+
+-(void)setNeedsReposition
+{
+	if (![self viewAttached])
+	{
+		return;
+	}
+	BOOL alreadySet = OSAtomicTestAndSetBarrier(NEEDS_REPOSITION, &dirtyflags);
+	if (alreadySet)
+	{
+		return;
+	}
+
+	[self performSelectorOnMainThread:@selector(repositionIfNeeded) withObject:nil waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
+}
+
+-(void)clearNeedsReposition
+{
+	OSAtomicTestAndClearBarrier(NEEDS_REPOSITION, &dirtyflags);
+}
+
+-(void)setNeedsRepositionIfAutoSized
+{
+	if (TiDimensionIsAuto(layoutProperties.width) || TiDimensionIsAuto(layoutProperties.height))
+	{
+		[self setNeedsReposition];
+	}
+}
+
+
+#define LAYOUTPROPERTIES_SETTER(methodName,layoutName,converter)	\
+-(void)methodName:(id)value	\
+{	\
+	layoutProperties.layoutName = converter(value);	\
+	[self setNeedsReposition];	\
+	[self replaceValue:value forKey:@#layoutName notification:YES];	\
+}
+
+LAYOUTPROPERTIES_SETTER(setTop,top,TiDimensionFromObject)
+LAYOUTPROPERTIES_SETTER(setBottom,bottom,TiDimensionFromObject)
+
+LAYOUTPROPERTIES_SETTER(setLeft,left,TiDimensionFromObject)
+LAYOUTPROPERTIES_SETTER(setRight,right,TiDimensionFromObject)
+
+LAYOUTPROPERTIES_SETTER(setWidth,width,TiDimensionFromObject)
+LAYOUTPROPERTIES_SETTER(setHeight,height,TiDimensionFromObject)
+
+LAYOUTPROPERTIES_SETTER(setLayout,layout,TiLayoutRuleFromObject)
+
+-(void)setCenter:(id)value
+{
+	if (![value isKindOfClass:[NSDictionary class]])
+	{
+		layoutProperties.centerX = TiDimensionUndefined;
+		layoutProperties.centerY = TiDimensionUndefined;
+	}
+	else
+	{
+		layoutProperties.centerX = TiDimensionFromObject([value objectForKey:@"x"]);
+		layoutProperties.centerY = TiDimensionFromObject([value objectForKey:@"y"]);
+	}
+	[self setNeedsReposition];
+}
+
 
 @end

@@ -33,6 +33,7 @@ DEFINE_EXCEPTIONS
 	RELEASE_TO_NIL(images);
 	RELEASE_TO_NIL(container);
 	RELEASE_TO_NIL(previous);
+	RELEASE_TO_NIL(urlRequest);
 	[super dealloc];
 }
 
@@ -168,11 +169,6 @@ DEFINE_EXCEPTIONS
 	[[OperationQueue sharedQueue] queue:@selector(loadImageInBackground:) target:self arg:[NSNumber numberWithInt:index_] after:nil on:nil ui:NO];
 }
 
--(void)queueURLImage:(NSURL*)url
-{
-	[[OperationQueue sharedQueue] queue:@selector(loadURLImageInBackground:) target:self arg:url after:nil on:nil ui:NO];
-}
-
 -(void)startTimer
 {
 	RELEASE_TO_NIL(timer);
@@ -292,7 +288,7 @@ DEFINE_EXCEPTIONS
 		[TiUtils setView:iv positionRect:[self bounds]];
 		[self sendSubviewToBack:iv];
 		[iv release];
-		[self reposition];
+		[(TiViewProxy *)[self proxy] setNeedsReposition];
 
 		// do a nice fade in animation to replace the new incoming image
 		// with our placeholder
@@ -321,7 +317,7 @@ DEFINE_EXCEPTIONS
 {
 	UIImage *image = [[ImageLoader sharedLoader] loadRemote:url];
 	image = [self scaleImageIfRequired:image];
-	[self performSelectorOnMainThread:@selector(setURLImageOnUIThread:) withObject:image waitUntilDone:NO];
+	[self performSelectorOnMainThread:@selector(setURLImageOnUIThread:) withObject:image waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
 }
 
 -(void)loadImageInBackground:(NSNumber*)pos
@@ -335,7 +331,9 @@ DEFINE_EXCEPTIONS
 	}
 	if (theimage!=nil)
 	{
-		[self performSelectorOnMainThread:@selector(setImageOnUIThread:) withObject:[NSArray arrayWithObjects:theimage,pos,nil] waitUntilDone:NO];
+		[self performSelectorOnMainThread:@selector(setImageOnUIThread:)
+				withObject:[NSArray arrayWithObjects:theimage,pos,nil]
+				waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
 	}
 	else 
 	{
@@ -521,6 +519,13 @@ DEFINE_EXCEPTIONS
 		return;
 	}
 	
+	// cancel a pending request if we have one pending
+	if (urlRequest!=nil)
+	{
+		[urlRequest cancel];
+		RELEASE_TO_NIL(urlRequest);
+	}
+	
 	if (img!=nil)
 	{
 		// remove current subview
@@ -566,7 +571,7 @@ DEFINE_EXCEPTIONS
 				[iv release];
 			}
 			placeholderLoading = YES;
-			[self queueURLImage:url_];
+			urlRequest = [[[ImageLoader sharedLoader] loadImage:url_ delegate:self userInfo:nil] retain];
 			return;
 		}
 		if (image!=nil)
@@ -581,7 +586,7 @@ DEFINE_EXCEPTIONS
 			{
 				autoWidth = image.size.width;
 				autoHeight = image.size.height;
-				[self reposition];
+				[(TiViewProxy *)[self proxy] setNeedsReposition];
 			}
 			
 			if ([self.proxy _hasListeners:@"load"])
@@ -612,11 +617,49 @@ DEFINE_EXCEPTIONS
 	reverse = [TiUtils boolValue:value];
 }
 
+-(void)setReload__:(id)value
+{
+	// this is internally called when we cancelled this image load to force
+	// the url to be reloaded - otherwise the tableview cell will think we 
+	// have the same url and not call us to re-render
+	[self setUrl_:[self.proxy valueForKey:@"url"]];
+}
+
 #pragma mark Configuration 
 
 -(void)configurationSet
 {
 	[self setUrl_:[self.proxy valueForKey:@"url"]];
+}
+
+
+#pragma mark ImageLoader delegates
+
+-(void)imageLoadSuccess:(ImageLoaderRequest*)request image:(UIImage*)image
+{
+	if (request == urlRequest)
+	{
+		image = [self scaleImageIfRequired:image];
+		[self performSelectorOnMainThread:@selector(setURLImageOnUIThread:) withObject:image waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
+		RELEASE_TO_NIL(urlRequest);
+	}
+}
+
+-(void)imageLoadFailed:(ImageLoaderRequest*)request error:(NSError*)error
+{
+	if (request == urlRequest)
+	{
+		NSLog(@"[ERROR] Failed to load image: %@, Error: %@",[request url], error);
+		RELEASE_TO_NIL(urlRequest);
+	}
+}
+
+-(void)imageLoadCancelled:(ImageLoaderRequest *)request
+{
+	// we place a value in the proxy to cause us to force a reload - since on a cancel
+	// the url will be the same and the table view won't call us unless the proxy value
+	// is different
+	[self.proxy replaceValue:NUMLONG([NSDate timeIntervalSinceReferenceDate]) forKey:@"reload_" notification:NO];	
 }
 
 

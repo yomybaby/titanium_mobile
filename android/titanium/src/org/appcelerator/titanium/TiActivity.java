@@ -20,6 +20,7 @@ import org.appcelerator.titanium.view.TiCompositeLayout;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -122,6 +123,9 @@ public class TiActivity extends Activity
 			        	} catch (RemoteException e) {
 			        		Log.e(LCAT, "Unable to message creator. finishing.");
 			        		me.finish();
+			        	} catch (RuntimeException e) {
+			        		Log.e(LCAT, "Unable to message creator. finishing.");
+			        		me.finish();
 			        	}
 			        }
 				}
@@ -220,6 +224,19 @@ public class TiActivity extends Activity
 		return super.onPrepareOptionsMenu(menu);
 	}
 
+
+	@Override
+	public void onConfigurationChanged(Configuration newConfig)
+	{
+		super.onConfigurationChanged(newConfig);
+
+		for (WeakReference<TiContext> contextRef : contexts) {
+			if (contextRef.get() != null) {
+				contextRef.get().dispatchOnConfigurationChanged(newConfig);
+			}
+		}
+	}
+
 	@Override
 	protected void onPause() {
 		super.onPause();
@@ -273,15 +290,15 @@ public class TiActivity extends Activity
 		}
 	}
 
-//	@Override
-//	public void finish()
-//	{
-//		Intent intent = getIntent();
-//		if (intent != null) {
-//			if (intent.getBooleanExtra("finishRoot", false)) {
-//				((TiApplication) getApplication()).getRootActivity().finish();
-//			}
-//		}
-//		super.finish();
-//	}
+	@Override
+	public void finish()
+	{
+		TiDict data = new TiDict();
+		for (WeakReference<TiContext> contextRef : contexts) {
+			if (contextRef.get() != null) {
+				contextRef.get().dispatchEvent("close", data);
+			}
+		}
+		super.finish();
+	}
 }

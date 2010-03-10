@@ -11,9 +11,11 @@
 
 @implementation TiUILabelProxy
 
+USE_VIEW_FOR_AUTO_WIDTH
+
 -(CGFloat)autoHeightForWidth:(CGFloat)suggestedWidth
 {
-	NSString *value = [self valueForKey:@"text"];
+	NSString *value = [TiUtils stringValue:[self valueForKey:@"text"]];
 	id fontValue = [self valueForKey:@"font"];
 	UIFont *font = nil;
 	if (fontValue!=nil)
@@ -24,14 +26,9 @@
 	{
 		font = [UIFont systemFontOfSize:[UIFont labelFontSize]];
 	}
-	CGSize maxSize = CGSizeMake(suggestedWidth, 1000);
+	CGSize maxSize = CGSizeMake(suggestedWidth, 1E100);
 	CGSize size = [value sizeWithFont:font constrainedToSize:maxSize lineBreakMode:UILineBreakModeTailTruncation];
-	TiDimension top = [TiUtils dimensionValue:[self valueForKey:@"top"]];
-	TiDimension bottom = [TiUtils dimensionValue:[self valueForKey:@"bottom"]];
-	CGFloat result = size.height + 
-			(TiDimensionIsPixels(top) ? top.value : 0) +
-			(TiDimensionIsPixels(bottom) ? bottom.value : 0) ;		
-	return result;
+	return size.height;
 }
 
 @end

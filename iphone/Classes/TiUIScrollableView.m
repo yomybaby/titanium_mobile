@@ -109,7 +109,7 @@
 		return;
 	}
 
-	NSLog(@"Rendering for view %d.",index);
+//	NSLog(@"Rendering for view %d.",index);
 
 	UIView *wrapper = [[sv subviews] objectAtIndex:index];
 	if ([[wrapper subviews] count]==0)
@@ -118,7 +118,7 @@
 		TiViewProxy *viewproxy = [views objectAtIndex:index];
 		TiUIView *uiview = [viewproxy view];
 		[wrapper addSubview:uiview];
-		[uiview reposition];
+		[viewproxy reposition];
 		[viewproxy layoutChildren];
 	}
 }
@@ -242,9 +242,14 @@
 {
 	if (!CGRectIsEmpty(visibleBounds))
 	{
-		UIScrollView *sv = [self scrollview];
-		BOOL readd = [sv subviews]==0 || [views count]!=[[sv subviews] count];
+	//	UIScrollView *sv = [self scrollview];
+		BOOL readd = YES; //[sv subviews]==0 || [views count]!=[[sv subviews] count];
 		[self refreshScrollView:visibleBounds readd:readd];
+		
+		if (![scrollview isDecelerating] && ![scrollview isDragging] && ![scrollview isTracking])
+		{
+			[scrollview setContentOffset:CGPointMake(currentPage*visibleBounds.size.width,0)];
+		}
 	}
 }
 
@@ -384,7 +389,7 @@
 		if (currentPage==pageNum)
 		{
 			currentPage = [views count]-1;
-			[self.proxy replaceValue:NUMINT(pageNum) forKey:@"currentPage" notification:NO];
+			[self.proxy replaceValue:NUMINT(currentPage) forKey:@"currentPage" notification:NO];
 		}
 		TiViewProxy *viewproxy = [views objectAtIndex:pageNum];
 		[viewproxy setParent:nil];

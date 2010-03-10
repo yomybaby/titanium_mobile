@@ -21,7 +21,8 @@ void ModifyScrollViewForKeyboardHeightAndContentHeightWithResponderRect(UIScroll
 void RestoreScrollViewFromKeyboard(UIScrollView * scrollView);
 
 CGFloat AutoWidthForView(UIView * superView,CGFloat suggestedWidth);
-CGFloat AutoHeightForView(UIView * superView,CGFloat suggestedWidth);
+CGFloat AutoHeightForView(UIView * superView,CGFloat suggestedWidth,BOOL isVertical);
+//CGFloat AutoHeightForView(UIView * superView,CGFloat suggestedWidth);
 
 
 @class TiViewProxy;
@@ -32,7 +33,6 @@ CGFloat AutoHeightForView(UIView * superView,CGFloat suggestedWidth);
 	TiProxy *proxy;
 	TiViewProxy *parent;
 	TiAnimation *animation;
-	LayoutConstraint layout;
 	
 	CGAffineTransform virtualParentTransform;
 	id transformMatrix;
@@ -54,12 +54,15 @@ CGFloat AutoHeightForView(UIView * superView,CGFloat suggestedWidth);
 	UIView *touchDelegate;		 // used for touch delegate forwarding
 	BOOL animating;
 	BOOL repositioning;
+	
+	//Resizing handling
+	CGSize oldSize;
 }
 
 @property(nonatomic,readwrite,assign)	TiProxy *proxy;
 @property(nonatomic,readwrite,assign)	TiViewProxy *parent;
 @property(nonatomic,readonly)			unsigned	int zIndex;
-@property(nonatomic,readonly)			LayoutConstraint *layout;
+@property(nonatomic,readonly)			LayoutConstraint *layoutProperties;
 @property(nonatomic,readwrite,assign)	UIView *touchDelegate;
 @property(nonatomic,readonly)			id transformMatrix;
 
@@ -83,10 +86,10 @@ CGFloat AutoHeightForView(UIView * superView,CGFloat suggestedWidth);
 
 -(id)proxyValueForKey:(NSString *)key;
 -(void)readProxyValuesWithKeys:(id<NSFastEnumeration>)keys;
+-(void)transferProxy:(TiViewProxy*)newProxy;
 
 -(void)updateLayout:(LayoutConstraint*)layout withBounds:(CGRect)bounds;
 -(void)relayout:(CGRect)bounds;
--(void)reposition;
 -(void)frameSizeChanged:(CGRect)frame bounds:(CGRect)bounds;
 -(void)insertIntoView:(UIView*)view bounds:(CGRect)bounds;
 -(void)makeRootViewFirstResponder;
@@ -99,3 +102,21 @@ CGFloat AutoHeightForView(UIView * superView,CGFloat suggestedWidth);
 -(BOOL)hasTouchableListener;
 
 @end
+
+#pragma mark TO REMOVE, used only during transition.
+
+#define USE_PROXY_FOR_METHOD(resultType,methodname,inputType)	\
+-(resultType)methodname:(inputType)value	\
+{	\
+	NSLog(@"[INFO] Using view proxy via redirection instead of directly for %@.",self);	\
+	return [(TiViewProxy *)[self proxy] methodname:value];	\
+}
+
+#define USE_PROXY_FOR_VERIFY_AUTORESIZING	USE_PROXY_FOR_METHOD(UIViewAutoresizing,verifyAutoresizing,UIViewAutoresizing)
+#define USE_PROXY_FOR_AUTO_HEIGHT			USE_PROXY_FOR_METHOD(CGFloat,autoWidthForWidth,CGFloat)
+#define USE_PROXY_FOR_AUTO_WIDTH			USE_PROXY_FOR_METHOD(CGFloat,autoHeightForWidth,CGFloat)
+#define USE_PROXY_FOR_MIN_PARENT_WIDTH		USE_PROXY_FOR_METHOD(CGFloat,minimumParentWidthForWidth,CGFloat)
+#define USE_PROXY_FOR_MIN_PARENT_HEIGHT		USE_PROXY_FOR_METHOD(CGFloat,minimumParentHeightForWidth,CGFloat)
+
+
+

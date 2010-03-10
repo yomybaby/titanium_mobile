@@ -1,3 +1,9 @@
+/**
+ * Appcelerator Titanium Mobile
+ * Copyright (c) 2009-2010 by Appcelerator, Inc. All Rights Reserved.
+ * Licensed under the terms of the Apache Public License
+ * Please see the LICENSE included with this distribution for details.
+ */
 package ti.modules.titanium.network;
 
 import org.appcelerator.titanium.TiContext;
@@ -142,7 +148,7 @@ public class NetworkModule extends TiModule {
 	{
 		boolean result = false;
 
-		NetworkInfo ni = connectivityManager.getActiveNetworkInfo();
+		NetworkInfo ni = getConnectivityManager().getActiveNetworkInfo();
 
 		if(ni != null && ni.isAvailable() && ni.isConnected()) {
 			result = true;

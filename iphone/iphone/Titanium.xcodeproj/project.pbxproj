@@ -159,7 +159,6 @@
 		245E768F111A9A7800A18644 /* Ti2DMatrix.h in Headers */ = {isa = PBXBuildFile; fileRef = 24CA8AED111161FE0084E2DE /* Ti2DMatrix.h */; };
 		245E7690111A9A7800A18644 /* OperationQueue.h in Headers */ = {isa = PBXBuildFile; fileRef = 24CA8AFF111161FE0084E2DE /* OperationQueue.h */; };
 		245E7691111A9A7800A18644 /* Mimetypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 24CA8B03111161FE0084E2DE /* Mimetypes.h */; };
-		245E7692111A9A7800A18644 /* LayoutEntry.h in Headers */ = {isa = PBXBuildFile; fileRef = 24CA8B09111161FE0084E2DE /* LayoutEntry.h */; };
 		245E7693111A9A7800A18644 /* LayoutConstraint.h in Headers */ = {isa = PBXBuildFile; fileRef = 24CA8B0B111161FE0084E2DE /* LayoutConstraint.h */; };
 		245E7694111A9A7800A18644 /* ImageLoader.h in Headers */ = {isa = PBXBuildFile; fileRef = 24CA8B0D111161FE0084E2DE /* ImageLoader.h */; };
 		245E7695111A9A7800A18644 /* TiUITableViewRowProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = 24CA8B3A111161FE0084E2DE /* TiUITableViewRowProxy.h */; };
@@ -215,6 +214,14 @@
 		24A1EAFF112F4C02003DA834 /* UIImage+Alpha.m in Sources */ = {isa = PBXBuildFile; fileRef = 24A1EAF1112F4C02003DA834 /* UIImage+Alpha.m */; };
 		24A1EB00112F4C02003DA834 /* UIImage+Resize.m in Sources */ = {isa = PBXBuildFile; fileRef = 24A1EAF3112F4C02003DA834 /* UIImage+Resize.m */; };
 		24A1EB01112F4C02003DA834 /* UIImage+RoundedCorner.m in Sources */ = {isa = PBXBuildFile; fileRef = 24A1EAF5112F4C02003DA834 /* UIImage+RoundedCorner.m */; };
+		24C012891140D30B00A94CE2 /* TiUIMaskedImageProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = 24C012881140D30B00A94CE2 /* TiUIMaskedImageProxy.m */; };
+		24C0128A1140D30B00A94CE2 /* TiUIMaskedImageProxy.h in Headers */ = {isa = PBXBuildFile; fileRef = 24C012871140D30B00A94CE2 /* TiUIMaskedImageProxy.h */; };
+		24C0128B1140D30B00A94CE2 /* TiUIMaskedImageProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = 24C012881140D30B00A94CE2 /* TiUIMaskedImageProxy.m */; };
+		24C0128C1140D30B00A94CE2 /* TiUIMaskedImageProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = 24C012881140D30B00A94CE2 /* TiUIMaskedImageProxy.m */; };
+		24C0128F1140D31C00A94CE2 /* TiUIMaskedImage.m in Sources */ = {isa = PBXBuildFile; fileRef = 24C0128E1140D31C00A94CE2 /* TiUIMaskedImage.m */; };
+		24C012901140D31C00A94CE2 /* TiUIMaskedImage.h in Headers */ = {isa = PBXBuildFile; fileRef = 24C0128D1140D31C00A94CE2 /* TiUIMaskedImage.h */; };
+		24C012911140D31C00A94CE2 /* TiUIMaskedImage.m in Sources */ = {isa = PBXBuildFile; fileRef = 24C0128E1140D31C00A94CE2 /* TiUIMaskedImage.m */; };
+		24C012921140D31C00A94CE2 /* TiUIMaskedImage.m in Sources */ = {isa = PBXBuildFile; fileRef = 24C0128E1140D31C00A94CE2 /* TiUIMaskedImage.m */; };
 		24CA895B111161050084E2DE /* AFItemView.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA890B111161050084E2DE /* AFItemView.m */; };
 		24CA895C111161050084E2DE /* AFOpenFlowView.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA890E111161050084E2DE /* AFOpenFlowView.m */; };
 		24CA895D111161050084E2DE /* AFUIImageReflection.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8910111161050084E2DE /* AFUIImageReflection.m */; };
@@ -360,7 +367,6 @@
 		24CA8BDD111161FE0084E2DE /* Mimetypes.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B02111161FE0084E2DE /* Mimetypes.m */; };
 		24CA8BDE111161FE0084E2DE /* MediaModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B04111161FE0084E2DE /* MediaModule.m */; };
 		24CA8BDF111161FE0084E2DE /* MapModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B06111161FE0084E2DE /* MapModule.m */; };
-		24CA8BE0111161FE0084E2DE /* LayoutEntry.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B08111161FE0084E2DE /* LayoutEntry.m */; };
 		24CA8BE1111161FE0084E2DE /* LayoutConstraint.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B0A111161FE0084E2DE /* LayoutConstraint.m */; };
 		24CA8BE2111161FE0084E2DE /* ImageLoader.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B0C111161FE0084E2DE /* ImageLoader.m */; };
 		24CA8BE3111161FE0084E2DE /* GestureModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B0E111161FE0084E2DE /* GestureModule.m */; };
@@ -539,7 +545,6 @@
 		24CA901511116C490084E2DE /* Mimetypes.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B02111161FE0084E2DE /* Mimetypes.m */; };
 		24CA901611116C490084E2DE /* MediaModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B04111161FE0084E2DE /* MediaModule.m */; };
 		24CA901711116C490084E2DE /* MapModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B06111161FE0084E2DE /* MapModule.m */; };
-		24CA901811116C490084E2DE /* LayoutEntry.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B08111161FE0084E2DE /* LayoutEntry.m */; };
 		24CA901911116C490084E2DE /* LayoutConstraint.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B0A111161FE0084E2DE /* LayoutConstraint.m */; };
 		24CA901A11116C490084E2DE /* ImageLoader.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B0C111161FE0084E2DE /* ImageLoader.m */; };
 		24CA901B11116C490084E2DE /* GestureModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B0E111161FE0084E2DE /* GestureModule.m */; };
@@ -721,7 +726,6 @@
 		24CB0E74111A971B00A813AD /* Mimetypes.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B02111161FE0084E2DE /* Mimetypes.m */; };
 		24CB0E75111A971B00A813AD /* MediaModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B04111161FE0084E2DE /* MediaModule.m */; };
 		24CB0E76111A971B00A813AD /* MapModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B06111161FE0084E2DE /* MapModule.m */; };
-		24CB0E77111A971B00A813AD /* LayoutEntry.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B08111161FE0084E2DE /* LayoutEntry.m */; };
 		24CB0E78111A971B00A813AD /* LayoutConstraint.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B0A111161FE0084E2DE /* LayoutConstraint.m */; };
 		24CB0E79111A971B00A813AD /* ImageLoader.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B0C111161FE0084E2DE /* ImageLoader.m */; };
 		24CB0E7A111A971B00A813AD /* GestureModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 24CA8B0E111161FE0084E2DE /* GestureModule.m */; };
@@ -883,6 +887,10 @@
 		24A1EAF3112F4C02003DA834 /* UIImage+Resize.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "UIImage+Resize.m"; path = "../Classes/UIImage+Resize.m"; sourceTree = SOURCE_ROOT; };
 		24A1EAF4112F4C02003DA834 /* UIImage+RoundedCorner.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "UIImage+RoundedCorner.h"; path = "../Classes/UIImage+RoundedCorner.h"; sourceTree = SOURCE_ROOT; };
 		24A1EAF5112F4C02003DA834 /* UIImage+RoundedCorner.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "UIImage+RoundedCorner.m"; path = "../Classes/UIImage+RoundedCorner.m"; sourceTree = SOURCE_ROOT; };
+		24C012871140D30B00A94CE2 /* TiUIMaskedImageProxy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TiUIMaskedImageProxy.h; sourceTree = "<group>"; };
+		24C012881140D30B00A94CE2 /* TiUIMaskedImageProxy.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TiUIMaskedImageProxy.m; sourceTree = "<group>"; };
+		24C0128D1140D31C00A94CE2 /* TiUIMaskedImage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TiUIMaskedImage.h; sourceTree = "<group>"; };
+		24C0128E1140D31C00A94CE2 /* TiUIMaskedImage.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TiUIMaskedImage.m; sourceTree = "<group>"; };
 		24CA890A111161050084E2DE /* AFItemView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AFItemView.h; sourceTree = "<group>"; };
 		24CA890B111161050084E2DE /* AFItemView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = AFItemView.m; sourceTree = "<group>"; };
 		24CA890C111161050084E2DE /* AFOpenFlowConstants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AFOpenFlowConstants.h; sourceTree = "<group>"; };
@@ -1212,8 +1220,6 @@
 		24CA8B05111161FE0084E2DE /* MediaModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MediaModule.h; path = ../Classes/MediaModule.h; sourceTree = SOURCE_ROOT; };
 		24CA8B06111161FE0084E2DE /* MapModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = MapModule.m; path = ../Classes/MapModule.m; sourceTree = SOURCE_ROOT; };
 		24CA8B07111161FE0084E2DE /* MapModule.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MapModule.h; path = ../Classes/MapModule.h; sourceTree = SOURCE_ROOT; };
-		24CA8B08111161FE0084E2DE /* LayoutEntry.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = LayoutEntry.m; path = ../Classes/LayoutEntry.m; sourceTree = SOURCE_ROOT; };
-		24CA8B09111161FE0084E2DE /* LayoutEntry.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LayoutEntry.h; path = ../Classes/LayoutEntry.h; sourceTree = SOURCE_ROOT; };
 		24CA8B0A111161FE0084E2DE /* LayoutConstraint.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = LayoutConstraint.m; path = ../Classes/LayoutConstraint.m; sourceTree = SOURCE_ROOT; };
 		24CA8B0B111161FE0084E2DE /* LayoutConstraint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LayoutConstraint.h; path = ../Classes/LayoutConstraint.h; sourceTree = SOURCE_ROOT; };
 		24CA8B0C111161FE0084E2DE /* ImageLoader.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = ImageLoader.m; path = ../Classes/ImageLoader.m; sourceTree = SOURCE_ROOT; };
@@ -1723,8 +1729,6 @@
 				24CA8AFF111161FE0084E2DE /* OperationQueue.h */,
 				24CA8B02111161FE0084E2DE /* Mimetypes.m */,
 				24CA8B03111161FE0084E2DE /* Mimetypes.h */,
-				24CA8B09111161FE0084E2DE /* LayoutEntry.h */,
-				24CA8B08111161FE0084E2DE /* LayoutEntry.m */,
 				24CA8B0A111161FE0084E2DE /* LayoutConstraint.m */,
 				24CA8B0B111161FE0084E2DE /* LayoutConstraint.h */,
 				24CA8B0C111161FE0084E2DE /* ImageLoader.m */,
@@ -2008,6 +2012,10 @@
 				24CA8A79111161FD0084E2DE /* TiUIImageViewProxy.h */,
 				24CA8A7A111161FD0084E2DE /* TiUIImageView.m */,
 				24CA8A7B111161FD0084E2DE /* TiUIImageView.h */,
+				24C012871140D30B00A94CE2 /* TiUIMaskedImageProxy.h */,
+				24C012881140D30B00A94CE2 /* TiUIMaskedImageProxy.m */,
+				24C0128D1140D31C00A94CE2 /* TiUIMaskedImage.h */,
+				24C0128E1140D31C00A94CE2 /* TiUIMaskedImage.m */,
 			);
 			name = ImageView;
 			sourceTree = "<group>";
@@ -2546,7 +2554,6 @@
 				245E768F111A9A7800A18644 /* Ti2DMatrix.h in Headers */,
 				245E7690111A9A7800A18644 /* OperationQueue.h in Headers */,
 				245E7691111A9A7800A18644 /* Mimetypes.h in Headers */,
-				245E7692111A9A7800A18644 /* LayoutEntry.h in Headers */,
 				245E7693111A9A7800A18644 /* LayoutConstraint.h in Headers */,
 				245E7694111A9A7800A18644 /* ImageLoader.h in Headers */,
 				245E7695111A9A7800A18644 /* TiUITableViewRowProxy.h in Headers */,
@@ -2613,6 +2620,8 @@
 				DA3A956D113CD02100F664E1 /* BonjourModule.h in Headers */,
 				DA3A956F113CD02100F664E1 /* TiBonjourBrowserProxy.h in Headers */,
 				DA3A9570113CD02100F664E1 /* TiBonjourServiceProxy.h in Headers */,
+				24C0128A1140D30B00A94CE2 /* TiUIMaskedImageProxy.h in Headers */,
+				24C012901140D31C00A94CE2 /* TiUIMaskedImage.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2903,7 +2912,6 @@
 				24CA8BDD111161FE0084E2DE /* Mimetypes.m in Sources */,
 				24CA8BDE111161FE0084E2DE /* MediaModule.m in Sources */,
 				24CA8BDF111161FE0084E2DE /* MapModule.m in Sources */,
-				24CA8BE0111161FE0084E2DE /* LayoutEntry.m in Sources */,
 				24CA8BE1111161FE0084E2DE /* LayoutConstraint.m in Sources */,
 				24CA8BE2111161FE0084E2DE /* ImageLoader.m in Sources */,
 				24CA8BE3111161FE0084E2DE /* GestureModule.m in Sources */,
@@ -2955,6 +2963,8 @@
 				DA3A956B113CD02100F664E1 /* BonjourModule.m in Sources */,
 				DA3A956C113CD02100F664E1 /* TiBonjourServiceProxy.m in Sources */,
 				DA868C25113CD0790058870A /* TiBonjourBrowserProxy.m in Sources */,
+				24C0128C1140D30B00A94CE2 /* TiUIMaskedImageProxy.m in Sources */,
+				24C012921140D31C00A94CE2 /* TiUIMaskedImage.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3117,7 +3127,6 @@
 				24CA901511116C490084E2DE /* Mimetypes.m in Sources */,
 				24CA901611116C490084E2DE /* MediaModule.m in Sources */,
 				24CA901711116C490084E2DE /* MapModule.m in Sources */,
-				24CA901811116C490084E2DE /* LayoutEntry.m in Sources */,
 				24CA901911116C490084E2DE /* LayoutConstraint.m in Sources */,
 				24CA901A11116C490084E2DE /* ImageLoader.m in Sources */,
 				24CA901B11116C490084E2DE /* GestureModule.m in Sources */,
@@ -3169,6 +3178,8 @@
 				DA3A9569113CD02100F664E1 /* BonjourModule.m in Sources */,
 				DA3A956A113CD02100F664E1 /* TiBonjourServiceProxy.m in Sources */,
 				DA868C26113CD0790058870A /* TiBonjourBrowserProxy.m in Sources */,
+				24C012891140D30B00A94CE2 /* TiUIMaskedImageProxy.m in Sources */,
+				24C0128F1140D31C00A94CE2 /* TiUIMaskedImage.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3331,7 +3342,6 @@
 				24CB0E74111A971B00A813AD /* Mimetypes.m in Sources */,
 				24CB0E75111A971B00A813AD /* MediaModule.m in Sources */,
 				24CB0E76111A971B00A813AD /* MapModule.m in Sources */,
-				24CB0E77111A971B00A813AD /* LayoutEntry.m in Sources */,
 				24CB0E78111A971B00A813AD /* LayoutConstraint.m in Sources */,
 				24CB0E79111A971B00A813AD /* ImageLoader.m in Sources */,
 				24CB0E7A111A971B00A813AD /* GestureModule.m in Sources */,
@@ -3383,6 +3393,8 @@
 				DA3A956E113CD02100F664E1 /* BonjourModule.m in Sources */,
 				DA3A9571113CD02100F664E1 /* TiBonjourServiceProxy.m in Sources */,
 				DA868C27113CD0790058870A /* TiBonjourBrowserProxy.m in Sources */,
+				24C0128B1140D30B00A94CE2 /* TiUIMaskedImageProxy.m in Sources */,
+				24C012911140D31C00A94CE2 /* TiUIMaskedImage.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3500,6 +3512,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -3511,6 +3524,8 @@
 				OTHER_CFLAGS = "-DDEBUG=1";
 				OTHER_LDFLAGS = "";
 				PREBINDING = NO;
+				PROVISIONING_PROFILE = "";
+				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "";
 				SDKROOT = iphoneos3.1.2;
 				USER_HEADER_SEARCH_PATHS = "";
 			};
@@ -3520,6 +3535,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -3530,6 +3546,8 @@
 				);
 				OTHER_LDFLAGS = "";
 				PREBINDING = NO;
+				PROVISIONING_PROFILE = "";
+				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "";
 				SDKROOT = iphoneos3.1.2;
 				USER_HEADER_SEARCH_PATHS = "";
 			};

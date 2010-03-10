@@ -40,13 +40,10 @@ typedef enum {
 @required
 
 -(void)propertyChanged:(NSString*)key oldValue:(id)oldValue newValue:(id)newValue proxy:(TiProxy*)proxy;
--(BOOL)isRepositionProperty:(NSString*)key;
 
 @optional
 
 -(void)readProxyValuesWithKeys:(id<NSFastEnumeration>)keys;
-
--(void)repositionChange:(NSString*)key value:(id)inputVal;
 
 -(void)listenerAdded:(NSString*)type count:(int)count;
 -(void)listenerRemoved:(NSString*)type count:(int)count;
@@ -54,6 +51,8 @@ typedef enum {
 @end
 
 SEL SetterForKrollProperty(NSString * key);
+SEL SetterWithObjectForKrollProperty(NSString * key);
+
 void DoProxyDelegateChangedValuesWithProxy(UIView<TiProxyDelegate> * target, NSString * key, id oldValue, id newValue, TiProxy * proxy);
 void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target, id<NSFastEnumeration> keys, TiProxy * proxy);
 //Why are these here? Because they can be commonly used between TiUIView and TiUITableViewCell.
@@ -105,16 +104,19 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 -(void)contextShutdown:(id)sender;
 
 #pragma mark Public
--(id<NSFastEnumeration>)validKeys;
+-(id<NSFastEnumeration>)allKeys;
 -(void)setValuesForKeysWithDictionary:(NSDictionary *)keyedValues usingKeys:(id<NSFastEnumeration>)keys;
 +(void)throwException:(NSString *) reason subreason:(NSString*)subreason location:(NSString *)location;
 -(void)throwException:(NSString *) reason subreason:(NSString*)subreason location:(NSString *)location;
 -(void)addEventListener:(NSArray*)args;
 -(void)removeEventListener:(NSArray*)args;
+
+-(void)fireEvent:(NSString*)type;
 -(void)fireEvent:(NSString*)type withObject:(id)obj;
 -(void)fireEvent:(NSString*)type withObject:(id)obj withSource:(id)source;
 -(void)fireEvent:(NSString*)type withObject:(id)obj withSource:(id)source propagate:(BOOL)yn;
 -(void)fireEvent:(NSString*)type withObject:(id)obj propagate:(BOOL)yn;
+
 -(NSDictionary*)allProperties;
 -(void)replaceValue:(id)value forKey:(NSString*)key notification:(BOOL)notify;
 -(void)setExecutionContext:(id<TiEvaluator>)context;

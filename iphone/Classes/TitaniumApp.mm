@@ -171,6 +171,8 @@ void MyUncaughtExceptionHandler(NSException *exception)
 
 - (void)boot
 {
+	sessionId = [[TiUtils createUUID] retain];
+	
 	kjsBridge = [[KrollBridge alloc] initWithHost:self];
 	xhrBridge = [[XHRBridge alloc] initWithHost:self];
 	
@@ -203,6 +205,13 @@ void MyUncaughtExceptionHandler(NSException *exception)
 	NSSetUncaughtExceptionHandler(&MyUncaughtExceptionHandler);
     [self loadSplash];
 	
+	// get the current remote device UUID if we have one
+	NSString *curKey = [[NSUserDefaults standardUserDefaults] stringForKey:@"APNSRemoteDeviceUUID"];
+	if (curKey!=nil)
+	{
+		remoteDeviceUUID = [curKey copy];
+	}
+
 	launchOptions = [[NSMutableDictionary alloc] initWithDictionary:launchOptions_];
 	
 	NSURL *urlOptions = [launchOptions objectForKey:UIApplicationLaunchOptionsURLKey];
@@ -222,10 +231,7 @@ void MyUncaughtExceptionHandler(NSException *exception)
 	}
 	if (notification!=nil)
 	{
-		[launchOptions setObject:notification forKey:@"notification"];
-		[launchOptions removeObjectForKey:UIApplicationLaunchOptionsRemoteNotificationKey];
-		// trigger manually since this method isn't called when we have this delegate implemented 
-		[self application:application didReceiveRemoteNotification:notification];
+		remoteNotification = [[notification objectForKey:@"aps"] retain];
 	}
 	
 	[self boot];
@@ -242,6 +248,7 @@ void MyUncaughtExceptionHandler(NSException *exception)
 	RELEASE_TO_NIL(kjsBridge);
 	RELEASE_TO_NIL(xhrBridge);
 	RELEASE_TO_NIL(remoteNotification);
+	RELEASE_TO_NIL(sessionId);
 }
 
 - (void)applicationDidReceiveMemoryWarning:(UIApplication *)application
@@ -260,19 +267,25 @@ void MyUncaughtExceptionHandler(NSException *exception)
 
 - (void)application:(UIApplication *)application didReceiveRemoteNotification:(NSDictionary *)userInfo
 {
-	// NOTE: this is called when the app is *started* after receiving a push notification
+	// NOTE: this is called when the app is *running* after receiving a push notification
+	// otherwise, if the app is started from a push notification, this method will not be 
+	// called
+	RELEASE_TO_NIL(remoteNotification);
+	remoteNotification = [[userInfo objectForKey:@"aps"] retain];
+	
 	if (remoteNotificationDelegate!=nil)
 	{
-		remoteNotification = [[userInfo objectForKey:@"aps"] retain];
 		[remoteNotificationDelegate performSelector:@selector(application:didReceiveRemoteNotification:) withObject:application withObject:remoteNotification];
 	}
 }
 
 - (void)application:(UIApplication *)application didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken
-{
+{ 
 	NSString *token = [[[[deviceToken description] stringByReplacingOccurrencesOfString:@"<"withString:@""] 
 						stringByReplacingOccurrencesOfString:@">" withString:@""] 
 					   stringByReplacingOccurrencesOfString: @" " withString: @""];
+	
+	RELEASE_TO_NIL(remoteDeviceUUID);
 	remoteDeviceUUID = [token copy];
 	
 	NSString *curKey = [[NSUserDefaults standardUserDefaults] stringForKey:@"APNSRemoteDeviceUUID"];
@@ -281,6 +294,8 @@ void MyUncaughtExceptionHandler(NSException *exception)
 		// this is the first time being registered, we need to indicate to our backend that we have a 
 		// new registered device to enable this device to receive notifications from the cloud
 		[[NSUserDefaults standardUserDefaults] setObject:remoteDeviceUUID forKey:@"APNSRemoteDeviceUUID"];
+		NSDictionary *userInfo = [NSDictionary dictionaryWithObject:remoteDeviceUUID forKey:@"deviceid"];
+		[[NSNotificationCenter defaultCenter] postNotificationName:kTitaniumRemoteDeviceUUIDNotification object:self userInfo:userInfo];
 		NSLog(@"[DEBUG] registered new device ready for remote push notifications: %@",remoteDeviceUUID);
 	}
 	
@@ -366,6 +381,7 @@ void MyUncaughtExceptionHandler(NSException *exception)
 	RELEASE_TO_NIL(networkActivity);
 	RELEASE_TO_NIL(userAgent);
 	RELEASE_TO_NIL(remoteDeviceUUID);
+	RELEASE_TO_NIL(remoteNotification);
     [super dealloc];
 }
 
@@ -389,6 +405,11 @@ void MyUncaughtExceptionHandler(NSException *exception)
 -(NSString*)remoteDeviceUUID
 {
 	return remoteDeviceUUID;
+}
+
+-(NSString*)sessionId
+{
+	return sessionId;
 }
 
 #pragma mark Keyboard Delegates

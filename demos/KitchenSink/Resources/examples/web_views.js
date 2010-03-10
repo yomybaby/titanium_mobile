@@ -1,39 +1,28 @@
 var win = Titanium.UI.currentWindow;
 
-// initialize to all modes
-win.orientationModes = [
-	Titanium.UI.PORTRAIT,
-	Titanium.UI.UPSIDE_PORTRAIT,
-	Titanium.UI.LANDSCAPE_LEFT,
-	Titanium.UI.LANDSCAPE_RIGHT,
-	Titanium.UI.FACE_UP,
-	Titanium.UI.FACE_DOWN,		
-]; 
-
-Ti.Gesture.addEventListener('orientationchange',function(e)
-{
-     Titanium.UI.orientation = e.orientation;
-});
-
 
 // create table view data object
 var data = [
 	{title:'External URL', hasChild:true, url:'http://www.google.com'},
 	{title:'Local URL', hasChild:true, url:'local_webview.html'},
-	{title:'XHR to Filesystem', hasChild:true},
-	{title:'PDF URL', hasChild:true, url:'http://www.appcelerator.com/assets/The_iPad_App_Wave.pdf'},
+	{title:'XHR to Filesystem', hasChild:true},	
 	{title:'Image URL', hasChild:true, url:'http://www.appcelerator.com/wp-content/uploads/2010/01/TABWAVE_graph1.png'},
-	{title:'SVG URL', hasChild:true, url:'http://upload.wikimedia.org/wikipedia/commons/5/55/1st_Cavalry_Division_-_Shoulder_Sleeve_Insignia.svg'},
-	{title:'Inline HTML', hasChild:true, text:'<html><body>Hello from inline HTML.</body></html>'},
-	{title:'Inline HTML w/ Trans Bg', hasChild:true, text:'<html><body><div style="color:white;">Hello from inline HTML. You should see white text and black background</div></body></html>', bgcolor:'black'},
-	{title:'Inline HTML w/ Color Bg', hasChild:true, text:'<html><body><div style="color:red;">Hello from inline HTML. You should see red text and yellow background</div></body></html>', bgcolor:'yellow'},
-	{title:'Inline HTML w/ Border', hasChild:true, text:'<html><body><div>Hello from inline HTML. You should see red border</div></body></html>', border: true},
+	{title:'Inline HTML', hasChild:true, innerHTML:'<html><body>Hello from inline HTML.</body></html>'},
 	{title:'Logging and Unicode', hasChild:true, url:'webview_logging.html'},
-	{title:'Local Pinch/Zoom', hasChild:true, url:'local_webview_pinchzoom.html', scale:true},
 	{title:'Local Eval', hasChild:true, url:'local_webview.html', evaljs:true},
-	{title:'Local HTML', hasChild:true, url:'local_webview.html', evalhtml:true},
-
+	{title:'Inline HTML w/ Trans Bg', hasChild:true, innerHTML:'<html><body><div style="color:white;">Hello from inline HTML. You should see white text and black background</div></body></html>', bgcolor:'black'},
+	{title:'Inline HTML w/ Color Bg', hasChild:true, innerHTML:'<html><body><div style="color:red;">Hello from inline HTML. You should see red text and yellow background</div></body></html>', bgcolor:'yellow'},
 ];
+
+// add iphone specific tests
+if (Titanium.Platform.name == 'iPhone OS')
+{
+	data.push({title:'Local HTML', hasChild:true, url:'local_webview.html', evalhtml:true});
+	data.push({title:'Inline HTML w/ Border', hasChild:true, innerHTML:'<html><body><div>Hello from inline HTML. You should see red border</div></body></html>', border: true});
+	data.push({title:'PDF URL', hasChild:true, url:'http://www.appcelerator.com/assets/The_iPad_App_Wave.pdf'});
+	data.push({title:'SVG URL', hasChild:true, url:'http://upload.wikimedia.org/wikipedia/commons/5/55/1st_Cavalry_Division_-_Shoulder_Sleeve_Insignia.svg'});
+	data.push({title:'Local Pinch/Zoom', hasChild:true, url:'local_webview_pinchzoom.html', scale:true});
+}
 
 // create table view
 var tableview = Titanium.UI.createTableView({
@@ -45,6 +34,12 @@ tableview.addEventListener('click', function(e)
 {
 	var rowdata = e.rowData;
 	var w = Ti.UI.createWindow();
+	w.orientationModes = [
+		Titanium.UI.PORTRAIT,
+		Titanium.UI.LANDSCAPE_LEFT,
+		Titanium.UI.LANDSCAPE_RIGHT
+	];
+
 	var webview = Ti.UI.createWebView();
 
 	// handle xhr to filesystem case first
@@ -82,7 +77,7 @@ tableview.addEventListener('click', function(e)
 		}
 		else
 		{
-			webview.html = rowdata.text;
+			webview.html = rowdata.innerHTML;
 		}
 		if (rowdata.scale)
 		{
@@ -95,7 +90,7 @@ tableview.addEventListener('click', function(e)
 			Ti.API.debug("webview loaded: "+e.url);
 			if (rowdata.evaljs)
 			{
-				alert("JS result was: "+webview.evalJS("my_global_variable")+". should be 10");
+				alert("JS result was: "+webview.evalJS("window.my_global_variable")+". should be 10");
 			}
 			if (rowdata.evalhtml)
 			{
@@ -112,24 +107,38 @@ tableview.addEventListener('click', function(e)
 			webview.borderWidth=5;
 			webview.borderColor = 'red';
 		}
-
+		
+		var toolbar = null;
 		// create toolbar for local webiew
 		if (e.index==1)
 		{
-			// test hiding/showing toolbar with web view
-			var button = Titanium.UI.createButton({
-				title:'Click above to hide me'
-			});
-			w.setToolbar([button]);
-
+			if (Titanium.Platform.name == 'iPhone OS') {
+				// test hiding/showing toolbar with web view
+				var button = Titanium.UI.createButton({
+					title:'Click above to hide me'
+				});
+				w.setToolbar([button]);
+			} else {
+				toolbar = Titanium.UI.createView({backgroundColor: '#000',opacity:0.8,bottom:10,width:300,height:50,zIndex:1000});
+				toolbar.add(Ti.UI.createLabel({text: 'Click above to hide me'}))
+				w.add(toolbar);
+			}
 		}
+
+
 		w.add(webview);
 
 		// hide toolbar for local web view
 		Ti.App.addEventListener('webview_hidetoolbar', function(e)
 		{
 			Ti.API.info('received hidetoolbar event, foo = ' + e.foo)
-			w.setToolbar(null,{animated:true});
+			if (Titanium.Platform.name == 'iPhone OS') {
+				w.setToolbar(null,{animated:true});
+			} else {
+				if (toolbar != null) {
+					w.remove(toolbar);
+				}
+			}
 		});
 		webview.addEventListener('click', function()
 		{

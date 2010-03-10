@@ -6,6 +6,7 @@
  */
 package org.appcelerator.titanium.proxy;
 
+import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -48,6 +49,7 @@ public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 	protected static final int MSG_LAST_ID = MSG_FIRST_ID + 999;
 
 	protected ArrayList<TiViewProxy> children;
+	protected WeakReference<TiViewProxy> parent;
 
 	private static class InvocationWrapper {
 		public String name;
@@ -241,6 +243,7 @@ public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 			result.getResult(); // We don't care about the result, just synchronizing.
 		} else {
 			children.add(child);
+			child.parent = new WeakReference<TiViewProxy>(this);
 		}
 		//TODO zOrder
 	}
@@ -251,6 +254,7 @@ public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 		if (view != null) {
 			TiUIView cv = child.getView(getTiContext().getActivity());
 			view.add(cv);
+			child.parent = new WeakReference<TiViewProxy>(this);
 		}
 	}
 
@@ -269,6 +273,9 @@ public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 		} else {
 			if (children != null) {
 				children.remove(child);
+				if (child.parent != null && child.parent.get() == this) {
+					child.parent = null;
+				}
 			}
 		}
 	}
@@ -455,5 +462,16 @@ public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 			Log.e(LCAT, "Error while invoking " + w.name + " on " + view.getClass().getSimpleName(), e);
 			return e;
 		}
+	}
+	
+	@Override
+	public boolean fireEvent(String eventName, TiDict data) {
+		boolean handled = super.fireEvent(eventName, data);
+		
+		if (parent != null && parent.get() != null) {
+			boolean parentHandled = parent.get().fireEvent(eventName, data);
+			handled = handled || parentHandled;
+		}
+		return handled;
 	}
 }

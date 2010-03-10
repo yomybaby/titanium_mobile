@@ -6,13 +6,16 @@ Titanium.UI.setBackgroundColor('#000');
 var tabGroup = Titanium.UI.createTabGroup();
 
 
+
 //
 // create base UI tab and root window
 //
 var win1 = Titanium.UI.createWindow({  
     url:'main_windows/base_ui.js',
-    titleImage:'images/appcelerator_small.png',
+    titleImage:'images/appcelerator_small.png'
 });
+
+
 var tab1 = Titanium.UI.createTab({  
     icon:'images/tabs/KS_nav_views.png',
     title:'Base UI',
@@ -80,7 +83,12 @@ tabGroup.addTab(tab1);
 tabGroup.addTab(tab2);  
 tabGroup.addTab(tab3);
 tabGroup.addTab(tab4);
-tabGroup.addTab(tab5);
+
+// add iphone specific tests
+if (Titanium.Platform.name == 'iPhone OS')
+{
+	tabGroup.addTab(tab5);
+}
 
 tabGroup.addEventListener('open',function()
 {

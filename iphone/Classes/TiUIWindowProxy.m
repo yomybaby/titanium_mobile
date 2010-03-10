@@ -11,6 +11,7 @@
 #import "ImageLoader.h"
 #import "TiComplexValue.h"
 #import "TitaniumApp.h"
+#import "TiUITabController.h"
 
 @implementation TiUIWindowProxy
 
@@ -41,11 +42,7 @@
 	// happen after the JS context is fully up and ready
 	if (contextReady && context!=nil)
 	{
-		focused = YES;
-		if ([self _hasListeners:@"focus"])
-		{
-			[self fireEvent:@"focus" withObject:nil];
-		}
+		[self fireFocus:YES];
 		return YES;
 	}
 	
@@ -105,11 +102,7 @@
 	{
 		// if we don't have a tab, we need to fire blur
 		// events ourselves
-		focused = NO;
-		if ([self _hasListeners:@"blur"])
-		{
-			[self fireEvent:@"blur" withObject:nil];
-		}
+		[self fireFocus:NO];
 	}
 	return YES;
 }
@@ -172,6 +165,7 @@
 			ourNCBar.tintColor = acolor;
 			ourNC.toolbar.tintColor = acolor;
 		}
+		[self performSelector:@selector(_refreshBackButton) withObject:nil afterDelay:0.0];
 	}
 }
 
@@ -298,7 +292,7 @@
 	}
 
 	UIViewController * parentController = [controllerArray objectAtIndex:controllerPosition-1];
-	UIBarButtonItem * backButton;
+	UIBarButtonItem * backButton = nil;
 
 	UIImage * backImage = [TiUtils image:[self valueForKey:@"backButtonTitleImage"] proxy:self];
 	if (backImage != nil)
@@ -308,16 +302,16 @@
 	else
 	{
 		NSString * backTitle = [TiUtils stringValue:[self valueForKey:@"backButtonTitle"]];
+		if ((backTitle == nil) && [parentController isKindOfClass:[TiUITabController class]])
+		{
+			backTitle = [TiUtils stringValue:[[(TiUITabController *)parentController window] valueForKey:@"title"]];
+		}
 		if (backTitle != nil)
 		{
 			backButton = [[UIBarButtonItem alloc] initWithTitle:backTitle style:UIBarButtonItemStylePlain target:nil action:nil];
 		}
-		else
-		{
-			backButton = nil;
-		}
 	}
-
+//	[[parentController navigationItem] setBackBarButtonItem:nil];
 	[[parentController navigationItem] setBackBarButtonItem:backButton];
 	[backButton release];
 }
@@ -361,15 +355,7 @@
 
 	if ([titleControl isKindOfClass:[TiViewProxy class]])
 	{
-		newTitleView = [titleControl barButtonView];
-		if (CGRectIsEmpty([newTitleView bounds]))
-		{
-			CGRect f;
-			f.origin = CGPointZero;
-			f.size = [newTitleView sizeThatFits:[TiUtils navBarTitleViewSize]];
-			[newTitleView setBounds:f];
-		}
-		[newTitleView setAutoresizingMask:UIViewAutoresizingNone];
+		newTitleView = [titleControl barButtonViewForSize:[TiUtils navBarTitleViewSize]];
 	}
 	else
 	{
@@ -588,11 +574,7 @@ else{\
 		// we can't fire focus here since we 
 		// haven't yet wired up the JS context at this point
 		// and listeners wouldn't be ready
-		focused = YES;
-		if ([self _hasListeners:@"focus"])
-		{
-			[self fireEvent:@"focus" withObject:nil];
-		}
+		[self fireFocus:YES];
 		[self setupWindowDecorations];
 	}
 	[super _tabFocus];
@@ -602,11 +584,7 @@ else{\
 {
 	if (focused)
 	{
-		focused = NO;
-		if ([self _hasListeners:@"blur"])
-		{
-			[self fireEvent:@"blur" withObject:nil];
-		}
+		[self fireFocus:NO];
 	}
 	[super _tabBlur];
 }

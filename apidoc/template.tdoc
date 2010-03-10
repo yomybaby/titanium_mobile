@@ -1,54 +1,37 @@
-#
-# this is a titanium doc template
-#
-#
-
 - namespace
-
-Titanium.API.error
 
 - type
 
-function
+object
 
-- returns
+- subtype
 
-void
-
-#- parameters
-#
-#message[string]: the message to log
-#
+proxy
 
 - description
 
-Log a statement to the Titanium Developer console at ERROR logging level.
-
 - since
 
-0.1
+0.8
 
 - platforms
 
 android, iphone
 
-#-deprecated
-#
-# 0.9 : use something better
-#
+- properties
+
+
+- methods
+
+- events
 
 - example
 
 <code>
-	Titanium.API.error("I love Titanium");
 </code>
 
-- example
+- notes
 
-Here's another example:
 
-<code>
-	Titanium.API.error("I love Appcelerator");
-</code>
 
 

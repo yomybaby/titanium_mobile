@@ -12,7 +12,9 @@ import java.lang.ref.WeakReference;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -29,6 +31,7 @@ import org.appcelerator.titanium.util.TiFileHelper;
 import org.appcelerator.titanium.util.TiFileHelper2;
 
 import android.app.Activity;
+import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Looper;
 import android.os.Message;
@@ -54,6 +57,7 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener
 	private ArrayList<WeakReference<OnEventListenerChange>> eventChangeListeners;
 	private ArrayList<WeakReference<OnLifecycleEvent>> lifecycleListeners;
 	private WeakReference<OnMenuEvent> weakMenuEvent;
+	private WeakReference<OnConfigurationChanged> weakConfigurationChangedListeners;
 
 	public static interface OnLifecycleEvent
 	{
@@ -62,6 +66,11 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener
 		void onPause();
 		void onStop();
 		void onDestroy();
+	}
+
+	public static interface OnConfigurationChanged
+	{
+		public void configurationChanged(Configuration newConfig);
 	}
 
 	public static interface OnMenuEvent
@@ -329,16 +338,18 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener
 		if (eventName != null) {
 			if (tiProxy != null) {
 				if (listener != null) {
-					HashMap<Integer, TiListener> listeners = eventListeners.get(eventName);
-					if (listeners == null) {
-						listeners = new HashMap<Integer, TiListener>();
-						eventListeners.put(eventName, listeners);
-					}
+					synchronized (eventListeners) {
+						HashMap<Integer, TiListener> listeners = eventListeners.get(eventName);
+						if (listeners == null) {
+							listeners = new HashMap<Integer, TiListener>();
+							eventListeners.put(eventName, listeners);
+						}
 
-					listenerId = listenerIdGenerator.incrementAndGet();
-					listeners.put(listenerId, new TiListener(tiProxy, listener));
-					Log.i(LCAT, "Added for eventName '" + eventName + "' with id " + listenerId);
-					dispatchOnEventChange(true, eventName, listeners.size(), tiProxy);
+						listenerId = listenerIdGenerator.incrementAndGet();
+						listeners.put(listenerId, new TiListener(tiProxy, listener));
+						Log.i(LCAT, "Added for eventName '" + eventName + "' with id " + listenerId);
+						dispatchOnEventChange(true, eventName, listeners.size(), tiProxy);
+					}
 				} else {
 					throw new IllegalStateException("addEventListener expects a non-null listener");
 				}
@@ -442,74 +453,47 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener
 		return result;
 	}
 
-
-	public void dispatchEvent(String eventName, TiDict data)
+	public boolean dispatchEvent(String eventName, TiDict data)
 	{
+		return dispatchEvent(eventName, data, null);
+	}
+
+	public boolean dispatchEvent(String eventName, TiDict data, TiProxy tiProxy)
+	{
+		boolean dispatched = false;
 		if (eventName != null) {
-			HashMap<Integer, TiListener> listeners = eventListeners.get(eventName);
+			Map<Integer, TiListener> listeners = eventListeners.get(eventName);
 			if (listeners != null) {
 				if (data == null) {
 					data = new TiDict();
 				}
+				data.put("type", eventName);
 
 				Set<Entry<Integer, TiListener>> listenerSet = listeners.entrySet();
-				for(Entry<Integer, TiListener> entry : listenerSet) {
-					boolean keep = false;
-					try {
-						keep = entry.getValue().invoke(eventName, data);
-					} catch (Exception e) {
-						Log.e(LCAT, "Error invoking listener with id " + entry.getKey() + " on eventName '" + eventName + "'", e);
-					}
-
-					if (!keep) {
-						listeners.remove(entry.getKey());
-						Log.i(LCAT, "Listener with id " + entry.getKey() + " removed due to invocation failure.");
-					}
-				}
-				listenerSet.clear();
-				listenerSet = null;
-			}
-		} else {
-			throw new IllegalStateException("removeEventListener expects a non-null eventName");
-		}
-	}
-
-	public void dispatchEvent(TiProxy tiProxy, String eventName, TiDict data)
-	{
-		if (tiProxy != null) {
-			if (eventName != null) {
-				HashMap<Integer, TiListener> listeners = eventListeners.get(eventName);
-				if (listeners != null) {
-					if (data == null) {
-						data = new TiDict();
-					}
-
-					Set<Entry<Integer, TiListener>> listenerSet = listeners.entrySet();
+				synchronized(eventListeners) {
 					for(Entry<Integer, TiListener> entry : listenerSet) {
 						TiListener listener = entry.getValue();
-						if (listener.isSameProxy(tiProxy)) {
-							boolean keep = false;
+						if (tiProxy == null || (tiProxy != null && listener.isSameProxy(tiProxy))) {
+							boolean invoked = false;
 							try {
-								keep = listener.invoke(eventName, data);
+								if (listener.weakTiProxy.get() != null) {
+									data.put("source", listener.weakTiProxy.get());
+									invoked = listener.invoke(eventName, data);
+								}
 							} catch (Exception e) {
 								Log.e(LCAT, "Error invoking listener with id " + entry.getKey() + " on eventName '" + eventName + "'", e);
 							}
-
-							if (!keep) {
-								listeners.remove(entry.getKey());
-								Log.i(LCAT, "Listener with id " + entry.getKey() + " removed due to invocation failure.");
-							}
+							dispatched = dispatched || invoked;
 						}
 					}
-				} else {
-					Log.w(LCAT, "No listeners for eventName: " + eventName);
 				}
 			} else {
-				throw new IllegalStateException("dispatchEvent expects a non-null eventName");
+				Log.w(LCAT, "No listeners for eventName: " + eventName);
 			}
 		} else {
-			throw new IllegalStateException("dispatchEvent requires a non-null tiProxy");
+			throw new IllegalStateException("dispatchEvent expects a non-null eventName");
 		}
+		return dispatched;
 	}
 
 	public void addOnLifecycleEventListener(OnLifecycleEvent listener) {
@@ -579,6 +563,23 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener
 		}
 
 		return false;
+	}
+
+	public void setOnConfigurationChangedListener(OnConfigurationChanged listener) {
+		if (listener == null) {
+			weakConfigurationChangedListeners = null;
+		} else {
+			weakConfigurationChangedListeners = new WeakReference<OnConfigurationChanged>(listener);
+		}
+	}
+	public void dispatchOnConfigurationChanged(Configuration newConfig)
+	{
+		if (weakConfigurationChangedListeners != null) {
+			OnConfigurationChanged listener = weakConfigurationChangedListeners.get();
+			if (listener != null) {
+				listener.configurationChanged(newConfig);
+			}
+		}
 	}
 
 	public void dispatchOnStart()

@@ -60,6 +60,13 @@
 -(void)setHeight:(id)value
 {
 	height = [TiUtils dimensionValue:value];
+	[self replaceValue:value forKey:@"height" notification:YES];
+}
+
+-(void)setLayout:(id)value
+{
+	layout = TiLayoutRuleFromObject(value);
+	[self replaceValue:value forKey:@"layout" notification:YES];
 }
 
 -(CGFloat)rowHeight:(CGRect)bounds
@@ -72,6 +79,7 @@
 	if (TiDimensionIsAuto(height))
 	{
 		SEL autoHeightSelector = @selector(minimumParentHeightForWidth:);
+		BOOL useVerticalLayout = TiLayoutRuleIsVertical(layout);
 		for (TiViewProxy * proxy in self.children)
 		{
 			if (![proxy respondsToSelector:autoHeightSelector])
@@ -80,7 +88,11 @@
 			}
 			
 			CGFloat newResult = [proxy minimumParentHeightForWidth:bounds.size.width];
-			if (newResult > result)
+			if (useVerticalLayout)
+			{
+				result += newResult;
+			}
+			else if (newResult > result)
 			{
 				result = newResult;
 			}
@@ -250,6 +262,28 @@
 	}
 }
 
+-(void)layoutChildren
+{
+	CGRect viewrect = [rowContainerView bounds];
+	BOOL useVerticalLayout = TiLayoutRuleIsVertical(layout);
+
+	for (TiViewProxy *proxy in self.children)
+	{
+		if (useVerticalLayout)
+		{
+			viewrect.size.height = [proxy minimumParentHeightForWidth:viewrect.size.width];
+			[proxy repositionWithBounds:viewrect];
+			viewrect.origin.y += viewrect.size.height;
+		}
+		else
+		{
+			[proxy repositionWithBounds:viewrect];
+		}
+		[proxy layoutChildren];
+	}
+}
+
+
 -(void)configureChildren:(UITableViewCell*)cell
 {
 	// this method is called when the cell is initially created
@@ -265,18 +299,48 @@
 			rect.size.height = rowHeight;
 			contentView.bounds = rect;
 		}
-		TiUITableViewRowContainer *view = [[TiUITableViewRowContainer alloc] initWithFrame:rect];
-		[view setBackgroundColor:[UIColor clearColor]];
-		[view setAutoresizingMask:UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight];
-		CGRect viewrect = [view bounds];
+		[rowContainerView release];
+		rowContainerView = [[TiUITableViewRowContainer alloc] initWithFrame:rect];
+		[rowContainerView setBackgroundColor:[UIColor clearColor]];
+		[rowContainerView setAutoresizingMask:UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight];
+		
 		for (TiViewProxy *proxy in self.children)
 		{
 			TiUIView *uiview = [proxy view];
-			[uiview insertIntoView:view bounds:viewrect];
 			uiview.parent = self;
 			uiview.touchDelegate = contentView;
+			[rowContainerView addSubview:uiview];
 		}
-		[contentView addSubview:view];
+		[self layoutChildren];
+		[contentView addSubview:rowContainerView];
+	}
+}
+
+-(void)reproxyChildren:(TiViewProxy*)proxy 
+				  view:(TiUIView*)uiview 
+				parent:(TiViewProxy*)newParent
+		 touchDelegate:(id)touchDelegate
+{
+	[uiview transferProxy:proxy];
+	
+	// because proxies can have children, we need to recursively do this
+	NSArray *children_ = proxy.children;
+	if (children_!=nil && [children_ count]>0)
+	{
+		NSArray *subviews = [uiview subviews];
+		if ([subviews count] != [children_ count])
+		{
+			NSLog(@"[WARN] looks like we have a different table cell layout than expected.  Make sure you set the 'className' property of the table row when you have different cell layouts");
+			NSLog(@"[WARN] if you don't fix this, your tableview will suffer performance issues and also will not render properly");
+			return;
+		}
+		int c = 0;
+		for (TiViewProxy* child in children_)
+		{
+			[self reproxyChildren:child 
+							 view:[subviews objectAtIndex:c++]  
+						   parent:proxy touchDelegate:nil];
+		}
 	}
 }
 
@@ -320,36 +384,15 @@
 					[self configureChildren:cell];
 					return;
 				}
+				[rowContainerView release];
+				rowContainerView = [aview retain];
 				for (size_t x=0;x<[subviews count];x++)
 				{
 					TiViewProxy *proxy = [self.children objectAtIndex:x];
 					TiUIView *uiview = [subviews objectAtIndex:x];
-					TiProxy *oldProxy = uiview.proxy;
-					// change the proxy/view relationship before firing 
-					// events since certain properties (such as backgroundImage)
-					// rely on certain aspects of the proxy to be set (like baseURL)
-					// for them to work correctly
-					uiview.parent = self;
-					uiview.touchDelegate = contentView;
-					uiview.proxy = proxy;
-					for (NSString *key in [proxy allProperties])
-					{
-						id oldValue = oldProxy==nil ? nil : [oldProxy valueForKey:key];
-						id newValue = [proxy valueForKey:key];
-						if ([oldValue isEqual:newValue]==NO)
-						{
-							// fire any property changes that are different from the old
-							// proxy to our new proxy
-							[uiview propertyChanged:key oldValue:oldValue newValue:newValue proxy:proxy];
-						}
-					}
-					uiview.proxy = self;
-					// re-assign the view to the new proxy so the right listeners get 
-					// any child view events that are fired
-					// we assign ourselves as the new parent so we can be in the 
-					// event propagation chain to insert row level event properties
-					[proxy exchangeView:uiview];
+					[self reproxyChildren:proxy view:uiview parent:self touchDelegate:contentView];
 				}
+				[self layoutChildren];
 				found = YES;
 				// once we find the container we can break
 				break;
@@ -475,11 +518,6 @@
 	{
 		[self triggerRowUpdate];
 	}
-}
-
--(BOOL)isRepositionProperty:(NSString*)key
-{
-	return NO;
 }
 
 

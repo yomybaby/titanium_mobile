@@ -1,3 +1,9 @@
+/**
+ * Appcelerator Titanium Mobile
+ * Copyright (c) 2009-2010 by Appcelerator, Inc. All Rights Reserved.
+ * Licensed under the terms of the Apache Public License
+ * Please see the LICENSE included with this distribution for details.
+ */
 package ti.modules.titanium.ui;
 
 import java.util.ArrayList;
@@ -29,6 +35,7 @@ public class ScrollableViewProxy extends TiViewProxy
 	public static final int MSG_MOVE_NEXT = MSG_FIRST_ID + 103;
 	public static final int MSG_SCROLL_TO = MSG_FIRST_ID + 104;
 	public static final int MSG_SET_VIEWS = MSG_FIRST_ID + 105;
+	public static final int MSG_ADD_VIEW = MSG_FIRST_ID + 106;
 	public static final int MSG_LAST_ID = MSG_FIRST_ID + 999;
 	
 	protected AtomicBoolean inAnimation;
@@ -76,13 +83,19 @@ public class ScrollableViewProxy extends TiViewProxy
 				break;
 			case MSG_SCROLL_TO :
 				inScroll.set(true);
-				getView().doScrollToView(msg.arg1);
+				getView().doScrollToView(msg.obj);
 				inScroll.set(false);
 				handled = true;
 				break;
 			case MSG_SET_VIEWS:
 				getView().setViews(msg.obj);
 				handled = true;
+				break;
+			case MSG_ADD_VIEW:
+				if (msg.obj instanceof TiViewProxy) {
+					getView().addView((TiViewProxy)msg.obj);
+					handled = true;
+				}
 				break;
 			default :
 				handled = super.handleMessage(msg);
@@ -103,9 +116,15 @@ public class ScrollableViewProxy extends TiViewProxy
 		msg.sendToTarget();
 	}
 	
-	public void scrollToView(int position) {
+	public void addView(Object viewObject) {
+		Message msg = getUIHandler().obtainMessage(MSG_ADD_VIEW);
+		msg.obj = viewObject;
+		msg.sendToTarget();
+	}
+	
+	public void scrollToView(Object view) {
 		if (inScroll.get()) return;
-		getUIHandler().obtainMessage(MSG_SCROLL_TO, position, -1).sendToTarget();
+		getUIHandler().obtainMessage(MSG_SCROLL_TO, view).sendToTarget();
 	}
 	
 	public void movePrevious() {
@@ -115,7 +134,7 @@ public class ScrollableViewProxy extends TiViewProxy
 	}
 	
 	public void moveNext() {
-		// was synchronzied(gallery) {
+		// was synchronized(gallery) {
 		if (inScroll.get() || inAnimation.get()) return;
 		getUIHandler().removeMessages(MSG_MOVE_NEXT);
 		getUIHandler().sendEmptyMessage(MSG_MOVE_NEXT);
@@ -140,8 +159,18 @@ public class ScrollableViewProxy extends TiViewProxy
 		if (hasListeners(EVENT_SCROLL)) {
 			TiDict options = new TiDict();
 			options.put("index", to);
+			options.put("view", this);
+			options.put("currentPage", getView().getCurrentPage());
 			TiEventHelper.fireViewEvent(this, EVENT_SCROLL, options);
 		}
+	}
+	
+	public int getCurrentPage() {
+		return getView().getCurrentPage();
+	}
+	
+	public void setCurrentPage(Object page) {
+		scrollToView(page);
 	}
 	
 	public void onAnimationRepeat(Animation anim) {
