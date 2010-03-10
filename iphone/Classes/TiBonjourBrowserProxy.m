@@ -47,7 +47,9 @@
 
 -(NSArray*)services
 {
-    return [[services copy] autorelease];
+    [services retain];
+    [services autorelease];
+    return services;
 }
 
 -(NSString*)description
@@ -81,9 +83,10 @@
     [browser searchForServicesOfType:serviceType 
                             inDomain:domain];
     
-    // Block
-    while (!searching && !error) {
-        usleep(1);
+    if (!searching && !error) {
+        [searchCondition lock];
+        [searchCondition wait];
+        [searchCondition unlock];
     }
     
     if (error) {
@@ -97,15 +100,19 @@
 {
     [browser stop];
     
-    // Block
-    while (searching) {
-        usleep(1);
+    if (searching) {
+        [searchCondition lock];
+        [searchCondition wait];
+        [searchCondition unlock];
     }
 }
 
 -(void)purgeServices:(id)unused
 {
     [services removeAllObjects];
+    
+    [self fireEvent:@"updatedServices"
+         withObject:nil];
 }
 
 -(NSNumber*)isSearching:(id)unused
@@ -157,16 +164,27 @@
 -(void)netServiceBrowserWillSearch:(NSNetServiceBrowser*)browser_
 {
     searching = YES;
+    [searchCondition lock];
+    [searchCondition signal];
+    [searchCondition unlock];
 }
 
 -(void)netServiceBrowser:(NSNetServiceBrowser *)browser_ didNotSearch:(NSDictionary *)errorDict
 {
     [self setError:[BonjourModule stringForErrorCode:[[errorDict objectForKey:NSNetServicesErrorCode] intValue]]];
+    
+    [searchCondition lock];
+    [searchCondition signal];
+    [searchCondition unlock];
 }
 
 -(void)netServiceBrowserDidStopSearch:(NSNetServiceBrowser*)browser_
 {
     searching = NO;
+    
+    [searchCondition lock];
+    [searchCondition signal];
+    [searchCondition unlock];
 }
 
 @end

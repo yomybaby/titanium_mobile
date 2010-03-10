@@ -1,10 +1,12 @@
 // Publish a local service on startup
+var reqCount = 0;
+var recvCount = 0;
+
 var bonjourSocket = Titanium.Socket.createTCP({
 	hostName:Titanium.Socket.INADDR_ANY,
 	port:40401,
 	mode:Titanium.Socket.READ_WRITE_MODE
 });
-bonjourSocket.listen();
 
 bonjourSocket.addEventListener('newData', function(e) {
 	while (bonjourSocket.dataAvailable()) {
@@ -14,14 +16,26 @@ bonjourSocket.addEventListener('newData', function(e) {
 			bonjourSocket.write('Hello, from '+Titanium.Platform.id);
 		}
 		else {
-			Titanium.API.info('Listener got message...');
 			Titanium.UI.createAlertDialog({
-				title:'Bonjour message!',
+				title:'Unknown listener message...',
 				message:data.toString()
 			}).show();
+			// WARNING: There's some weird issue here where data events may or may
+			// not interact with UI update events (including logging) and this
+			// may result in some very ugly undefined behavior... that hasn't been
+			// detected before because only UI elements have fired events in the
+			// past.
+			// Unfortunately, Bonjour is completely asynchronous and requires event
+			// firing: Sockets require it as well to reliably deliver information
+			// about when new data is available.
+			// In particular if UI elements are updated 'out of order' with socket
+			// data (especially modal elements, like dialogs, from inside the callback)
+			// there may be some very bad results.  Like... crashes.
+			Titanium.API.info('Unknown listener message: '+data.toString());
 		}
 	}
 });
+bonjourSocket.listen();
 
 var localService = Titanium.Bonjour.createService({
 	service:{name:'Bonjour Test: '+Titanium.Platform.id,
@@ -83,33 +97,9 @@ var tableView = Titanium.UI.createTableView({
 
 tableView.addEventListener('click', function(r) {
 	var service = r['rowData'].service;
-	if (service.socket == null) {
-		try {
-			service.resolve();
-			service.socket.addEventListener('newData', function(x) {
-				Titanium.API.info('Connector got message...');
-				var data = x['source'].read();
-				Titanium.UI.createAlertDialog({
-					title:'Bonjour message!',
-					message:data.toString()
-				}).show();
-			});
-			service.socket.connect();
-			service.socket.write('req');
-		}
-		catch (ex) {
-			Titanium.UI.createAlertDialog({
-				title:'Error!',
-				message:ex
-			}).show();
-		}
-	}
-	else {
-		if (!service.socket.isValid()) {
-			service.socket.connect();
-		}
-		service.socket.write('req');
-	}
+	reqCount++;
+	Titanium.API.info('Req: '+reqCount);
+	service.socket.write('req');
 });
 
 updateUI = function(e) {
@@ -117,13 +107,30 @@ updateUI = function(e) {
 	var services = e['source'].services;
 	
 	for (var i=0; i < services.length; i++) {
+		var service = services[i];
 		var row = Titanium.UI.createTableViewRow({
-			title:services[i].name,
-			service:services[i]
+			title:service.name,
+			service:service
 		});
+		
+		service.resolve();
+		service.socket.addEventListener('newData', function(x) {
+			var sock = x['source'];
+			while (sock.dataAvailable()) {
+				recvCount++;
+				Titanium.API.info('Recv: '+recvCount);
+				var data = sock.read();
+				Titanium.UI.createAlertDialog({
+					title:'Bonjour message!',
+					message:data.toString()
+				}).show();
+			}
+		});
+		service.socket.connect();
 		
 		data.push(row);
 	}
+	
 	if (data.length == 0) {
 		data.push(Titanium.UI.createTableViewRow({
 			title:'No services'

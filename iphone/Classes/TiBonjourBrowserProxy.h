@@ -19,6 +19,7 @@
     
     BOOL searching;
     NSString* error;
+    NSCondition* searchCondition;
 }
 
 -(void)search:(id)unused;

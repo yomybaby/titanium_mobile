@@ -18,6 +18,7 @@
     BOOL local;
     BOOL published;
     NSString* error;
+    NSCondition* connectCondition;
 }
 
 -(NSNetService*)service;
@@ -28,7 +29,7 @@
 -(void)resolve:(id)args;
 -(void)stop:(id)arg;
 
-@property(readonly, nonatomic) TiSocketTCPProxy* socket;
+@property(readonly) TiSocketTCPProxy* socket;
 @property(readonly, nonatomic) NSString* name;
 @property(readonly, nonatomic) NSString* type;
 @property(readonly, nonatomic) NSString* domain;

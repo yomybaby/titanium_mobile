@@ -15,12 +15,14 @@
     
     NSString* searchError;
     BOOL searching;
+    NSCondition* searchCondition;
 }
 
 +(NSString*)stringForErrorCode:(NSNetServicesError)code;
 
 -(void)searchDomains:(id)unused;
 -(void)stopDomainSearch:(id)unused;
+-(void)purgeDomains:(id)unused;
 -(NSNumber*)isSearching:(id)unused;
 
 @property(readonly) NSArray* domains;

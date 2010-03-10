@@ -18,10 +18,10 @@
     NSMutableDictionary* remoteSocketDictionary; // remoteSocket->{inputStream, outputStream, writeBuffer, writePos}
 
     NSMutableArray* readBuffer;
-    NSData* currentReadData;
     
-    NSLock* readLock;
+    NSRecursiveLock* readLock;
     NSRecursiveLock* writeLock;
+    NSCondition* configureCondition;
 	
 	SocketMode mode;
     int activeSockets;

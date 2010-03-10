@@ -28,6 +28,7 @@ const NSString* socketKey = @"socket";
 {
     if (self = [super init]) {
         local = YES;
+        connectCondition = [[NSCondition alloc] init];
     }
     
     return self;
@@ -42,6 +43,7 @@ const NSString* socketKey = @"socket";
         
         service = [service_ retain];
         local = local_;
+        connectCondition = [[NSCondition alloc] init];
         
         [service removeFromRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
         [service scheduleInRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
@@ -56,6 +58,7 @@ const NSString* socketKey = @"socket";
 {
     [service release];
     [socket release];
+    [connectCondition release];
     
     [super dealloc];
 }
@@ -136,9 +139,10 @@ const NSString* socketKey = @"socket";
     
     [service publish];
     
-    // Block
-    while (!published && !error) {
-        usleep(1);
+    if (!published && !error) {
+        [connectCondition lock];
+        [connectCondition wait];
+        [connectCondition unlock];
     }
     
     if (error) {
@@ -171,9 +175,10 @@ const NSString* socketKey = @"socket";
     
     [service resolveWithTimeout:timeout];
     
-    // Block; always up to 'timeout' max, though.
-    while (!socket && !error) {
-        usleep(1);
+    if (!socket && !error) {
+        [connectCondition lock];
+        [connectCondition wait];
+        [connectCondition unlock];
     }
     
     if (error) {
@@ -187,9 +192,10 @@ const NSString* socketKey = @"socket";
 {    
     [service stop];
     
-    // Block
-    while (published) {
-        usleep(1);
+    if (published) {
+        [connectCondition lock];
+        [connectCondition wait];
+        [connectCondition unlock];
     }
 }
 
@@ -218,11 +224,19 @@ const NSString* socketKey = @"socket";
 -(void)netService:(NSNetService*)service_ didNotPublish:(NSDictionary*)errorDict
 {
     [self setError:[BonjourModule stringForErrorCode:[[errorDict valueForKey:NSNetServicesErrorCode] intValue]]];
+    
+    [connectCondition lock];
+    [connectCondition signal];
+    [connectCondition unlock];
 }
 
 -(void)netServiceDidPublish:(NSNetService *)service_
 {
     published = YES;
+    
+    [connectCondition lock];
+    [connectCondition signal];
+    [connectCondition unlock];
 }
 
 #pragma mark Resolution
@@ -247,6 +261,10 @@ const NSString* socketKey = @"socket";
                                                                                                         [service hostName], @"hostName",
                                                                                                         [NSNumber numberWithInt:READ_WRITE_MODE], @"mode", nil]]]
                       autorelease]];
+            
+            [connectCondition lock];
+            [connectCondition signal];
+            [connectCondition unlock];
             break;
         }
     }
@@ -257,6 +275,10 @@ const NSString* socketKey = @"socket";
 -(void)netServiceDidStop:(NSNetService*)service_
 {
     published = NO;
+    
+    [connectCondition lock];
+    [connectCondition signal];
+    [connectCondition unlock];
 }
 
 @end

@@ -432,6 +432,9 @@ static TiValueRef SetTimeoutCallback (TiContextRef jsContext, TiObjectRef jsFunc
 -(void)invokeEvent:(KrollCallback*)callback_ args:(NSArray*)args_ thisObject:(id)thisObject_
 {
 	KrollEvent *event = [[[KrollEvent alloc] initWithCallback:callback_ args:args_ thisObject:thisObject_] autorelease];
+    if ([self isKJSThread]) {
+        NSLog(@"WARNING: Enqueued event on KJS thread!");
+    }
 	[self enqueue:event];
 }
 
@@ -584,7 +587,7 @@ static TiValueRef SetTimeoutCallback (TiContextRef jsContext, TiObjectRef jsFunc
 			}
 		}
 
-		
+		/*
 		// TODO: experiment, attempt to collect more often than usual given our environment
 		if (loopCount == GC_LOOP_COUNT)
 		{
@@ -594,6 +597,7 @@ static TiValueRef SetTimeoutCallback (TiContextRef jsContext, TiObjectRef jsFunc
 			TiGarbageCollect(context);
 			loopCount = 0;
 		}
+         */
 		
 		[pool_ drain];
 
@@ -608,10 +612,12 @@ static TiValueRef SetTimeoutCallback (TiContextRef jsContext, TiObjectRef jsFunc
 #if CONTEXT_DEBUG == 1	
 		NSLog(@"CONTEXT<%@>: waiting for new event (count=%d)",self,KrollContextCount);
 #endif
-		
-		[condition lock];
-		[condition wait];
-		[condition unlock]; 
+	
+        if ([queue count] == 0) {
+            [condition lock];
+            [condition wait];
+            [condition unlock]; 
+        }
 		
 #if CONTEXT_DEBUG == 1	
 		NSLog(@"CONTEXT<%@>: woke up for new event (count=%d)",self,KrollContextCount);

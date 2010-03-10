@@ -47,9 +47,12 @@ const CFOptionFlags writeStreamEventFlags =
 
 @implementation TiSocketTCPProxy
 
-#pragma mark Private
+#pragma mark Macros
 
 #define VALID [[self isValid:nil] boolValue]
+
+#pragma mark Private
+
 
 -(void)toggleActiveSocket:(int)remoteSocket
 {
@@ -80,7 +83,7 @@ const CFOptionFlags writeStreamEventFlags =
     }
     
     [streams->writeBuffer release];
-
+    
     // close(remoteSocket); Should be closed by closing the streams.
     [remoteSocketDictionary removeObjectForKey:remoteSocketObject];
 }
@@ -141,10 +144,14 @@ const CFOptionFlags writeStreamEventFlags =
     
     [stream close];
     
+    [configureCondition lock];
+    [configureCondition signal];
+    [configureCondition unlock];
+    
     [self fireEvent:event
          withObject:[NSDictionary dictionaryWithObjectsAndKeys:[error localizedDescription], @"error", 
-                                                                [NSNumber numberWithInt:[error code]], @"code", 
-                                                                 nil]];
+                     [NSNumber numberWithInt:[error code]], @"code", 
+                     nil]];
 }
 
 -(CFSocketNativeHandle)getHandleFromStream:(NSStream*)stream
@@ -178,7 +185,7 @@ const CFOptionFlags writeStreamEventFlags =
     }
     
     SocketStreams* streams = 
-        (SocketStreams*)[[remoteSocketDictionary objectForKey:[NSNumber numberWithInt:remoteSocket]] bytes];
+    (SocketStreams*)[[remoteSocketDictionary objectForKey:[NSNumber numberWithInt:remoteSocket]] bytes];
     
     if (!streams) {
         streams = (SocketStreams*)malloc(sizeof(SocketStreams));
@@ -193,6 +200,19 @@ const CFOptionFlags writeStreamEventFlags =
     
     CFReadStreamSetProperty((CFReadStreamRef)input, kCFStreamPropertyShouldCloseNativeSocket, kCFBooleanTrue);
     [self configureSocketForHandle:remoteSocket];
+    
+    if (mode && WRITE_MODE) {
+        if (streams->outputStream) {
+            [configureCondition lock];
+            [configureCondition signal];
+            [configureCondition unlock];
+        }
+    }
+    else {
+        [configureCondition lock];
+        [configureCondition signal];
+        [configureCondition unlock];
+    }
 }
 
 -(void)initializeWriteStream:(NSOutputStream*)output
@@ -204,7 +224,7 @@ const CFOptionFlags writeStreamEventFlags =
     }
     
     SocketStreams* streams = 
-        (SocketStreams*)[[remoteSocketDictionary objectForKey:[NSNumber numberWithInt:remoteSocket]] bytes];
+    (SocketStreams*)[[remoteSocketDictionary objectForKey:[NSNumber numberWithInt:remoteSocket]] bytes];
     
     if (!streams) {
         streams = (SocketStreams*)malloc(sizeof(SocketStreams));
@@ -220,13 +240,27 @@ const CFOptionFlags writeStreamEventFlags =
     streams->bufferPos = 0;
     
     CFWriteStreamSetProperty((CFWriteStreamRef)output, kCFStreamPropertyShouldCloseNativeSocket, kCFBooleanTrue);
-    [self configureSocketForHandle:remoteSocket];    
+    [self configureSocketForHandle:remoteSocket];   
+    
+    if (mode && READ_MODE) {
+        if (streams->inputStream) {
+            [configureCondition lock];
+            [configureCondition signal];
+            [configureCondition unlock];
+        }
+    }
+    else {
+        [configureCondition lock];
+        [configureCondition signal];
+        [configureCondition unlock];
+    }
 }
 
 -(void)readFromStream:(NSInputStream*)input
 { 
     [readLock lock];
     
+    BOOL read = NO;
     while ([input hasBytesAvailable]) {
         uint8_t* buffer = (uint8_t*)malloc(bufferSize * sizeof(uint8_t));
         NSInteger bytesRead = [input read:buffer maxLength:bufferSize];
@@ -234,16 +268,19 @@ const CFOptionFlags writeStreamEventFlags =
             free(buffer);
             
             [self handleError:input];
-
+            
             return;
         }
         NSData* data = [NSData dataWithBytesNoCopy:buffer length:bytesRead];
         [readBuffer addObject:data];
+        read = YES;
     }
     
-    [self fireEvent:@"newData" withObject:nil];
-    
     [readLock unlock];
+
+    if (read) {
+        [self fireEvent:@"newData" withObject:nil];
+    }
 }
 
 -(void)writeToStream:(NSOutputStream*)output
@@ -256,7 +293,7 @@ const CFOptionFlags writeStreamEventFlags =
     }
     
     SocketStreams* streams = 
-        (SocketStreams*)[[remoteSocketDictionary objectForKey:[NSNumber numberWithInt:remoteSocket]] bytes];
+    (SocketStreams*)[[remoteSocketDictionary objectForKey:[NSNumber numberWithInt:remoteSocket]] bytes];
     if ([streams->writeBuffer count] == 0) {
         [writeLock unlock];
         return;
@@ -291,7 +328,6 @@ const CFOptionFlags writeStreamEventFlags =
     [writeLock unlock];
 }
 
-
 #pragma mark Public
 
 -(id)init
@@ -302,8 +338,9 @@ const CFOptionFlags writeStreamEventFlags =
         
         readBuffer = [[NSMutableArray alloc] init];
         
-        readLock = [[NSLock alloc] init];
+        readLock = [[NSRecursiveLock alloc] init];
         writeLock = [[NSRecursiveLock alloc] init];
+        configureCondition = [[NSCondition alloc] init];
         
         mode = READ_WRITE_MODE;
         activeSockets = 0;
@@ -323,6 +360,7 @@ const CFOptionFlags writeStreamEventFlags =
     [remoteSocketDictionary release];
 	[readLock release];
 	[writeLock release];
+    [configureCondition release];
 	
     [super dealloc];
 }
@@ -374,7 +412,11 @@ const CFOptionFlags writeStreamEventFlags =
 
 -(NSNumber*)dataAvailable:(id)unused
 {
-    return [NSNumber numberWithBool:([readBuffer count] != 0)];
+    // Unfortunately, this rather intensive operation is necessary...
+    [readLock lock];
+    int count = [readBuffer count];
+    [readLock unlock];
+    return [NSNumber numberWithBool:(count != 0)];
 }
 
 -(NSNumber*)hasActiveSockets:(id)unused
@@ -426,7 +468,7 @@ const CFOptionFlags writeStreamEventFlags =
                     location:CODELOCATION];
     }
     
-    CFDataRef addressData = [self createAddressData];
+    CFDataRef addressData = (CFDataRef)[self createAddressData];
     
     CFSocketError sockError = CFSocketSetAddress(socket,
 												 addressData);
@@ -509,13 +551,13 @@ const CFOptionFlags writeStreamEventFlags =
     
     CFRelease(signature.address);
     
-    // Simulate blocking - is there a better (re: safer) way to do this?
-    // TODO: Throw an exception when the stream status is in error.  This might be a little difficult
-    // to handle generically...
-    while (!socket &&
-           !(inputStream && (CFReadStreamGetStatus(inputStream) == kCFStreamStatusError)) &&
-           !(outputStream && (CFWriteStreamGetStatus(outputStream) == kCFStreamStatusError))) {
-        usleep(1);
+    if (!VALID &&
+        !(inputStream && (CFReadStreamGetStatus(inputStream) == kCFStreamStatusError)) &&
+        !(outputStream && (CFWriteStreamGetStatus(outputStream) == kCFStreamStatusError))) {
+        
+        [configureCondition lock];
+        [configureCondition wait];
+        [configureCondition unlock];
     }
 }
 
@@ -560,19 +602,16 @@ const CFOptionFlags writeStreamEventFlags =
 
     [readLock lock];
     
+    TiBlob* dataBlob = nil;
     if ([[self dataAvailable:nil] boolValue]) {
-        TiBlob* dataBlob = [[[TiBlob alloc] initWithData:[readBuffer objectAtIndex:0] 
-                                                mimetype:@"application/octet-stream"] autorelease];
+        dataBlob = [[[TiBlob alloc] initWithData:[readBuffer objectAtIndex:0] 
+                                        mimetype:@"application/octet-stream"] autorelease];
         [readBuffer removeObjectAtIndex:0];
-
-        [readLock unlock];
-        
-        return dataBlob;
     }
     
     [readLock unlock];
     
-	return nil;
+	return dataBlob;
 }
 
 -(void)write:(id)args;
@@ -611,20 +650,21 @@ const CFOptionFlags writeStreamEventFlags =
         NSData* streamData = [remoteSocketDictionary objectForKey:key];
         SocketStreams* streams = (SocketStreams*)[streamData bytes];
         
-        // In order to prevent the (quite horrifying) race condition where write() is called
-        // before a write buffer is allocated, we block when the streams' writeBuffer is nil.
-        // There could be some highly degenerate cases where this is very, very bad though...
-        while (streams->writeBuffer == nil) {
-            usleep(1);
+        // TODO: This might result in very odd situations where when two sockets are being configured, one "beats out" the other, which is the one being waited on.
+        // One way to handle this would be to have a canWriteCondition associated with each stream...
+        // And what about the odd situation in which one stream configures but then there's an error?
+        // This extremely strange corner case COULD happen if the socket is disconnected in the middle of a configure.
+        if (streams->writeBuffer == nil) {
+            [configureCondition lock];
+            [configureCondition wait];
+            [configureCondition unlock];
         }
         
         [streams->writeBuffer addObject:data];
         [self toggleActiveSocket:[key intValue]];
     
         if (CFWriteStreamCanAcceptBytes(streams->outputStream)) {
-            handleWriteData(streams->outputStream,
-                            kCFStreamEventCanAcceptBytes,
-                            self);
+            [self writeToStream:(NSOutputStream*)(streams->outputStream)];
         }
     }
     
@@ -634,7 +674,7 @@ const CFOptionFlags writeStreamEventFlags =
 @end
 
 
-#pragma mark Socket data handling
+#pragma mark CFSocket/CFStream data handling
 
 void handleSocketConnection(CFSocketRef socket, CFSocketCallBackType type, 
 							CFDataRef address, const void* data, void* info) {

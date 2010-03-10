@@ -32,18 +32,31 @@ const NSString* socketArg = @"socket";
     
     searchError = nil;
     searching = NO;
+    searchCondition = [[NSCondition alloc] init];
 }
 
 -(void)_destroy
 {
     [domains release];
     [domainBrowser release];
+    [searchCondition release];
+    
     [super _destroy];
 }
 
 -(NSArray*)domains
 {
-    return [[domains copy] autorelease];
+    [domains retain];
+    [domains autorelease];
+    return domains;
+}
+
+-(void)purgeDomains:(id)unused;
+{
+    [domains removeAllObjects];
+    
+    [self fireEvent:@"updatedDomains"
+         withObject:nil];
 }
 
 +(NSString*)stringForErrorCode:(NSNetServicesError)code
@@ -83,9 +96,10 @@ const NSString* socketArg = @"socket";
     RELEASE_TO_NIL(searchError);
     [domainBrowser searchForBrowsableDomains];
     
-    // Block
-    while (!searching && !searchError) {
-        usleep(1);
+    if (!searching && !searchError) {
+        [searchCondition lock];
+        [searchCondition wait];
+        [searchCondition unlock];
     }
     
     if (searchError) {
@@ -99,9 +113,10 @@ const NSString* socketArg = @"socket";
 {
     [domainBrowser stop];
     
-    // Block
-    while (searching) {
-        usleep(1);
+    if (searching) {
+        [searchCondition lock];
+        [searchCondition wait];
+        [searchCondition unlock];
     }
 }
 
@@ -149,16 +164,28 @@ const NSString* socketArg = @"socket";
 -(void)netServiceBrowserWillSearch:(NSNetServiceBrowser*)browser
 {
     searching = YES;
+    
+    [searchCondition lock];
+    [searchCondition signal];
+    [searchCondition unlock];
 }
 
 -(void)netServiceBrowser:(NSNetServiceBrowser *)browser didNotSearch:(NSDictionary *)errorDict
 {
     [self setSearchError:[BonjourModule stringForErrorCode:[[errorDict objectForKey:NSNetServicesErrorCode] intValue]]];
+    
+    [searchCondition lock];
+    [searchCondition signal];
+    [searchCondition unlock];
 }
 
 -(void)netServiceBrowserDidStopSearch:(NSNetServiceBrowser*)browser
 {
     searching = NO;
+    
+    [searchCondition lock];
+    [searchCondition signal];
+    [searchCondition unlock];
 }
 
 @end
