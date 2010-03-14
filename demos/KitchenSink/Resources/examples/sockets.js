@@ -1,16 +1,17 @@
 var win = Titanium.UI.currentWindow;
+var storedData = [];
+
 var socket = Titanium.Socket.createTCP({
 	hostName:Titanium.Socket.INADDR_ANY, 
 	port:40404, 
 	mode:Titanium.Socket.READ_WRITE_MODE
 });
 
-
 var messageLabel = Titanium.UI.createLabel({
 	text:'Socket messages',
 	font:{fontSize:14},
 	color:'#777',
-	top:310,
+	top:220,
 	left:10
     });
 win.add(messageLabel);
@@ -19,11 +20,17 @@ var readLabel = Titanium.UI.createLabel({
 	text:'Read data',
 	font:{fontSize:14},
 	color:'#777',
-	top:330,
+	top:250,
 	left:10,
-	width:200
+	width:400
     });
 win.add(readLabel);
+
+socket.addEventListener('read', function(e) {
+	messageLabel.text = "I'm a reader!";
+	readLabel.text = e['from'] + ':' + e['data'];
+	storedData.push(e['data']);
+});
 
 var connectButton = Titanium.UI.createButton({
 	title:'Listen on 40404',
@@ -37,7 +44,7 @@ connectButton.addEventListener('click', function() {
 	    socket.listen();
 	    messageLabel.text = 'Opened!';
 	} catch (e) {
-	    Titanium.API.info('Exception: '+e);
+	    messageLabel.text = 'Exception: '+e;
 	}
     });
 
@@ -49,9 +56,13 @@ var closeButton = Titanium.UI.createButton({
     });
 win.add(closeButton);
 closeButton.addEventListener('click', function() {
-	socket.close();
-	messageLabel.text = 'Closed!';
-    });
+	try {
+		socket.close();
+		messageLabel.text = 'Closed!';
+	} catch (e) {
+		messageLabel.text = 'Exception: '+e;
+	}
+});
 
 var validButton = Titanium.UI.createButton({
 	title:'Valid?',
@@ -74,58 +85,14 @@ var writeButton = Titanium.UI.createButton({
     });
 win.add(writeButton);
 writeButton.addEventListener('click', function() {
-	var plFile = Titanium.Filesystem.getFile(Titanium.Filesystem.resourcesDirectory, 'paradise_lost.txt');
-	var plData = plFile.read();
+	try {
+		var plFile = Titanium.Filesystem.getFile(Titanium.Filesystem.resourcesDirectory, 'paradise_lost.txt');
+		var plData = plFile.read();
 	
-	socket.write(plData);
-	messageLabel.text = "I'm a writer!";
-    });
-
-var readButton = Titanium.UI.createButton({
-	title:'Read data',
-	backgroundDisabledImage: '../images/BUTT_drk_off.png',
-	width:200,
-	height:40,
-	top:210
-    });
-win.add(readButton);
-readButton.addEventListener('click', function() {
-	var blob = socket.read();
-	messageLabel.text = "I'm a reader!";
-	readLabel.text = blob;
-    });
- 
-var modeLabel = Titanium.UI.createLabel({
-	text:'Passive read mode: ',
-	font:{fontSize:14},
-	color:'#777',
-	top:260,
-	left:10
-});
-win.add(modeLabel);
-    
-passiveRead = function(e) {
-	readLabel.text = '';
-	while (socket.dataAvailable()) {
-		readLabel.text = readLabel.text + ':' + socket.read();
-	}
-}
-    
-var modeSwitch = Titanium.UI.createSwitch({
-	value:false,
-	top:280,
-});
-win.add(modeSwitch);
-modeSwitch.addEventListener('change', function(e) {
-	if (e.value) {
-		messageLabel.text = 'Turning on passive read...';
-		readButton.enabled = false;
-		socket.addEventListener('newData', passiveRead);
-	}
-	else {
-		messageLabel.text = 'Turning off passive read...';
-		readButton.enabled = true;
-		socket.removeEventListener('newData', passiveRead);
+		socket.write(plData);
+		messageLabel.text = "I'm a writer!";
+	} catch (e) {
+		messageLabel.text = 'Exception: '+e;
 	}
 });
 

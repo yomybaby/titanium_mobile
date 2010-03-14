@@ -30,6 +30,9 @@
         [browser setDelegate:self];
         searching = NO;
         error = nil;
+        
+        serviceType = nil;
+        domain = [[NSString alloc] initWithString:@"local."];
     }
     
     return self;
@@ -43,13 +46,6 @@
     [services release];
     
     [super dealloc];
-}
-
--(NSArray*)services
-{
-    [services retain];
-    [services autorelease];
-    return services;
 }
 
 -(NSString*)description
@@ -79,6 +75,12 @@
 
 -(void)search:(id)unused
 {
+    if (serviceType == nil) {
+        [self throwException:@"Service type not set"
+                   subreason:nil
+                    location:CODELOCATION];
+    }
+    
     RELEASE_TO_NIL(error);
     [browser searchForServicesOfType:serviceType 
                             inDomain:domain];
@@ -105,14 +107,8 @@
         [searchCondition wait];
         [searchCondition unlock];
     }
-}
-
--(void)purgeServices:(id)unused
-{
-    [services removeAllObjects];
     
-    [self fireEvent:@"updatedServices"
-         withObject:nil];
+    [services removeAllObjects];
 }
 
 -(NSNumber*)isSearching:(id)unused
@@ -142,7 +138,8 @@
     
     if (!more) {
         [self fireEvent:@"updatedServices"
-             withObject:nil];
+             withObject:[NSDictionary dictionaryWithObject:[[services copy] autorelease] 
+                                                    forKey:@"services"]];
     }
 }
 
@@ -155,7 +152,8 @@
     
     if (!more) {
         [self fireEvent:@"updatedServices"
-             withObject:nil];
+             withObject:[NSDictionary dictionaryWithObject:[[services copy] autorelease] 
+                                                    forKey:@"services"]];
     }
 }
 

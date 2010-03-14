@@ -22,9 +22,6 @@
 
 -(void)searchDomains:(id)unused;
 -(void)stopDomainSearch:(id)unused;
--(void)purgeDomains:(id)unused;
 -(NSNumber*)isSearching:(id)unused;
-
-@property(readonly) NSArray* domains;
 
 @end

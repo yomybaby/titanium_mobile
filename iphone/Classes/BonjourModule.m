@@ -44,21 +44,6 @@ const NSString* socketArg = @"socket";
     [super _destroy];
 }
 
--(NSArray*)domains
-{
-    [domains retain];
-    [domains autorelease];
-    return domains;
-}
-
--(void)purgeDomains:(id)unused;
-{
-    [domains removeAllObjects];
-    
-    [self fireEvent:@"updatedDomains"
-         withObject:nil];
-}
-
 +(NSString*)stringForErrorCode:(NSNetServicesError)code
 {
     switch (code) {
@@ -118,6 +103,8 @@ const NSString* socketArg = @"socket";
         [searchCondition wait];
         [searchCondition unlock];
     }
+    
+    [domains removeAllObjects];
 }
 
 -(NSNumber*)isSearching:(id)unused
@@ -145,7 +132,8 @@ const NSString* socketArg = @"socket";
     
     if (!more) {
         [self fireEvent:@"updatedDomains"
-             withObject:nil];
+             withObject:[NSDictionary dictionaryWithObject:[[domains copy] autorelease]
+                                                    forKey:@"domains"]];
     }
 }
 
@@ -155,7 +143,8 @@ const NSString* socketArg = @"socket";
     
     if (!more) {
         [self fireEvent:@"updatedDomains"
-             withObject:nil];
+             withObject:[NSDictionary dictionaryWithObject:[[domains copy] autorelease]
+                                                    forKey:@"domains"]];
     }
 }
 

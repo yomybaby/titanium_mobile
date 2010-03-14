@@ -80,7 +80,15 @@ const NSString* socketKey = @"socket";
 {
     ENSURE_CLASS([serviceInfo objectForKey:nameKey], [NSString class])
     ENSURE_CLASS([serviceInfo objectForKey:typeKey], [NSString class])
-    ENSURE_CLASS([serviceInfo objectForKey:domainKey], [NSString class])
+    
+    NSString* domain = nil;
+    if ([serviceInfo objectForKey:domainKey]) {
+        ENSURE_CLASS([serviceInfo objectForKey:domainKey], [NSString class])
+        domain = [serviceInfo objectForKey:domainKey];
+    }
+    else {
+        domain = @"local.";
+    }
     ENSURE_CLASS([serviceInfo objectForKey:socketKey], [TiSocketTCPProxy class])
     
     [service release];
@@ -136,6 +144,13 @@ const NSString* socketKey = @"socket";
                    subreason:nil
                     location:CODELOCATION];
     }
+    if (!socket) {
+        [self throwException:@"Attempt to publish service with no associated socket"
+                   subreason:nil
+                    location:CODELOCATION];
+    }
+    
+    RELEASE_TO_NIL(error);
     
     [service publish];
     
@@ -154,16 +169,8 @@ const NSString* socketKey = @"socket";
 
 -(void)resolve:(id)args
 {
-    RELEASE_TO_NIL(error);
-    
-    NSTimeInterval timeout = 120.0;
-    if ([args count] != 0 && !IS_NULL_OR_NIL([args objectAtIndex:0])) {
-        ENSURE_CLASS([args objectAtIndex:0], [NSNumber class])
-        timeout = [[args objectAtIndex:0] doubleValue];
-    }
-    
-    if (local) {
-        [self throwException:@"Attempt to resolve local Bonjour service"
+    if (published) {
+        [self throwException:@"Attempt to resolve published Bonjour service"
                    subreason:nil
                     location:CODELOCATION];
     }
@@ -171,6 +178,14 @@ const NSString* socketKey = @"socket";
         [self throwException:@"Attempt to re-resolve service"
                    subreason:nil
                     location:CODELOCATION];
+    }
+    
+    RELEASE_TO_NIL(error);
+    
+    NSTimeInterval timeout = 120.0;
+    if ([args count] != 0 && !IS_NULL_OR_NIL([args objectAtIndex:0])) {
+        ENSURE_CLASS([args objectAtIndex:0], [NSNumber class])
+        timeout = [[args objectAtIndex:0] doubleValue];
     }
     
     [service resolveWithTimeout:timeout];
@@ -200,6 +215,11 @@ const NSString* socketKey = @"socket";
 }
 
 #pragma mark Private
+
+-(void)synthesizeService
+{
+    
+}
 
 -(void)setError:(NSString*)error_
 {
@@ -248,7 +268,6 @@ const NSString* socketKey = @"socket";
 
 -(void)netServiceDidResolveAddress:(NSNetService*)service_
 {
-    // If an IPv4 address has been resolved, open a socket and fire the event.
     // TODO: Do we really need to only check IPv4?  Why not just resolve the first given address?
     NSData* addressData = nil;
     NSEnumerator* addressEnum = [[service addresses] objectEnumerator];

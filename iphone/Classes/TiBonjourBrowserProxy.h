@@ -26,10 +26,7 @@
 -(void)stopSearch:(id)unused;
 -(NSNumber*)isSearching:(id)unused;
 
--(void)purgeServices:(id)unused;
-
 @property(readonly, nonatomic) NSString* serviceType;
 @property(readonly, nonatomic) NSString* domain;
-@property(readonly, nonatomic) NSArray* services;
 
 @end

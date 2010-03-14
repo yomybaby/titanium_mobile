@@ -16,15 +16,10 @@
     int port;
     
     NSMutableDictionary* remoteSocketDictionary; // remoteSocket->{inputStream, outputStream, writeBuffer, writePos}
-
-    NSMutableArray* readBuffer;
     
-    NSRecursiveLock* readLock;
-    NSRecursiveLock* writeLock;
     NSCondition* configureCondition;
 	
 	SocketMode mode;
-    int activeSockets;
 }
 
 -(void)listen:(id)unused;
@@ -32,10 +27,6 @@
 -(void)close:(id)unused;
 
 -(NSNumber*)isValid:(id)unused;
--(NSNumber*)dataAvailable:(id)unused;
--(NSNumber*)hasActiveSockets:(id)unused;
-
--(TiBlob*)read:(id)unused;
 -(void)write:(id)arg;
 
 @property(readonly, nonatomic) NSString* hostName;
