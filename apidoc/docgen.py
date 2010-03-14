@@ -9,6 +9,7 @@
 # 
 import os, sys, json, re
 from os.path import join, splitext, split, exists
+from htmlentitydefs import name2codepoint 
 
 try:
 	from mako.template import Template
@@ -16,6 +17,15 @@ except:
 	print "Crap, you don't have mako!\n"
 	print "Easy install that bitch:\n"
 	print ">  easy_install Mako"
+	print
+	sys.exit(1)
+try:
+	import markdown
+except:
+	print "Crap, you don't have markdown!\n"
+	print "Easy install that bitch:\n"
+	print ">  easy_install ElementTree"
+	print ">  easy_install Markdown"
 	print
 	sys.exit(1)
 
@@ -27,6 +37,8 @@ ignoreDirs = ['.git','.svn', 'CVS'];
 state = ''
 state_states = {}
 buffer = ''
+current_file = None
+current_line = -1
 
 apis = {}
 current_api = None
@@ -152,7 +164,15 @@ class API(object):
 	def set_notes(self,notes):
 		self.notes = notes
 	def add_method(self,key,value,returntype='void'):
-		self.methods.append({'name':key,'value':value,'parameters':[],'returntype':returntype})
+		found = False
+		for e in self.methods:
+			if e['name'] == key:
+				found = True
+				e['value']=value
+				e['returntype']=returntype
+				break
+		if found==False:
+			self.methods.append({'name':key,'value':value,'parameters':[],'returntype':returntype})
 		self.methods.sort(namesort)
 	def set_method_returntype(self,key,value):
 		for m in self.methods:
@@ -171,7 +191,14 @@ class API(object):
 		props = {}
 		props['type'] = 'the name of the event fired'
 		props['source'] = 'the source object that fired the event'
-		self.events.append({'name':key,'value':value,'properties':props})
+		found = False
+		for e in self.events:
+			if e['name']==key:
+				e['value']=value
+				found = True
+				break
+		if found==False:			
+			self.events.append({'name':key,'value':value,'properties':props})
 		self.events.sort(namesort)
 	def add_event_property(self,event,key,value):
 		for e in self.events:
@@ -233,57 +260,50 @@ def tickerize(line):
 		return line
 	idx2 = line.find('`',idx+1)
 	return tickerize(line[0:idx] + "<tt>%s</tt>" % line[idx+1:idx2] + line[idx2+1:])
-		
+
+def htmlerize(content):
+	begin = 0
+	end = len(content)
+	idx = content.find('\\')
+	buf = ''
+	while idx > 0:
+		buf+=content[begin:idx]
+		begin = idx+2
+		idx = content.find('\\',begin)
+		if idx < 0: break
+	if begin < end: buf+=content[begin:]
+	return html_unescape(markdown.markdown(tickerize(buf),['extra'],output_format='html4'))
+			
 def paragraphize(line):
-	content = ''
-	in_break = False
-	in_code = False
-	for p in line.strip().split('\n'):
-		if p == '' : continue
-		if p[0:6] == '<code>' or p[0:7] == '<script':
-			content += p
-			in_code = True
-			continue
-		elif p[0:7]=='</code>' or p[0:8] == '</script':
-			content += p
-			in_code = False
-			continue
-		if in_code:
-			content+= p + '\n'
-			continue
-		last = p[-1]
-		if last == '\\':
-			if not in_break: content+='<p>'
-			content+=p[0:len(p)-1]
-			in_break = True
-			continue
-		if in_break: 
-			content+=p
-		else:
-			content += '<p>%s' % p
-		in_break = False
-	if not in_code: content+='</p>'	
-	return tickerize(content)
+	return htmlerize(line)
 
 def wrap_code_block(line):
-	idx = line.find('<code>')
-	if idx == -1: return paragraphize(line)
-	endx = line.find('</code>',idx)
-	desc = line[0:idx].strip()
-	code = line[idx+6:endx]
-	newcode = """
-<script type="syntaxhighlighter" class="brush: js"><![CDATA[%s]]></script>
-"""	% code
-	after = line[endx+7:]
-	return wrap_code_block(paragraphize(desc) + newcode + paragraphize(after))
+	return htmlerize(line)
+
+def replace_entities(match):
+    try:
+        ent = match.group(1)
+        if ent[0] == "#":
+            if ent[1] == 'x' or ent[1] == 'X':
+                return unichr(int(ent[2:], 16))
+            else:
+                return unichr(int(ent[1:], 10))
+        return unichr(name2codepoint[ent])
+    except:
+        return match.group()
+
+entity_re = re.compile(r'&(#?[A-Za-z0-9]+?);')
+def html_unescape(data):
+    return entity_re.sub(replace_entities, data)
 
 def emit_properties(line):
 	for tokens in tokenize_keyvalues(line):
 		match = re.search('(.*)\[(.*)\]',tokens[0])
 		if match == None:
+			print "[ERROR] in file: %s at line: %d" % (current_file, current_line)
 			print "[ERROR] invalid property line: %s. Must be in the format [name[type]]:[description]" % line
 			sys.exit(1)
-		current_api.add_property(match.group(1), match.group(2), tokens[1])
+		current_api.add_property(match.group(1), match.group(2), htmlerize(tokens[1]))
 	
 def emit_methods(line):
 	for tokens in tokenize_keyvalues(line):
@@ -300,14 +320,7 @@ def emit_namespace(line):
 	apis[current_api.namespace] = current_api
 	
 def emit_description(line):
-	current_api.set_description(paragraphize(line))
-
-def emit_example(line):
-	idx = line.find('<code>')
-	endx = line.find('</code>',idx)
-	desc = line[0:idx].strip()
-	code = line[idx+6:endx].strip()
-	current_api.add_example(paragraphize(desc),code)
+	current_api.set_description(htmlerize(line))
 		
 def emit_type(line):
 	current_api.set_type(line.strip())
@@ -332,9 +345,10 @@ def emit_deprecated(line):
 	line = line.strip()
 	idx = line.find(':')
 	if idx == -1:
+		print "[ERROR] in file: %s at line: %d" % (current_file, current_line)
 		print "[ERROR] invalid deprecation line: %s. Must be in the format [version]:[description]" % line
 		sys.exit(1)
-	current_api.set_deprecated(line[0:idx].strip(),line[idx+1:].strip())
+	current_api.set_deprecated(tickerize(line[0:idx].strip()),htmlerize(line[idx+1:].strip()))
 	
 def emit_parameters(lines):
 	for line in lines.split("\n"):
@@ -342,21 +356,28 @@ def emit_parameters(lines):
 		if line == '': continue
 		idx = line.find(':')
 		if idx == -1:
+			print "[ERROR] in file: %s at line: %d" % (current_file, current_line)
 			print "[ERROR] invalid parameters line: %s. Must be in the format [name[type]]:[description]" % line
 			sys.exit(1)
 		key = line[0:idx].strip()
 		desc = line[idx+1:].strip()
 		match = re.search('(.*)\[(.*)\]',key)
 		if match == None:
+			print "[ERROR] in file: %s at line: %d" % (current_file, current_line)
 			print "[ERROR] invalid parameters line: %s. Must be in the format [name[type]]:[description]" % line
 			sys.exit(1)
-		current_api.add_parameter(match.group(1), match.group(2), desc)
+		current_api.add_parameter(match.group(1), tickerize(match.group(2)), htmlerize(desc))
 					
 def emit_event_parameter(state,line):
 	idx = state.find(":")
 	event = state[idx+1:].strip()
 	for tokens in tokenize_keyvalues(line):
-		current_api.add_event_property(event,tokens[0],tokens[1])
+		current_api.add_event_property(event,tickerize(tokens[0]),htmlerize(tokens[1]))
+
+def emit_example_parameter(state,line):
+	idx = state.find(":")
+	desc = state[idx+1:].strip()
+	current_api.add_example(tickerize(desc),htmlerize(line))
 						
 def emit_method_parameter(state,line):
 	idx = state.find(":")
@@ -371,12 +392,13 @@ def emit_method_parameter(state,line):
 		desc = tokens[1]
 		match = re.search('(.*)\[(.*)\]',tokens[0])
 		if match == None:
+			print "[ERROR] in file: %s at line: %d" % (current_file, current_line)
 			print "[ERROR] invalid method line: %s. Must be in the format [name[type][returntype]]:[description]" % line
 			sys.exit(1)
 		name = match.group(1)
 		thetype = match.group(2)
-		current_api.add_method_property(event,name,thetype,desc)
-							
+		current_api.add_method_property(event,name,thetype,tickerize(desc))
+	
 def emit_buffer(line):
 	global state
 	if line == '': return
@@ -391,8 +413,6 @@ def emit_buffer(line):
 		emit_namespace(line)
 	elif state == 'description':
 		emit_description(line)
-	elif state == 'example':
-		emit_example(line)
 	elif state == 'type':
 		emit_type(line)
 	elif state == 'subtype':
@@ -413,13 +433,16 @@ def emit_buffer(line):
 		emit_event_parameter(state,line)
 	elif state.find('method : ')!=-1:
 		emit_method_parameter(state,line)
+	elif state.find('example : ')!=-1:
+		emit_example_parameter(state,line)
 	else:
+		print "[ERROR] in file: %s at line: %d" % (current_file, current_line)
 		print "Huh? [%s]. current state: %s" % (line,state)
 		sys.exit(1)
 	state_states[state]=True
 
 def process_unprocessed_state():
-	global state
+	global state, buffer
 	if state.find('method : ')!=-1:
 		# we can have a method with a return type but no args
 		# since this is valid - in this case, just process as if we had args
@@ -443,15 +466,16 @@ for root, dirs, files in os.walk(template_dir):
 		if splitext(file)[-1] != '.tdoc' or file=='template.tdoc':
 			continue
 		from_ = join(root, file)
+		current_file = from_
 		content = open(from_).readlines()
 		buffer = ''
+		current_line = 0
 		for line in content:
+			current_line = current_line + 1
 			ln = line.strip()
-			#print '[%s]' % ln
-			if ln=='': continue
-			if ln[0:1] == '#':
+			if ln[0:1] == '#' and line[1:2] == ' ':
 				continue
-			if ln[0:1] == '-':
+			if ln[0:1] == '-' and line[1:2] == ' ':
 				emit_buffer(buffer)
 				buffer = ''
 				start_marker(ln)
@@ -495,6 +519,7 @@ def produce_json(config):
 def load_template(type):
 	template = os.path.join(template_dir,'templates','%s.html' % type)
 	if not os.path.exists(template):
+		print "[ERROR] in file: %s at line: %d" % (current_file, current_line)
 		print "Couldn't find template %s" % template
 		sys.exit(1)
 	return open(template).read()

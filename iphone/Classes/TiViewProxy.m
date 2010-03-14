@@ -343,6 +343,7 @@
 		
 		// on open we need to create a new view
 		view = [self newView];
+
 		view.proxy = self;
 		view.parent = parent;
 		view.layer.transform = CATransform3DIdentity;
@@ -354,6 +355,7 @@
 
 		// fire property changes for all properties to our delegate
 		[self firePropertyChanges];
+
 
 		[view didSendConfiguration];
 
@@ -374,12 +376,18 @@
 		[self viewDidAttach];
 
 		// make sure we do a layout of ourselves
-//		LayoutConstraint layout;
-//		ReadConstraintFromDictionary(&layout,[self allProperties]);
-		[view updateLayout:NULL withBounds:view.bounds];
+		[self setNeedsReposition];
 		
 		viewInitialized = YES;
 	}
+
+	CGRect bounds = [view bounds];
+	if (!CGPointEqualToPoint(bounds.origin, CGPointZero))
+	{
+		NSLog(@"Unusual bounds origin again! (%f,%f) %@",bounds.origin.x, bounds.origin.y,view);
+		[view setBounds:CGRectMake(0, 0, bounds.size.width, bounds.size.height)];
+	}
+	
 	return view;
 }
 
@@ -395,15 +403,6 @@
 	CGRect bounds = [view bounds];
 
 	// layout out ourself
-	UIView *childView = [child view];
-
-	if ([childView superview]!=view)
-	{
-		[view addSubview:childView];
-	}
-	
-//	LayoutConstraint ourLayoutConstraint;
-//	ReadConstraintFromDictionary(&ourLayoutConstraint,[child allProperties]);
 
 	if(TiLayoutRuleIsVertical(layoutProperties.layout)){
 		bounds.origin.y += verticalLayoutBoundary;
@@ -411,9 +410,8 @@
 		verticalLayoutBoundary += bounds.size.height;
 	}
 
-//	[child setLayoutProperties:<#(LayoutConstraint *)#>
-
-	[[child view] updateLayout:NULL withBounds:bounds];
+	UIView *childView = [child view];
+	[childView insertIntoView:view bounds:bounds];
 	
 	// tell our children to also layout
 	[child layoutChildren];
@@ -610,35 +608,47 @@
 	}
 	else if(TiDimensionIsAuto(layoutProperties.height))
 	{
-		result += [self autoHeightForWidth:TiDimensionCalculateMargins(layoutProperties.left, layoutProperties.right, suggestedWidth)];
+		if (TiDimensionIsPixels(layoutProperties.width))
+		{
+			suggestedWidth = layoutProperties.width.value;
+		}
+		else
+		{
+			suggestedWidth = TiDimensionCalculateMargins(layoutProperties.left, layoutProperties.right, suggestedWidth);
+		}
+		result += [self autoHeightForWidth:suggestedWidth];
 	}
 	return result;
 }
 
 -(void)layoutChildrenIfNeeded
 {
-	BOOL wasSet=OSAtomicTestAndSetBarrier(NEEDS_LAYOUT_CHILDREN, &dirtyflags);
+	[self repositionIfNeeded];
+
+	BOOL wasSet=NEEDS_LAYOUT_CHILDREN & dirtyflags;
 	if (wasSet && [self viewAttached])
 	{
-		[self repositionIfNeeded];
 		[self layoutChildren];
 	}
 }
 
--(void)childResized:(TiViewProxy *)child
+-(BOOL)willBeRelaying
 {
-	BOOL alreadySet = OSAtomicTestAndSetBarrier(NEEDS_LAYOUT_CHILDREN, &dirtyflags);
-	if (alreadySet)
-	{
-		return;
-	}
-	
+	return dirtyflags != 0;
+}
+
+-(void)childWillResize:(TiViewProxy *)child
+{
 	ENSURE_CONSISTENCY([children containsObject:child]);
 	[self setNeedsRepositionIfAutoSized];
 
 	if (TiLayoutRuleIsVertical(layoutProperties.layout))
 	{
-		[self performSelectorOnMainThread:@selector(layoutChildrenIfNeeded) withObject:nil waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
+		BOOL alreadySet = OSAtomicTestAndSetBarrier(NEEDS_LAYOUT_CHILDREN, &dirtyflags);
+		if (!alreadySet)
+		{
+			[self performSelectorOnMainThread:@selector(layoutChildrenIfNeeded) withObject:nil waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
+		}
 	}
 }
 
@@ -657,6 +667,7 @@
 	}
 	if ([NSThread isMainThread])
 	{	//NOTE: This will cause problems with ScrollableView, or is a new wrapper needed?
+		[parent childWillResize:self];
 		[self repositionWithBounds:[[self view] superview].bounds];
 	}
 	else 
@@ -669,7 +680,7 @@
 -(void)repositionIfNeeded
 {
 	BOOL wasSet=OSAtomicTestAndClearBarrier(NEEDS_REPOSITION, &dirtyflags);
-	if (wasSet && [self viewAttached])
+	if (wasSet && [self viewAttached]) // && ![parent willBeRelaying])
 	{
 		[self reposition];
 	}
@@ -682,17 +693,22 @@
 		return;
 	}
 	BOOL alreadySet = OSAtomicTestAndSetBarrier(NEEDS_REPOSITION, &dirtyflags);
-	if (alreadySet)
+	if (alreadySet || [parent willBeRelaying])
 	{
 		return;
 	}
 
+	[parent childWillResize:self];
 	[self performSelectorOnMainThread:@selector(repositionIfNeeded) withObject:nil waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
 }
 
 -(void)clearNeedsReposition
 {
-	OSAtomicTestAndClearBarrier(NEEDS_REPOSITION, &dirtyflags);
+	BOOL wasSet = OSAtomicTestAndClearBarrier(NEEDS_REPOSITION, &dirtyflags);
+	if (wasSet)
+	{
+		NSLog(@"Was set was set to %d",wasSet);
+	}
 }
 
 -(void)setNeedsRepositionIfAutoSized

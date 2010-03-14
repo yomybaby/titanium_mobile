@@ -33,7 +33,7 @@ hide: call hide to make the activity indicator hidden and stop spinning
 
 - events
 
-- example
+- example : Simple Activity Indicator
 
 In this example, we create a basic activity indicator and start it.
 
@@ -47,6 +47,6 @@ actInd.show();
 
 - notes
 
-For iPhone, the style can be set from the constants `Titanium.UI.iPhone.ActivityIndicatorStyle`.
+For iPhone, the style can be set from the constants [Titanium.UI.iPhone.ActivityIndicatorStyle](Titanium.UI.iPhone.ActivityIndicatorStyle).
 
 
