@@ -7,8 +7,8 @@ var bonjourSocket = Titanium.Socket.createTCP({
 
 bonjourSocket.addEventListener('read', function(e) {
 	var remoteSocket = e['from'];
-	var dataStr = e['data'].toString();
-	if (dataStr.substr(dataStr.length-3) == 'req') {
+	var dataStr = e['data'].text;
+	if (dataStr == 'req') {
 		bonjourSocket.write('Hello, from '+Titanium.Platform.id, remoteSocket);
 	}
 	else {
@@ -80,7 +80,7 @@ updateUI = function(e) {
 		service.socket.addEventListener('read', function(x) {
 			Titanium.UI.createAlertDialog({
 				title:'Bonjour message!',
-				message:x['data'].toString()
+				message:x['data'].text
 			}).show();
 		});
 		service.socket.connect();

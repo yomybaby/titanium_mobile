@@ -1,5 +1,4 @@
 var win = Titanium.UI.currentWindow;
-var storedData = [];
 
 var socket = Titanium.Socket.createTCP({
 	hostName:Titanium.Socket.INADDR_ANY, 
@@ -28,8 +27,7 @@ win.add(readLabel);
 
 socket.addEventListener('read', function(e) {
 	messageLabel.text = "I'm a reader!";
-	readLabel.text = e['from'] + ':' + e['data'];
-	storedData.push(e['data']);
+	readLabel.text = e['from'] + ':' + e['data'].text;
 });
 
 var connectButton = Titanium.UI.createButton({

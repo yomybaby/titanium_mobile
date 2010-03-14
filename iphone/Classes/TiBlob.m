@@ -25,9 +25,7 @@
 
 -(id)description
 {
-    // UTF8 string of data
-    NSString* textDesc = [[[NSString alloc] initWithData:[self data] encoding:NSUTF8StringEncoding] autorelease];
-    return [@"[object TiBlob]: " stringByAppendingString:textDesc];
+    return @"[object TiBlob]";
 }
 
 -(BOOL)isImageMimeType
