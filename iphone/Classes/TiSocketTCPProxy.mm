@@ -609,10 +609,6 @@ const CFOptionFlags writeStreamEventFlags =
         
         SocketStreams* streams = (SocketStreams*)[streamData bytes];
         
-        // TODO: This might result in very odd situations where when two sockets are being configured, one "beats out" the other, which is the one being waited on.
-        // One way to handle this would be to have a canWriteCondition associated with each stream...
-        // And what about the odd situation in which one stream configures but then there's an error?
-        // This extremely strange corner case COULD happen if the socket is disconnected in the middle of a configure.
         if (streams->writeBuffer == nil) {
             [configureCondition lock];
             [configureCondition wait];
