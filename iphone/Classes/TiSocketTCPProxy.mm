@@ -256,25 +256,27 @@ const CFOptionFlags writeStreamEventFlags =
     
     // We can't just use -[NSInputStream getBuffer:length:] because the input stream is secretly
     // based on sockets, according to the CFReadStream it comes from.
+    
+    // NOTE: Without sentenels, this could result in some weird behavior (for example, if two images are transmitted back-to-back with no break).
+    NSMutableData* data = [[[NSMutableData init] alloc] autorelease];
     while ([input hasBytesAvailable]) {
         uint8_t* buffer = (uint8_t*)malloc(bufferSize * sizeof(uint8_t));
         NSInteger bytesRead = [input read:buffer maxLength:bufferSize];
 
-        // Not clear whether the failure condition is 0 or -1 bytes read from documentation
+        // Not clear whether the failure condition is 0 or -1 from documentation
         if (bytesRead == 0 || bytesRead == -1) {
             free(buffer);
             [self handleError:input];
             return;
         }
-        NSData* data = [NSData dataWithBytes:buffer length:bytesRead];
+        [data appendBytes:buffer length:bytesRead];
         free(buffer);
-
-        TiBlob* dataBlob = [[[TiBlob alloc] initWithData:data mimetype:@"application/octet-stream"] autorelease];
-        [self fireEvent:@"read" withObject:[NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:remoteSocket], @"from",
-                                                                                        dataBlob, @"data",
-                                                                                        [NSNumber numberWithBool:[input hasBytesAvailable]], @"moreData",
-                                                                                        nil]];
     }
+
+    TiBlob* dataBlob = [[[TiBlob alloc] initWithData:data mimetype:@"application/octet-stream"] autorelease];
+    [self fireEvent:@"read" withObject:[NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:remoteSocket], @"from",
+                                                                                    dataBlob, @"data",
+                                                                                    nil]];
 }
 
 -(void)writeToStream:(NSOutputStream*)output

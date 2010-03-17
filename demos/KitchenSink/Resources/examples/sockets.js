@@ -85,9 +85,9 @@ win.add(writeButton);
 writeButton.addEventListener('click', function() {
 	try {
 		var plFile = Titanium.Filesystem.getFile(Titanium.Filesystem.resourcesDirectory, 'paradise_lost.txt');
-		var plData = plFile.read();
+		var text = plFile.read();
 	
-		socket.write(plData);
+		socket.write(text);
 		messageLabel.text = "I'm a writer!";
 	} catch (e) {
 		messageLabel.text = 'Exception: '+e;
