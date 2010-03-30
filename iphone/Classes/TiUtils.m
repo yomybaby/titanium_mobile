@@ -788,7 +788,12 @@ extern NSString * const TI_APPLICATION_RESOURCE_DIR;
 
 +(NSData *)loadAppResource:(NSURL*)url
 {
+	NSLog(@"[DEBUG] loadAppResource with url: %@",url);
+	
 	BOOL app = [[url scheme] hasPrefix:@"app"];
+
+	NSLog(@"[DEBUG] loadAppResource: app=%d",app);
+
 	if ([url isFileURL] || app)
 	{
 		BOOL had_splash_removed = NO;
@@ -796,20 +801,28 @@ extern NSString * const TI_APPLICATION_RESOURCE_DIR;
 		NSString *resourceurl = [[NSBundle mainBundle] resourcePath];
 		NSRange range = [urlstring rangeOfString:resourceurl];
 		NSString *appurlstr = urlstring;
+
+		NSLog(@"[DEBUG] loadAppResource: urlstring=%@",urlstring);
+		NSLog(@"[DEBUG] loadAppResource: resourceurl=%@",resourceurl);
+		NSLog(@"[DEBUG] loadAppResource: range=%d",range.location);
+
 		if (range.location!=NSNotFound)
 		{
 			appurlstr = [urlstring substringFromIndex:range.location + range.length + 1];
 		}
+		NSLog(@"[DEBUG] loadAppResource: appurlstr=%@",appurlstr);
 		if ([appurlstr hasPrefix:@"/"])
 		{
 			had_splash_removed = YES;
 			appurlstr = [appurlstr substringFromIndex:1];
+			NSLog(@"[DEBUG] loadAppResource: (removed slash) appurlstr=%@",appurlstr);
 		}
 #ifdef DEBUG
 		if (app==YES && had_splash_removed)
 		{
 			// on simulator we want to keep slash since it's coming from file
 			appurlstr = [@"/" stringByAppendingString:appurlstr];
+			NSLog(@"[DEBUG] loadAppResource: (app/slash) appurlstr=%@",appurlstr);
 		}
 		if (TI_APPLICATION_RESOURCE_DIR!=nil && [TI_APPLICATION_RESOURCE_DIR isEqualToString:@""]==NO)
 		{
@@ -817,6 +830,7 @@ extern NSString * const TI_APPLICATION_RESOURCE_DIR;
 			{
 				if ([[NSFileManager defaultManager] fileExistsAtPath:appurlstr])
 				{
+					NSLog(@"[DEBUG] loadAppResource: found in file=%@",appurlstr);
 					return [NSData dataWithContentsOfFile:appurlstr];
 				}
 			}
@@ -824,8 +838,10 @@ extern NSString * const TI_APPLICATION_RESOURCE_DIR;
 			// in this path, we will attempt to load resources directly from the
 			// app's Resources directory to speed up round-trips
 			NSString *filepath = [TI_APPLICATION_RESOURCE_DIR stringByAppendingPathComponent:appurlstr];
+			NSLog(@"[DEBUG] loadAppResource: filepath=%@",filepath);
 			if ([[NSFileManager defaultManager] fileExistsAtPath:filepath])
 			{
+				NSLog(@"[DEBUG] loadAppResource: found filepath=%@",filepath);
 				return [NSData dataWithContentsOfFile:filepath];
 			}
 		}
@@ -838,12 +854,14 @@ extern NSString * const TI_APPLICATION_RESOURCE_DIR;
 		if (AppRouter!=nil)
 		{
 			appurlstr = [appurlstr stringByReplacingOccurrencesOfString:@"." withString:@"_"];
+			NSLog(@"[DEBUG] loadAppResource - AppRouter =%@",appurlstr);
 #ifdef DEBUG			
 			NSLog(@"[DEBUG] loading: %@, resource: %@",urlstring,appurlstr);
 #endif			
 			return [AppRouter performSelector:@selector(resolveAppAsset:) withObject:appurlstr];
 		}
 	}
+	NSLog(@"[DEBUG] loadAppResource - returning nil");
 	return nil;
 }
 

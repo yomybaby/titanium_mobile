@@ -218,6 +218,7 @@ NSStringEncoding ExtractEncodingFromData(NSData * inputData)
 
 -(void)abort:(id)args
 {
+	NSLog(@"[DEBUG] XHR: abort called");
 	if (request!=nil && connected)
 	{
 		connected = NO;
@@ -232,7 +233,9 @@ NSStringEncoding ExtractEncodingFromData(NSData * inputData)
 	
 	NSString *method = [TiUtils stringValue:[args objectAtIndex:0]];
 	url = [[TiUtils toURL:[args objectAtIndex:1] proxy:self] retain];
-	
+
+	NSLog(@"[DEBUG] XHR: open called, method: %@, url: %@",method,url);
+
 	if ([args count]>2)
 	{
 		async = [TiUtils boolValue:[args objectAtIndex:2]];
@@ -272,16 +275,21 @@ NSStringEncoding ExtractEncodingFromData(NSData * inputData)
 	NSString *key = [TiUtils stringValue:[args objectAtIndex:0]];
 	NSString *value = [TiUtils stringValue:[args objectAtIndex:1]];
 	[request addRequestHeader:key value:value];
+
+	NSLog(@"[DEBUG] XHR: setRequestHeader, key: %@, value: %@",key,value);
 }
 
 -(void)setTimeout:(id)args
 {
 	double timeout = [[args objectAtIndex:0] doubleValue] / 1000;
+	NSLog(@"[DEBUG] XHR: setTimeout, key: %f",timeout);
 	[request setTimeOutSeconds:timeout];
 }
 
 -(void)send:(id)args
 {
+	NSLog(@"[DEBUG] XHR: send with %@",args);
+	
 	// args are optional
 	if (args!=nil)
 	{
@@ -372,6 +380,7 @@ NSStringEncoding ExtractEncodingFromData(NSData * inputData)
 
 -(void)requestFinished:(ASIHTTPRequest *)request_
 {
+	NSLog(@"[DEBUG] XHR: requestFinished %@",request_);
 	[self _fireReadyStateChange:NetworkClientStateDone];
 	if (connected)
 	{
@@ -382,6 +391,7 @@ NSStringEncoding ExtractEncodingFromData(NSData * inputData)
 
 -(void)requestFailed:(ASIHTTPRequest *)request_
 {
+	NSLog(@"[DEBUG] XHR: requestFailed: %@",[request error]);
 	if (connected)
 	{
 		[[TitaniumApp app] stopNetwork];

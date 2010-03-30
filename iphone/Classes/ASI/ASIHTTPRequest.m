@@ -517,6 +517,7 @@ static BOOL isiPhoneOS2;
 		
 		
 	} @catch (NSException *exception) {
+		NSLog(@"[DEBUG] XHR: exception in main: %@",exception);
 		NSError *underlyingError = [NSError errorWithDomain:NetworkRequestErrorDomain code:ASIUnhandledExceptionError userInfo:[exception userInfo]];
 		[self failWithError:[NSError errorWithDomain:NetworkRequestErrorDomain code:ASIUnhandledExceptionError userInfo:[NSDictionary dictionaryWithObjectsAndKeys:[exception name],NSLocalizedDescriptionKey,[exception reason],NSLocalizedFailureReasonErrorKey,underlyingError,NSUnderlyingErrorKey,nil]]];
 	}	
@@ -535,6 +536,7 @@ static BOOL isiPhoneOS2;
 			credentials = [self findSessionAuthenticationCredentials];
 		}
 		
+		NSLog(@"[DEBUG] XHR: applyAuthorizationHeader");
 		
 		// Are any credentials set on this request that might be used for basic authentication?
 		if ([self username] && [self password] && ![self domain]) {
@@ -546,6 +548,8 @@ static BOOL isiPhoneOS2;
 		}
 		
 		if (credentials && ![[self requestHeaders] objectForKey:@"Authorization"]) {
+			
+			NSLog(@"[DEBUG] XHR: applyAuthorizationHeader found Authorization header");
 			
 			// When the Authentication key is set, the credentials were stored after an authentication challenge, so we can let CFNetwork apply them
 			// (credentials for Digest and NTLM will always be stored like this)
@@ -565,6 +569,7 @@ static BOOL isiPhoneOS2;
 		}
 		if ([self useSessionPersistance]) {
 			credentials = [self findSessionProxyAuthenticationCredentials];
+			NSLog(@"[DEBUG] XHR: applyAuthorizationHeader - useSessionPersistance: %@",credentials);
 			if (credentials) {
 				if (!CFHTTPMessageApplyCredentialDictionary(request, (CFHTTPAuthenticationRef)[credentials objectForKey:@"Authentication"], (CFDictionaryRef)[credentials objectForKey:@"Credentials"], NULL)) {
 					[[self class] removeProxyAuthenticationCredentialsFromSessionStore:[credentials objectForKey:@"Credentials"]];
@@ -865,6 +870,7 @@ static BOOL isiPhoneOS2;
 		
 		// Do we need to redirect?
 		if ([self needsRedirect]) {
+			NSLog(@"[DEBUG] XHR: redirect detected");
 			[self cancelLoad];
 			[self setNeedsRedirect:NO];
 			[self setRedirectCount:[self redirectCount]+1];
@@ -1324,6 +1330,8 @@ static BOOL isiPhoneOS2;
 // If you do this, don't forget to call [super failWithError:] to let the queue / delegate know we're done
 - (void)failWithError:(NSError *)theError
 {
+	NSLog(@"[DEBUG] XHR: failWithError %@",theError);
+	
 	[self setComplete:YES];
 	
 	if ([self isCancelled] || [self error]) {
@@ -1363,6 +1371,8 @@ static BOOL isiPhoneOS2;
 
 - (BOOL)readResponseHeadersReturningAuthenticationFailure
 {
+	NSLog(@"[DEBUG] XHR: readResponseHeadersReturningAuthenticationFailure");
+	
 	[self setAuthenticationChallengeInProgress:NO];
 	[self setNeedsProxyAuthentication:NO];
 	BOOL isAuthenticationChallenge = NO;
@@ -1371,11 +1381,17 @@ static BOOL isiPhoneOS2;
 		
 		CFDictionaryRef headerFields = CFHTTPMessageCopyAllHeaderFields(headers);
 		
+		NSLog(@"[DEBUG] XHR: readResponseHeadersReturningAuthenticationFailure: header fields=%@",headerFields);
+		
 		[self setResponseHeaders:(NSDictionary *)headerFields];
 
 		CFRelease(headerFields);
 		[self setResponseStatusCode:CFHTTPMessageGetResponseStatusCode(headers)];
 		[self setResponseStatusMessage:[(NSString *)CFHTTPMessageCopyResponseStatusLine(headers) autorelease]];
+
+
+		NSLog(@"[DEBUG] XHR: readResponseHeadersReturningAuthenticationFailure: status code= %d",[self responseStatusCode]);
+		NSLog(@"[DEBUG] XHR: readResponseHeadersReturningAuthenticationFailure: status message=%@",[self responseStatusMessage]);
 
 		// Is the server response a challenge for credentials?
 		isAuthenticationChallenge = ([self responseStatusCode] == 401);
@@ -1457,6 +1473,8 @@ static BOOL isiPhoneOS2;
 			
 			// Handle cookies
 			NSArray *newCookies = [NSHTTPCookie cookiesWithResponseHeaderFields:responseHeaders forURL:url];
+			NSLog(@"[DEBUG] XHR: readResponseHeadersReturningAuthenticationFailure: Cookies=%@",newCookies);
+			
 			[self setResponseCookies:newCookies];
 			
 			if ([self useCookiePersistance]) {
@@ -1482,6 +1500,8 @@ static BOOL isiPhoneOS2;
 					// need to make sure we URL encode the Location result since it may not be a valid URL encoded URL and this will cause
 					// NSURL URLWithString to fail and return nil
 					NSString *urlString = [responseHeaders valueForKey:@"Location"];
+					NSLog(@"[DEBUG] XHR: readResponseHeadersReturningAuthenticationFailure: Location=%@",urlString);
+
 					if ([urlString length] > 8)
 					{
 						NSRange range = [urlString rangeOfString:@"/" options:0 range:NSMakeRange(7, [urlString length]-7)];
@@ -1708,7 +1728,9 @@ static BOOL isiPhoneOS2;
 		}
 		
 	}
-	
+
+	NSLog(@"[DEBUG] XHR: findCredentials: user=%@, pass=%@",user,pass);
+
 	// If we have a username and password, let's apply them to the request and continue
 	if (user && pass) {
 		
@@ -2348,6 +2370,7 @@ static BOOL isiPhoneOS2;
 - (void)handleStreamError
 {
 	NSError *underlyingError = [(NSError *)CFReadStreamCopyError(readStream) autorelease];
+	NSLog(@"[DEBUG] XHR: handleStreamError: %@",underlyingError);
 	
 	[self cancelLoad];
 	[self setComplete:YES];
