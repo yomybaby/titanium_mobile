@@ -167,6 +167,33 @@ NSString* const DATA_IFACE = @"pdp_ip0";
     return str;
 }
 
+-(void)netDiagnostic:(id)unused
+{
+    struct ifaddrs* head = NULL;
+    struct ifaddrs* ifaddr = NULL;
+    getifaddrs(&head);
+    
+    NSMutableString* infoStr = nil;
+    for (ifaddr = head; ifaddr != NULL; ifaddr = ifaddr->ifa_next) {
+        char ipaddr[20]; memset(ipaddr, 0, 20);
+        char maskaddr[20]; memset(maskaddr, 0, 20);
+        struct sockaddr_in* addr = (struct sockaddr_in*)(ifaddr->ifa_addr);
+        struct sockaddr_in* mask = (struct sockaddr_in*)(ifaddr->ifa_netmask);
+        
+        inet_ntop(ifaddr->ifa_addr->sa_family, &(addr->sin_addr), ipaddr, 20);
+        
+        infoStr = [NSMutableString stringWithFormat:@"%s: %s (%d)", ifaddr->ifa_name, ipaddr, ifaddr->ifa_addr->sa_family];
+        if (ifaddr->ifa_netmask) {
+            inet_ntop(ifaddr->ifa_netmask->sa_family, &(mask->sin_addr), maskaddr, 20);
+            [infoStr appendFormat:@"; %s (%d)", maskaddr, ifaddr->ifa_netmask->sa_family];
+        }
+        
+        NSLog(infoStr);
+    }
+    
+    freeifaddrs(head);
+}
+
 #pragma mark Public APIs
 
 -(NSString*)locale
