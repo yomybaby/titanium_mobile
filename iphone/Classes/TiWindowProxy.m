@@ -11,16 +11,8 @@
 #import "TiAnimation.h"
 #import "TiAction.h"
 
-@interface WindowViewController : UIViewController
-{
-	TiWindowProxy *proxy;
-}
--(id)initWithWindow:(TiWindowProxy*)window;
-@property(nonatomic,readonly)	TiWindowProxy *proxy;
 
-@end
-
-@implementation WindowViewController
+@implementation TiWindowViewController
 
 -(id)initWithWindow:(TiWindowProxy*)window_
 {
@@ -41,21 +33,16 @@
 	return proxy;
 }
 
-- (void)viewWillAppear:(BOOL)animated;    // Called when the view is about to made visible. Default does nothing
+- (BOOL) shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation
 {
-	NSLog(@"%@, %@ -> %X",CODELOCATION,self,proxy);
+	//Since the AppController will be the deciding factor, and it compensates for iPad, let it do the work.
+	return [[[TitaniumApp app] controller] shouldAutorotateToInterfaceOrientation:toInterfaceOrientation];
 }
-- (void)viewDidAppear:(BOOL)animated;     // Called when the view has been fully transitioned onto the screen. Default does nothing
+
+- (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
 {
-	NSLog(@"%@, %@ -> %X",CODELOCATION,self,proxy);
-}
-- (void)viewWillDisappear:(BOOL)animated; // Called when the view is dismissed, covered or otherwise hidden. Default does nothing
-{
-	NSLog(@"%@, %@ -> %X",CODELOCATION,self,proxy);
-}
-- (void)viewDidDisappear:(BOOL)animated;  // Called after the view was dismissed, covered or otherwise hidden. Default does nothing
-{
-	NSLog(@"%@, %@ -> %X",CODELOCATION,self,proxy);
+	[proxy willAnimateRotationToInterfaceOrientation:toInterfaceOrientation duration:duration];
+	[super willAnimateRotationToInterfaceOrientation:toInterfaceOrientation duration:duration];
 }
 
 @end
@@ -64,14 +51,29 @@
 @implementation TiWindowProxy
 @synthesize navController, controller;
 
--(void)dealloc
+- (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
+{
+	//This is in place for TabController (Or any others) to subclass.
+}
+
+
+-(UIViewController *)controller
+{
+	if (controller == nil)
+	{
+		controller = [[TiWindowViewController alloc] initWithWindow:self];
+	}
+	return controller;
+}
+
+-(void)_destroy
 {
 	RELEASE_TO_NIL(controller);
 	RELEASE_TO_NIL(navController);
 	RELEASE_TO_NIL(tab);
 	RELEASE_TO_NIL(reattachWindows);
 	RELEASE_TO_NIL(closeView);
-	[super dealloc];
+	[super _destroy];
 }
 
 -(void)_initWithProperties:(NSDictionary *)properties
@@ -86,7 +88,12 @@
 
 -(TiUIView*)newView
 {
-	TiUIWindow * win = [[TiUIWindow alloc] initWithFrame:[self appFrame]];
+	CGRect frame = [self appFrame];
+	if (navController!=nil)
+	{
+		frame = navController.view.frame;
+	}
+	TiUIWindow * win = [[TiUIWindow alloc] initWithFrame:frame];
 	return win;
 }
 
@@ -201,23 +208,20 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 -(void)_tabFocus
 {
 	focused = YES;
-	[[[TitaniumApp app] controller] windowFocused:self];
+	[[[TitaniumApp app] controller] windowFocused:[self controller]];
 }
 
 -(void)_tabBlur
 {
 	focused = NO;
-	[[[TitaniumApp app] controller] windowUnfocused:self];
 }
 
 -(void)_tabBeforeFocus
 {
-	[[[TitaniumApp app] controller] windowBeforeFocused:self];
 }
 
 -(void)_tabBeforeBlur
 {
-	[[[TitaniumApp app] controller] windowBeforeUnfocused:self];
 }
 
 -(void)setupWindowDecorations
@@ -269,6 +273,11 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 	return [self argOrWindowProperty:@"fullscreen" args:args];
 }
 
+-(BOOL)isRootViewAttached
+{
+	return ([[[[TitaniumApp app] controller] view] superview]!=nil);
+}
+
 -(void)open:(id)args
 {
 	ENSURE_UI_THREAD(open,args);
@@ -286,6 +295,8 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 		opening = YES;
 	}
 	
+	BOOL rootViewAttached = [self isRootViewAttached];
+	
 	// ensure on open that we've created our view before we start to use it
 	[self view];
 	
@@ -296,7 +307,10 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 		TiAnimation *animation = [TiAnimation animationFromArg:args context:[self pageContext] create:NO];
 		if (animation!=nil)
 		{
-			[self attachViewToTopLevelWindow];
+			if (rootViewAttached)
+			{
+				[self attachViewToTopLevelWindow];
+			}
 			if ([animation isTransitionAnimation])
 			{
 				transitionAnimation = [[animation transition] intValue];
@@ -316,19 +330,72 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 		{
 			modal = YES;
 			attached = YES;
-			WindowViewController *wc = [[[WindowViewController alloc] initWithWindow:self] autorelease];
-			UINavigationController *nc = [[[UINavigationController alloc] initWithRootViewController:wc] autorelease];
+			TiWindowViewController *wc = [[[TiWindowViewController alloc] initWithWindow:self] autorelease];
+			UINavigationController *nc = nil;
+			
+			if ([self argOrWindowProperty:@"navBarHidden" args:args]==NO)
+			{
+				nc = [[[UINavigationController alloc] initWithRootViewController:wc] autorelease];
+			}
+			
+			NSDictionary *dict = [args count] > 0 ? [args objectAtIndex:0] : nil;
+			int style = [TiUtils intValue:@"modalTransitionStyle" properties:dict def:-1];
+			if (style!=-1)
+			{
+				[wc setModalTransitionStyle:style];
+			}
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
+			style = [TiUtils intValue:@"modalStyle" properties:dict def:-1];
+			if (style!=-1)
+			{
+				// modal transition style page curl must be done only in fullscreen
+				// so only allow if not page curl
+				if ([wc modalTransitionStyle]!=UIModalTransitionStylePartialCurl)
+				{
+					[wc setModalPresentationStyle:style];
+				}
+			}
+#endif			
 			[self setController:wc];
 			[self setNavController:nc];
 			BOOL animated = args!=nil && [args isKindOfClass:[NSDictionary class]] ? [TiUtils boolValue:@"animated" properties:[args objectAtIndex:0] def:YES] : YES;
 			[self setupWindowDecorations];
-			[[[TitaniumApp app] controller] presentModalViewController:nc animated:animated];
+			
+			if (rootViewAttached==NO)
+			{
+				//TEMP hack until we can figure out split view issue
+				RELEASE_TO_NIL(tempController);
+				tempController = [[UIViewController alloc]init];
+				UIWindow *w = [self _window];
+				[w addSubview:tempController.view];
+				[tempController presentModalViewController:wc animated:YES];
+				attached = YES;
+			}
+			else
+			{
+				if (nc!=nil)
+				{
+					[[TitaniumApp app] showModalController:nc animated:animated];
+				}
+				else 
+				{
+					[[TitaniumApp app] showModalController:wc animated:animated];
+				}
+			}
 		}
 		if (animation==nil)
 		{
 			[self windowReady];
 		}
 	}
+}
+
+-(void)removeTempController:(id)sender
+{
+	//TEMP hack until split view is fixed
+	[tempController.view removeFromSuperview];
+	[[[[TitaniumApp app] controller] view] removeFromSuperview];
+	RELEASE_TO_NIL(tempController);
 }
 
 -(void)close:(id)args
@@ -341,24 +408,43 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 		return;
 	}
 	
-	[[[TitaniumApp app] controller] windowClosed:self];
-
-	if (modal)
+	//TEMP hack until we can figure out split view issue
+	if (tempController!=nil)
+	{
+		BOOL animated = args!=nil && [args isKindOfClass:[NSDictionary class]] ? [TiUtils boolValue:@"animated" properties:[args objectAtIndex:0] def:YES] : YES;
+		[tempController dismissModalViewControllerAnimated:animated];
+		if (animated==NO)
+		{
+			[tempController.view removeFromSuperview];
+			RELEASE_TO_NIL(tempController);
+		}
+		else 
+		{
+			[self performSelector:@selector(removeTempController:) withObject:nil afterDelay:0.3];
+		}
+		return;
+	}
+	else
 	{
 		UIViewController *vc = [self controller];
-		BOOL animated = args!=nil && [args isKindOfClass:[NSDictionary class]] ? [TiUtils boolValue:@"animated" properties:[args objectAtIndex:0] def:YES] : YES;
-		[vc dismissModalViewControllerAnimated:animated];
-		if (animated)
+		
+		[[[TitaniumApp app] controller] windowClosed:vc];
+
+		if (modal)
 		{
-			// if animated, we don't want to immediately remove our view but instead need
-			// to wait until the modal dialog is dismissed before we remove our view 
-			// otherwise, you'll see the view popup as the window is lowering
-			modal = NO;
-			[self performSelector:@selector(close:) withObject:nil afterDelay:0.3];
-			return;
+			BOOL animated = args!=nil && [args isKindOfClass:[NSDictionary class]] ? [TiUtils boolValue:@"animated" properties:[args objectAtIndex:0] def:YES] : YES;
+			[[TitaniumApp app] hideModalController:vc animated:animated];
+			if (animated)
+			{
+				// if animated, we don't want to immediately remove our view but instead need
+				// to wait until the modal dialog is dismissed before we remove our view 
+				// otherwise, you'll see the view popup as the window is lowering
+				modal = NO;
+				[self performSelector:@selector(close:) withObject:nil afterDelay:0.3];
+				return;
+			}
 		}
-	}
-	
+	}	
 	
 	opening = NO;
 	UIView *myview = [self view];
@@ -380,12 +466,7 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 			[child windowWillClose];
 		}
 	}
-	
-	if (![self _isChildOfTab])
-	{
-		[[[TitaniumApp app] controller] windowUnfocused:self];
-	}	
-	
+
 	if ([self _handleClose:args])
 	{
 		TiAnimation *animation = [TiAnimation animationFromArg:args context:[self pageContext] create:NO];
@@ -445,12 +526,20 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 	attached = YES;
 	
 	UIView *rootView = [[TitaniumApp app] controller].view;
+	
 	TiUIView *view = [self view];
 	
 	if (![self _isChildOfTab])
 	{
+		//TEMP hack for splitview until we can get things worked out
+		if (rootView.superview==nil && tempController==nil)
+		{
+			tempController = [[UIViewController alloc] init];
+			tempController.view = rootView;
+			[[self _window] addSubview:rootView];
+		}
 		[rootView addSubview:view];
-		[[[TitaniumApp app] controller] windowFocused:self];
+		[[[TitaniumApp app] controller] windowFocused:[self controller]];
 	}
 
 	[self layoutChildren];
@@ -470,8 +559,7 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 {
 	if (newFocused == focused)
 	{
-		NSLog(@"[WARN] Setting focus to %d when it's already set to that.",focused);
-//		return;
+		NSLog(@"[DEBUG] Setting focus to %d when it's already set to that.",focused);
 	}
 
 	[self fireEvent: newFocused?@"focus":@"blur" ];

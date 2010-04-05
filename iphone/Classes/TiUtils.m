@@ -6,6 +6,7 @@
  */
 #import <QuartzCore/QuartzCore.h>
 
+#import "TiBase.h"
 #import "TiUtils.h"
 #import "TiHost.h"
 #import "TiPoint.h"
@@ -17,7 +18,38 @@
 #import "TiFile.h"
 #import "TiBlob.h"
 
+
+#ifdef DEBUG
+extern NSString * const TI_APPLICATION_RESOURCE_DIR;
+#endif
+
 @implementation TiUtils
+
++(BOOL)isDevice_Pre_3_2
+{
+	static BOOL checked = NO;
+	static BOOL is_pre_3_2 = NO;
+	
+	if (checked==NO)
+	{
+		NSString *version = [UIDevice currentDevice].systemVersion;
+		NSArray *tokens = [version componentsSeparatedByString:@"."];
+		NSInteger major = [TiUtils intValue:[tokens objectAtIndex:0]];
+		NSInteger minor = [TiUtils intValue:[tokens objectAtIndex:1]];
+		is_pre_3_2 = (major==3 && minor < 2);
+		checked = YES;
+	}
+	return is_pre_3_2;
+}
+
++(BOOL)isIPad
+{
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
+	return UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad;
+#else
+	return NO;
+#endif
+}
 
 +(void)queueAnalytics:(NSString*)type name:(NSString*)name data:(NSDictionary*)data
 {
@@ -34,9 +66,15 @@
 	NSDateFormatter *dateFormatter = [[[NSDateFormatter alloc] init] autorelease];
 	NSTimeZone *timeZone = [NSTimeZone timeZoneWithName:@"UTC"];
 	[dateFormatter setTimeZone:timeZone];
+
+	NSLocale * USLocale = [[NSLocale alloc] initWithLocaleIdentifier:@"en_US"];
+	[dateFormatter setLocale:USLocale];
+	[USLocale release];
+
+
 	//Example UTC full format: 2009-06-15T21:46:28.685+0000
 	[dateFormatter setDateFormat:@"yyyy-MM-dd'T'HH:mm:ss'.'SSS+0000"];
-	return [dateFormatter stringFromDate:[NSDate date]];
+	return [dateFormatter stringFromDate:data];
 }
 
 +(NSString *)UTCDate
@@ -140,6 +178,20 @@
 		return [value doubleValue];
 	}
 	return 0;
+}
+
++(CGRect)rectValue:(id)value
+{
+	if ([value isKindOfClass:[NSDictionary class]])
+	{
+		NSDictionary *dict = (NSDictionary*)value;
+		CGFloat x = [TiUtils floatValue:@"x" properties:dict def:0];
+		CGFloat y = [TiUtils floatValue:@"y" properties:dict def:0];
+		CGFloat w = [TiUtils floatValue:@"width" properties:dict def:0];
+		CGFloat h = [TiUtils floatValue:@"height" properties:dict def:0];
+		return CGRectMake(x, y, w, h);
+	}
+	return CGRectMake(0, 0, 0, 0);
 }
 
 +(CGPoint)pointValue:(id)value
@@ -688,15 +740,10 @@
 
 +(CGRect)screenRect
 {
-	CGRect bounds = [UIScreen mainScreen].bounds;
-	if ([self isOrientationLandscape])
-	{
-		CGFloat width = bounds.size.width;
-		bounds.size.width = bounds.size.height;
-		bounds.size.height = width;
-	}
-	return bounds;
+	return [UIScreen mainScreen].bounds;
 }
+
+//TODO: rework these to be more accurate and multi-device
 
 +(CGRect)navBarRect
 {
@@ -769,8 +816,48 @@
 
 +(NSData *)loadAppResource:(NSURL*)url
 {
-	if ([url isFileURL] || [[url scheme] hasPrefix:@"app"])
+	BOOL app = [[url scheme] hasPrefix:@"app"];
+	if ([url isFileURL] || app)
 	{
+		BOOL had_splash_removed = NO;
+		NSString *urlstring = [[url standardizedURL] path];
+		NSString *resourceurl = [[NSBundle mainBundle] resourcePath];
+		NSRange range = [urlstring rangeOfString:resourceurl];
+		NSString *appurlstr = urlstring;
+		if (range.location!=NSNotFound)
+		{
+			appurlstr = [urlstring substringFromIndex:range.location + range.length + 1];
+		}
+		if ([appurlstr hasPrefix:@"/"])
+		{
+			had_splash_removed = YES;
+			appurlstr = [appurlstr substringFromIndex:1];
+		}
+#ifdef DEBUG
+		if (app==YES && had_splash_removed)
+		{
+			// on simulator we want to keep slash since it's coming from file
+			appurlstr = [@"/" stringByAppendingString:appurlstr];
+		}
+		if (TI_APPLICATION_RESOURCE_DIR!=nil && [TI_APPLICATION_RESOURCE_DIR isEqualToString:@""]==NO)
+		{
+			if ([appurlstr hasPrefix:TI_APPLICATION_RESOURCE_DIR])
+			{
+				if ([[NSFileManager defaultManager] fileExistsAtPath:appurlstr])
+				{
+					return [NSData dataWithContentsOfFile:appurlstr];
+				}
+			}
+			// this path is only taken during a simulator build
+			// in this path, we will attempt to load resources directly from the
+			// app's Resources directory to speed up round-trips
+			NSString *filepath = [TI_APPLICATION_RESOURCE_DIR stringByAppendingPathComponent:appurlstr];
+			if ([[NSFileManager defaultManager] fileExistsAtPath:filepath])
+			{
+				return [NSData dataWithContentsOfFile:filepath];
+			}
+		}
+#endif
 		static id AppRouter;
 		if (AppRouter==nil)
 		{
@@ -778,18 +865,6 @@
 		}
 		if (AppRouter!=nil)
 		{
-			NSString *urlstring = [[url standardizedURL] path];
-			NSString *resourceurl = [[NSBundle mainBundle] resourcePath];
-			NSRange range = [urlstring rangeOfString:resourceurl];
-			NSString *appurlstr = urlstring;
-			if (range.location!=NSNotFound)
-			{
-				appurlstr = [urlstring substringFromIndex:range.location + range.length + 1];
-			}
-			if ([appurlstr hasPrefix:@"/"])
-			{
-				appurlstr = [appurlstr substringFromIndex:1];
-			}
 			appurlstr = [appurlstr stringByReplacingOccurrencesOfString:@"." withString:@"_"];
 #ifdef DEBUG			
 			NSLog(@"[DEBUG] loading: %@, resource: %@",urlstring,appurlstr);

@@ -14,6 +14,7 @@
 #import "TiModule.h"
 #import "ListenerEntry.h"
 #import "TiComplexValue.h"
+#import "TiViewProxy.h"
 
 //Common exceptions to throw when the function call was improper
 NSString * const TiExceptionInvalidType = @"Invalid type passed to function";
@@ -118,7 +119,15 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 {
 	BOOL isMainThread = [NSThread isMainThread];
 	NSNull * nullObject = [NSNull null];
-
+	BOOL viewAttached = YES;
+	
+	// assume if we don't have a view that we can send on the 
+	// main thread to the proxy
+	if ([target isKindOfClass:[TiViewProxy class]])
+	{
+		viewAttached = [(TiViewProxy*)target viewAttached];
+	}
+	
 	for (NSString * thisKey in keys)
 	{
 		// use valueForUndefined since this should really come from dynprops
@@ -143,7 +152,7 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 		{
 			continue;
 		}
-		if (isMainThread)
+		if (isMainThread==YES || viewAttached==NO)
 		{
 			[target performSelector:sel withObject:newValue];
 		}
@@ -151,7 +160,6 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 		{
 			[target performSelectorOnMainThread:sel withObject:newValue waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
 		}
-
 	}
 }
 
@@ -266,9 +274,15 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 	executionContext = context; //don't retain
 }
 
+-(void)_configurationSet
+{
+	// for subclass
+}
+
 -(void)_initWithProperties:(NSDictionary*)properties
 {
 	[self setValuesForKeysWithDictionary:properties];
+	[self _configurationSet];
 }
 
 -(void)_initWithCallback:(KrollCallback*)callback
@@ -373,11 +387,11 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 	if (dynprops!=nil)
 	{
 		[dynPropsLock lock];
-		[dynprops removeAllObjects];
+		[dynprops autorelease];
+		dynprops = nil;
 		[dynPropsLock unlock];
 	}
 	[listeners removeAllObjects];
-	RELEASE_TO_NIL(dynprops);
 	RELEASE_TO_NIL(listeners);
 	RELEASE_TO_NIL(baseURL);
 	RELEASE_TO_NIL(krollDescription);
@@ -394,7 +408,7 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 	NSLog(@"DEALLOC: %@ (%d)",self,[self hash]);
 #endif
 	[[NSNotificationCenter defaultCenter] removeObserver:self
-													name:UIApplicationDidReceiveMemoryWarningNotification  
+													name:nil  
 												  object:nil];  
 	[self _destroy];
 	RELEASE_TO_NIL(destroyLock);
@@ -588,9 +602,23 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 	[self _listenerRemoved:type count:count];
 }
 
--(void)fireEvent:(NSString*)type
+-(void)fireEvent:(id)args
 {
-	[self fireEvent:type withObject:nil withSource:self propagate:YES];
+	NSString *type = nil;
+	id params = nil;
+	if ([args isKindOfClass:[NSArray class]])
+	{
+		type = [args objectAtIndex:0];
+		if ([args count] > 1)
+		{
+			params = [args objectAtIndex:1];
+		}
+	}
+	else if ([args isKindOfClass:[NSString class]])
+	{
+		type = (NSString*)args;
+	}
+	[self fireEvent:type withObject:params withSource:self propagate:YES];
 }
 
 -(void)fireEvent:(NSString*)type withObject:(id)obj
@@ -760,15 +788,6 @@ DEFINE_EXCEPTIONS
 
 - (void) setValue:(id)value forUndefinedKey: (NSString *) key
 {
-	// if the object specifies a validKeys set, we enforce setting against only those keys
-//	if (self.validKeys!=nil)
-//	{
-//		if ([(id)self.validKeys containsObject:key]==NO)
-//		{
-//			[self throwException:[NSString stringWithFormat:@"property '%@' not supported",key] subreason:nil location:CODELOCATION];
-//		}
-//	}
-	
 	id current = nil;
 	if (dynPropsLock==nil)
 	{

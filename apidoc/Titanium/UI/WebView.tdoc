@@ -21,19 +21,36 @@ The Web View allows you to open an HTML5 based view which can load either local 
 
 - platforms
 
-android, iphone
+android, iphone, ipad
 
 - properties
 
-url[string]: the url to the web document
+url[string]: the url to the web document. this property will change as the content of the webview changes (such as from internal hyperlinks, etc)
 backgroundColor[string]: the background color for the webview
 html[string]: the html content of the web document
 data[object]: a data blob or file that is used to load the web document
 scalesPageToFit[boolean]: whether the webview should scale it's contents or not
+loading[boolean]: boolean indicating if the webview is loading content
 
 - methods
 
 evalJS: invoke JavaScript inside the context of the webview and optionally, return a result
+reload: reload the current webpage
+stopLoading: stop loading a currently loading page
+goBack: go back one entry in history to the previous page
+goForward: go forward one entry in history to the page before the current page
+canGoBack: returns true if the webview can go back in history
+canGoForward: returns true if the webview can go forward in history
+setBasicAuthentication: set the basic authentication for the webview instance to be used on subsequent url requests
+
+- method : setBasicAuthentication
+
+username[string]: the username
+password[string]: the password
+
+- method : canGoBack, boolean
+
+- method : canGoForward, boolean
 
 - method : evalJS, string
 
@@ -74,5 +91,7 @@ Create a web view to a remote URL and open the window as modal.
 
 Creating webviews are more expensive than creating pure native views because of the requirement to\
 load the HTML browser into memory.
+
+Since a webview internally wants to handle its own events, scrolling and other related touch events against it's own view surface, you cannot have both Titanium style events against the webview instance and internal Javascript events in the DOM.  You must choose between one or the other.
 
 

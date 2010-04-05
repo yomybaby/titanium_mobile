@@ -16,9 +16,22 @@
 #import "TiBlob.h"
 #import "TiFile.h"
 #import "Mimetypes.h"
+#import "Base64Transcoder.h"
 
 extern NSString * const TI_APPLICATION_ID;
-NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={};Ti.App._listener_id=1;Ti.App.id=Ti.appId;Ti.App._xhr=XMLHttpRequest;Ti._broker=function(module,method,data){try{var url='app://'+Ti.appId+'/_TiA0_'+Ti.pageToken+'/'+module+'/'+method+'?'+Ti.App._JSON(data,1);var xhr=new Ti.App._xhr();xhr.open('GET',url,false);xhr.send()}catch(X){}};Ti._hexish=function(a){var r='';var e=a.length;var c=0;var h;while(c<e){h=a.charCodeAt(c++).toString(16);r+='\\\\u';var l=4-h.length;while(l-->0){r+='0'};r+=h}return r};Ti._bridgeEnc=function(o){return'<'+Ti._hexish(o)+'>'};Ti.App._JSON=function(object,bridge){var type=typeof object;switch(type){case'undefined':case'function':case'unknown':return undefined;case'number':case'boolean':return object;case'string':if(bridge===1)return Ti._bridgeEnc(object);return'\"'+object.replace(/\"/g,'\\\\\"').replace(/\\n/g,'\\\\n').replace(/\\r/g,'\\\\r')+'\"'}if((object===null)||(object.nodeType==1))return'null';if(object.constructor.toString().indexOf('Date')!=-1){return'new Date('+object.getTime()+')'}if(object.constructor.toString().indexOf('Array')!=-1){var res='[';var pre='';var len=object.length;for(var i=0;i<len;i++){var value=object[i];if(value!==undefined)value=Ti.App._JSON(value,bridge);if(value!==undefined){res+=pre+value;pre=', '}}return res+']'}var objects=[];for(var prop in object){var value=object[prop];if(value!==undefined){value=Ti.App._JSON(value,bridge)}if(value!==undefined){objects.push(Ti.App._JSON(prop,bridge)+': '+value)}}return'{'+objects.join(',')+'}'};Ti.App._dispatchEvent=function(type,evtid,evt){var listeners=Ti.App._listeners[type];if(listeners){for(var c=0;c<listeners.length;c++){var entry=listeners[c];if(entry.id==evtid){entry.callback.call(entry.callback,evt)}}}};Ti.App.fireEvent=function(name,evt){Ti._broker('App','fireEvent',{name:name,event:evt})};Ti.API.log=function(a,b){Ti._broker('API','log',{level:a,message:b})};Ti.API.debug=function(e){Ti._broker('API','log',{level:'debug',message:e})};Ti.API.error=function(e){Ti._broker('API','log',{level:'error',message:e})};Ti.API.info=function(e){Ti._broker('API','log',{level:'info',message:e})};Ti.API.fatal=function(e){Ti._broker('API','log',{level:'fatal',message:e})};Ti.API.warn=function(e){Ti._broker('API','log',{level:'warn',message:e})};Ti.App.addEventListener=function(name,fn){var listeners=Ti.App._listeners[name];if(typeof(listeners)=='undefined'){listeners=[];Ti.App._listeners[name]=listeners}var newid=Ti.pageToken+Ti.App._listener_id++;listeners.push({callback:fn,id:newid});Ti._broker('App','addEventListener',{name:name,id:newid})};Ti.App.removeEventListener=function(name,fn){var listeners=Ti.App._listeners[name];if(listeners){for(var c=0;c<listeners.length;c++){var entry=listeners[c];if(entry.callback==fn){listeners.splice(c,1);Ti._broker('App','removeEventListener',{name:name,id:entry.id});break}}}};";
+NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={};Ti.App._listener_id=1;Ti.App.id=Ti.appId;Ti.App._xhr=XMLHttpRequest;"
+		"Ti._broker=function(module,method,data){try{var url='app://'+Ti.appId+'/_TiA0_'+Ti.pageToken+'/'+module+'/'+method+'?'+Ti.App._JSON(data,1);"
+			"var xhr=new Ti.App._xhr();xhr.open('GET',url,false);xhr.send()}catch(X){}};"
+		"Ti._hexish=function(a){var r='';var e=a.length;var c=0;var h;while(c<e){h=a.charCodeAt(c++).toString(16);r+='\\\\u';var l=4-h.length;while(l-->0){r+='0'};r+=h}return r};"
+		"Ti._bridgeEnc=function(o){return'<'+Ti._hexish(o)+'>'};"
+		"Ti.App._JSON=function(object,bridge){var type=typeof object;switch(type){case'undefined':case'function':case'unknown':return undefined;case'number':case'boolean':return object;"
+			"case'string':if(bridge===1)return Ti._bridgeEnc(object);return'\"'+object.replace(/\"/g,'\\\\\"').replace(/\\n/g,'\\\\n').replace(/\\r/g,'\\\\r')+'\"'}"
+			"if((object===null)||(object.nodeType==1))return'null';if(object.constructor.toString().indexOf('Date')!=-1){return'new Date('+object.getTime()+')'}"
+			"if(object.constructor.toString().indexOf('Array')!=-1){var res='[';var pre='';var len=object.length;for(var i=0;i<len;i++){var value=object[i];"
+			"if(value!==undefined)value=Ti.App._JSON(value,bridge);if(value!==undefined){res+=pre+value;pre=', '}}return res+']'}var objects=[];"
+			"for(var prop in object){var value=object[prop];if(value!==undefined){value=Ti.App._JSON(value,bridge)}"
+			"if(value!==undefined){objects.push(Ti.App._JSON(prop,bridge)+': '+value)}}return'{'+objects.join(',')+'}'};"
+		"Ti.App._dispatchEvent=function(type,evtid,evt){var listeners=Ti.App._listeners[type];if(listeners){for(var c=0;c<listeners.length;c++){var entry=listeners[c];if(entry.id==evtid){entry.callback.call(entry.callback,evt)}}}};Ti.App.fireEvent=function(name,evt){Ti._broker('App','fireEvent',{name:name,event:evt})};Ti.API.log=function(a,b){Ti._broker('API','log',{level:a,message:b})};Ti.API.debug=function(e){Ti._broker('API','log',{level:'debug',message:e})};Ti.API.error=function(e){Ti._broker('API','log',{level:'error',message:e})};Ti.API.info=function(e){Ti._broker('API','log',{level:'info',message:e})};Ti.API.fatal=function(e){Ti._broker('API','log',{level:'fatal',message:e})};Ti.API.warn=function(e){Ti._broker('API','log',{level:'warn',message:e})};Ti.App.addEventListener=function(name,fn){var listeners=Ti.App._listeners[name];if(typeof(listeners)=='undefined'){listeners=[];Ti.App._listeners[name]=listeners}var newid=Ti.pageToken+Ti.App._listener_id++;listeners.push({callback:fn,id:newid});Ti._broker('App','addEventListener',{name:name,id:newid})};Ti.App.removeEventListener=function(name,fn){var listeners=Ti.App._listeners[name];if(listeners){for(var c=0;c<listeners.length;c++){var entry=listeners[c];if(entry.callback==fn){listeners.splice(c,1);Ti._broker('App','removeEventListener',{name:name,id:entry.id});break}}}};";
 
  
 @implementation TiUIWebView
@@ -55,9 +68,11 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 	RELEASE_TO_NIL(url);
 	RELEASE_TO_NIL(spinner);
 	RELEASE_TO_NIL(appModule);
+	RELEASE_TO_NIL(basicCredentials);
 	[self unregister];
 	[super dealloc];
 }
+
 
 -(BOOL)isURLRemote
 {
@@ -67,61 +82,24 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 
 -(UIView*)hitTest:(CGPoint)point withEvent:(UIEvent *)event
 {
-	// webview is a little _special_ so we need to intercept
-	// his events and handle them as well as dispatch directly
-	// to the webview to handle inside HTML
+	/*	webview is a little _special_ and refuses to share events.
+	 *	As such, we have to take the events away if we have event listeners
+	 *	Or let webview has his entire cake. Through experimenting, if the
+	 *	webview is interested, a subview or subsubview will be the target.
+	 */
+
 	UIView *view = [super hitTest:point withEvent:event];
-	id desc = [[view class] description];
-	// we check the description since the actual class is a private
-	// class UIWebDocumentView and we can't worry about apple triggering
-	// their private apis sound alarm
-	if ([desc hasPrefix:@"UIWeb"])
+	if ([self hasTouchableListener])
 	{
-		delegateView = view;
-		return self;
+		UIView *superview = [view superview];
+		UIView *superduperview = [superview superview];
+		if ((view == webview) || (superview == webview) || (superduperview == webview))
+		{
+			return self;
+		}
 	}
-	else
-	{
-		delegateView = nil;
-	}
+	
 	return view;
-}
-
-
-- (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event 
-{
-	[super touchesBegan:touches withEvent:event];
-	if (delegateView!=nil)
-	{
-		[delegateView touchesBegan:touches withEvent:event];
-	}
-}
-
-- (void)touchesMoved:(NSSet *)touches withEvent:(UIEvent *)event 
-{
-	[super touchesMoved:touches withEvent:event];
-	if (delegateView!=nil)
-	{
-		[delegateView touchesMoved:touches withEvent:event];
-	}
-}
-
-- (void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event 
-{
-	[super touchesEnded:touches withEvent:event];
-	if (delegateView!=nil)
-	{
-		[delegateView touchesEnded:touches withEvent:event];
-	}
-}
-
-- (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event 
-{
-	[super touchesCancelled:touches withEvent:event];
-	if (delegateView!=nil)
-	{
-		[delegateView touchesCancelled:touches withEvent:event];
-	}
 }
 
 
@@ -147,6 +125,15 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 		}
 	}
 	return webview;
+}
+
+-(void)loadURLRequest:(NSMutableURLRequest*)request
+{
+	if (basicCredentials!=nil)
+	{
+		[request setValue:basicCredentials forHTTPHeaderField:@"Authorization"];
+	}
+	[[self webview] loadRequest:request];
 }
 
 -(void)frameSizeChanged:(CGRect)frame bounds:(CGRect)bounds
@@ -246,7 +233,62 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 
 -(id)url
 {
+	if (webview!=nil)
+	{
+		return [[[webview request] URL] absoluteString];
+	}
 	return url;
+}
+
+- (void)reload:(id)args
+{
+	if (webview!=nil)
+	{
+		[webview reload];
+	}
+}
+
+- (void)stopLoading:(id)args
+{
+	if (webview!=nil)
+	{
+		[webview stopLoading];
+	}
+}
+
+- (void)goBack:(id)args
+{
+	if (webview!=nil)
+	{
+		[webview goBack];
+	}
+}
+
+- (void)goForward:(id)args
+{
+	if (webview!=nil)
+	{
+		[webview goForward];
+	}
+}
+
+-(id)loading
+{
+	if (webview!=nil)
+	{
+		return NUMBOOL([webview isLoading]);
+	}
+	return NUMBOOL(NO);
+}
+
+-(void)canGoBack:(NSMutableArray*)arg
+{
+	[arg addObject:NUMBOOL([webview canGoBack])];
+}
+
+-(void)canGoForward:(NSMutableArray*)arg
+{
+	[arg addObject:NUMBOOL([webview canGoForward])];
 }
 
 -(void)setBackgroundColor_:(id)color
@@ -285,7 +327,7 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 			case TiBlobTypeFile:
 			{
 				url = [[NSURL fileURLWithPath:[blob path]] retain];
-				[[self webview] loadRequest:[NSURLRequest requestWithURL:url]];
+				[self loadURLRequest:[NSMutableURLRequest requestWithURL:url]];
 				break;
 			}
 			default:
@@ -302,7 +344,7 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 		{
 			[[self webview] setScalesPageToFit:YES];
 		}
-		[[self webview] loadRequest:[NSURLRequest requestWithURL:url]];
+		[self loadURLRequest:[NSMutableURLRequest requestWithURL:url]];
 	}
 	else
 	{
@@ -323,15 +365,19 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 	RELEASE_TO_NIL(url);
 	ENSURE_SINGLE_ARG(args,NSString);
 	
-	url = [TiUtils toURL:args proxy:(TiProxy*)self.proxy];
+	url = [[TiUtils toURL:args proxy:(TiProxy*)self.proxy] retain];
+
+	if (webview!=nil)
+	{
+		[self stopLoading:nil];
+	}
 	
 	[self unregister];
 	
 	if ([self isURLRemote])
 	{
-		[url retain];
-		NSURLRequest *request = [NSURLRequest requestWithURL:url];
-		[[self webview] loadRequest:request];
+		NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+		[self loadURLRequest:request];
 		if (scalingOverride==NO)
 		{
 			[[self webview] setScalesPageToFit:YES];
@@ -407,9 +453,8 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 			if (error!=nil && [error code]==261)
 			{
 				// this is a different encoding than specified, just send it to the webview to load
-				[url retain];
-				NSURLRequest *request = [NSURLRequest requestWithURL:url];
-				[[self webview] loadRequest:request];
+				NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
+				[self loadURLRequest:request];
 				if (scalingOverride==NO)
 				{
 					[[self webview] setScalesPageToFit:YES];
@@ -419,13 +464,14 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 			else if (error!=nil)
 			{
 				NSLog(@"[ERROR] error loading file: %@. Message was: %@",path,error);
+				RELEASE_TO_NIL(url);
 			}
 		}
 		else
 		{
 			// convert it into a app:// relative path to load the resource
 			// from our application
-			url = [self fileURLToAppURL:url];
+			url = [[self fileURLToAppURL:url] retain];
 			NSData *data = [TiUtils loadAppResource:url];
 			if (data!=nil)
 			{
@@ -435,15 +481,53 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 		if (html!=nil)
 		{
 			[self loadHTML:html encoding:encoding textEncodingName:textEncodingName mimeType:mimeType];
-			[url retain];
 		}
 		else 
 		{
 			NSLog(@"[WARN] couldn't load URL: %@",url);
-			url = nil; // not retained at this point so just release it
+			RELEASE_TO_NIL(url);
 		}
 	}
 }
+
+-(void)setBasicAuthentication:(NSArray*)args
+{
+	ENSURE_ARG_COUNT(args,2);
+	NSString *username = [args objectAtIndex:0];
+	NSString *password = [args objectAtIndex:1];
+	
+	if (username==nil && password==nil)
+	{
+		RELEASE_TO_NIL(basicCredentials);
+		return;
+	}
+	
+	NSString *toEncode = [NSString stringWithFormat:@"%@:%@",username,password];
+	const char *data = [toEncode UTF8String];
+	size_t len = [toEncode length];
+	
+	size_t outsize = EstimateBas64EncodedDataSize(len);
+	char *base64Result = malloc(sizeof(char)*outsize);
+    size_t theResultLength = outsize;
+	
+    bool result = Base64EncodeData(data, len, base64Result, &theResultLength);
+	if (result)
+	{
+		NSData *theData = [NSData dataWithBytes:base64Result length:theResultLength];
+		free(base64Result);
+		NSString *string = [[[NSString alloc] initWithData:theData encoding:NSUTF8StringEncoding] autorelease];
+		RELEASE_TO_NIL(basicCredentials);
+		basicCredentials = [[NSString stringWithFormat:@"Basic %@",string] retain];
+		if (url!=nil)
+		{
+			[self setUrl_:[NSArray arrayWithObject:[url absoluteString]]];
+		}
+		return;
+	}    
+	free(base64Result);
+}
+
+
 
 -(void)evalJS:(NSArray*)args
 {
@@ -496,7 +580,7 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 	}
 	if ([self.proxy _hasListeners:@"load"])
 	{
-		NSDictionary *event = url == nil ? nil : [NSDictionary dictionaryWithObject:[url absoluteString] forKey:@"url"];
+		NSDictionary *event = url == nil ? nil : [NSDictionary dictionaryWithObject:[self url] forKey:@"url"];
 		[self.proxy fireEvent:@"load" withObject:event];
 	}
 	
@@ -507,9 +591,18 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 
 - (void)webView:(UIWebView *)webView didFailLoadWithError:(NSError *)error
 {
+	// this means the pending request has been cancelled and should be
+	// safely squashed
+	if ([[error domain] isEqual:NSURLErrorDomain] && [error code]==-999)
+	{
+		return;
+	}
+	
+	NSLog(@"[ERROR] Error loading: %@, Error: %@",[self url],error);
+	
 	if ([self.proxy _hasListeners:@"error"])
 	{
-		NSMutableDictionary *event = [NSMutableDictionary dictionaryWithObject:[url absoluteString] forKey:@"url"];
+		NSMutableDictionary *event = [NSMutableDictionary dictionaryWithObject:[self url] forKey:@"url"];
 		[event setObject:[error description] forKey:@"message"];
 		[self.proxy fireEvent:@"error" withObject:event];
 	}

@@ -1,8 +1,8 @@
 // Publish a local service on startup
-var bonjourSocket = Titanium.Socket.createTCP({
-	hostName:Titanium.Socket.INADDR_ANY,
+var bonjourSocket = Titanium.Network.createTCPSocket({
+	hostName:Titanium.Network.INADDR_ANY,
 	port:40401,
-	mode:Titanium.Socket.READ_WRITE_MODE
+	mode:Titanium.Network.READ_WRITE_MODE
 });
 
 bonjourSocket.addEventListener('read', function(e) {
@@ -31,15 +31,15 @@ bonjourSocket.addEventListener('read', function(e) {
 });
 bonjourSocket.listen();
 
-var localService = Titanium.Bonjour.createService({
-	service:{name:'Bonjour Test: '+Titanium.Platform.id,
-			type:'_utest._tcp',
-			domain:'local.',
-			socket:bonjourSocket}
+var localService = Titanium.Network.createBonjourService({
+	name:'Bonjour Test: '+Titanium.Platform.id,
+	type:'_utest._tcp',
+	domain:'local.'
 });
 
-try {
-	localService.publish();
+try 
+{
+	localService.publish(bonjourSocket);
 }
 catch (e) {
 	Titanium.UI.createAlertDialog({
@@ -49,7 +49,7 @@ catch (e) {
 }
 
 // Searcher for finding other services
-var serviceBrowser = Titanium.Bonjour.createBrowser({
+var serviceBrowser = Titanium.Network.createBonjourBrowser({
 	serviceType:'_utest._tcp',
 	domain:'local.'
 });
@@ -100,7 +100,7 @@ updateUI = function(e) {
 serviceBrowser.addEventListener('updatedServices', updateUI);
 
 // Cleanup
-Titanium.UI.currentWindow.addEventListener('blur', function(e) {
+Titanium.UI.currentWindow.addEventListener('close', function(e) {
 	if (serviceBrowser.isSearching()) {
 		serviceBrowser.stopSearch();
 	}

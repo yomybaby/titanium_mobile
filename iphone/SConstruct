@@ -5,8 +5,12 @@
 import os,platform,sys,urllib,gzip
 from progressbar import ProgressBar
 
-ticore_version = '1'
+ticore_version = '2'
 
+# NOTE: this is simply a pre-built version of the source at http://github.com/appcelerator/tijscore
+# since this is so freaking complicated to setup and build in an stable environment, and since 
+# it takes like an hour to build the library, we have, as a convenience, pre-built it from the
+# exact same source and are providing the pre-compiled versions for i386/arm
 libname = 'libTiCore-%s.a' % ticore_version
 thirdparty_name = '%s.gz' % libname
 libfile = 'lib/%s' % libname
@@ -32,7 +36,7 @@ flags = ''
 if ARGUMENTS.get('COMPILER_FLAGS', 0):
 	flags = ARGUMENTS.get('COMPILER_FLAGS')
 
-
+build_type = ARGUMENTS.get("BUILD_TYPE", None)
 iphone_dir = os.path.abspath(os.path.join(os.path.dirname(sys._getframe(0).f_code.co_filename),'../','support','iphone'))
 sys.path.append(iphone_dir)
 
@@ -71,34 +75,58 @@ def fetch():
 	finally:
 		urllib.urlcleanup()
 		pbar.finish()
-	
-def build(dir,name,apiversion):
-    # execute the phone and simulator release builds
 
-    curdir = os.path.abspath(os.curdir)
-    os.chdir(dir)
-
-
-    if os.path.exists('/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS%s.sdk' % apiversion):
-    	output = os.system("xcodebuild -sdk iphoneos%s -project Titanium.xcodeproj -target %s -configuration %s GCC_PREPROCESSOR_DEFINITIONS='%s %s' clean build" % (apiversion,name,config,defines,flags))
+def build_titanium_target(name,apiversion,targetversion,target):
+	# execute the phone and simulator release builds
+	build_extras = "IPHONEOS_DEPLOYMENT_TARGET=%s TARGETED_DEVICE_FAMILY='iPhone/iPad'" % targetversion
+	if os.path.exists('/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS%s.sdk' % apiversion):
+		output = os.system("xcodebuild -sdk iphoneos%s -project Titanium.xcodeproj -target %s -configuration %s GCC_PREPROCESSOR_DEFINITIONS='%s %s' %s %s" % (apiversion,name,config,defines,flags,build_extras,target))
 	if output!=0:
 		sys.exit(output)
 
-    if os.path.exists('/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator%s.sdk' % apiversion):
-    	output = os.system("xcodebuild -sdk iphonesimulator%s -project Titanium.xcodeproj -target %s -configuration %s GCC_PREPROCESSOR_DEFINITIONS='DEBUG=1 %s %s' clean build" % (apiversion,name,config,defines,flags))
+	if os.path.exists('/Developer/Platforms/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator%s.sdk' % apiversion):
+		output = os.system("xcodebuild -sdk iphonesimulator%s -project Titanium.xcodeproj -target %s -configuration %s GCC_PREPROCESSOR_DEFINITIONS='DEBUG=1 %s %s' %s %s" % (apiversion,name,config,defines,flags,build_extras,target))
 
 	if output!=0:
 		sys.exit(-1)
-	
 
-    # build the merged library using lipo
-    os.system("lipo build/%s-iphonesimulator/lib%s.a build/%s-iphoneos/lib%s.a -create -output build/lib%s.a" %(config,name,config,name,name))
-   
-    os.chdir(curdir)
+def clean(dir,name,apiversion,targetversion):
+	curdir = os.path.abspath(os.curdir)
+	os.chdir(dir)
+
+	build_titanium_target(name,apiversion,targetversion,"clean")
+	
+	os.chdir(curdir)
+
+def build(apiversion,targetversion,name,target,namever=''):
+	curdir = os.path.abspath(os.curdir)
+	os.chdir('iphone')
+
+	build_titanium_target(target,apiversion,targetversion,"build")
+	
+	# build the merged library using lipo
+	os.system("lipo build/%s-iphonesimulator/lib%s.a build/%s-iphoneos/lib%s.a -create -output build/lib%s%s.a" %(config,name,config,name,name,namever))
+	
+	os.chdir(curdir)
 
 if not os.path.exists(markerfile):
 	fetch()
 
-build('iphone','Titanium','3.1.2')
+
+#
+# first version is the SDK version
+# second version if the minimum SDK required for the app to run (deployment target)
+# third is the name of the archive
+# fourth is the xcode target name
+#
+
+if build_type == "clean":
+	clean('3.2','3.1','Titanium','Titanium')
+else:
+	# because 3.2 supports only ipad in the simulator right now, we'll have to 
+	# build 2 libraries - one for 3.1 SDK and one for 3.2 ipad. once apple removes
+	# this simulator issue, we can go back to one library
+	build('3.1','3.1','Titanium','Titanium')
+	build('3.2','3.1','Titanium','Titanium','_3.2')
 
 sys.exit(0)

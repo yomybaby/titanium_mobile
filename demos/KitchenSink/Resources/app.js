@@ -10,13 +10,12 @@ var tabGroup = Titanium.UI.createTabGroup();
 //
 // create base UI tab and root window
 //
-var win1 = Titanium.UI.createWindow({  
+var win1 = Titanium.UI.createWindow({
     url:'main_windows/base_ui.js',
     titleImage:'images/appcelerator_small.png'
 });
 
-
-var tab1 = Titanium.UI.createTab({  
+var tab1 = Titanium.UI.createTab({
     icon:'images/tabs/KS_nav_views.png',
     title:'Base UI',
     window:win1
@@ -25,11 +24,11 @@ var tab1 = Titanium.UI.createTab({
 //
 // create controls tab and root window
 //
-var win2 = Titanium.UI.createWindow({  
+var win2 = Titanium.UI.createWindow({
     url:'main_windows/controls.js',
     title:'Controls'
 });
-var tab2 = Titanium.UI.createTab({  
+var tab2 = Titanium.UI.createTab({
     icon:'images/tabs/KS_nav_ui.png',
     title:'Controls',
     window:win2
@@ -39,24 +38,25 @@ var tab2 = Titanium.UI.createTab({
 //
 // create phone tab and root window
 //
-var win3 = Titanium.UI.createWindow({  
+var win3 = Titanium.UI.createWindow({
     url:'main_windows/phone.js',
     title:'Phone'
 });
-var tab3 = Titanium.UI.createTab({  
+var tab3 = Titanium.UI.createTab({
     icon:'images/tabs/KS_nav_phone.png',
     title:'Phone',
     window:win3
 });
 
+
 //
 // create platform tab and root window
 //
-var win4 = Titanium.UI.createWindow({  
+var win4 = Titanium.UI.createWindow({
     url:'main_windows/platform.js',
     title:'Platform'
 });
-var tab4 = Titanium.UI.createTab({  
+var tab4 = Titanium.UI.createTab({
     icon:'images/tabs/KS_nav_platform.png',
     title:'Platform',
 active:true,
@@ -66,11 +66,11 @@ active:true,
 //
 // create mashup tab and root window
 //
-var win5 = Titanium.UI.createWindow({  
+var win5 = Titanium.UI.createWindow({
     url:'main_windows/mashups.js',
     title:'Mashups'
 });
-var tab5 = Titanium.UI.createTab({  
+var tab5 = Titanium.UI.createTab({
     icon:'images/tabs/KS_nav_mashup.png',
     title:'Mashups',
     window:win5
@@ -79,16 +79,11 @@ var tab5 = Titanium.UI.createTab({
 //
 //  add tabs
 //
-tabGroup.addTab(tab1);  
-tabGroup.addTab(tab2);  
+tabGroup.addTab(tab1);
+tabGroup.addTab(tab2);
 tabGroup.addTab(tab3);
 tabGroup.addTab(tab4);
-
-// add iphone specific tests
-if (Titanium.Platform.name == 'iPhone OS')
-{
-	tabGroup.addTab(tab5);
-}
+tabGroup.addTab(tab5);
 
 tabGroup.addEventListener('open',function()
 {
@@ -102,6 +97,13 @@ tabGroup.open({
 	transition:Titanium.UI.iPhone.AnimationStyle.FLIP_FROM_LEFT
 });
 
+// setTimeout(function()
+// {
+// 	tabGroup.close({
+// 		transition:Titanium.UI.iPhone.AnimationStyle.FLIP_FROM_LEFT
+// 	});
+// 	
+// },2000);
 
 
 //
@@ -163,7 +165,7 @@ tabGroup.addEventListener('open', function(e)
 	{
 		messageWin.close({opacity:0,duration:500});
 	},1000);
-	
+
 });
 
 // focus event listener for tracking tab changes
@@ -176,12 +178,12 @@ tabGroup.addEventListener('focus', function(e)
 		Ti.API.info('tab ' + e.tab.title  + ' prevTab = ' + (e.previousTab ? e.previousTab.title : null));
 		messageLabel.text = 'active title ' + e.tab.title + ' old title ' + (e.previousTab ? e.previousTab.title : null);
 	},1000);
-	
+
 	setTimeout(function()
 	{
 		messageWin.close({opacity:0,duration:500});
 	},2000);
-	
+
 });
 
 // blur event listener for tracking tab changes
@@ -212,7 +214,7 @@ Titanium.App.addEventListener('event_two', function(e)
 	{
 		messageWin.close({opacity:0,duration:500});
 	},1000);
-	
+
 });
 
 //
@@ -227,7 +229,7 @@ function showIndicator()
 		height:150,
 		width:150
 	});
-	
+
 	// black view
 	var indView = Titanium.UI.createView({
 		height:150,
@@ -237,7 +239,7 @@ function showIndicator()
 		opacity:0.8
 	});
 	indWin.add(indView);
-	
+
 	// loading indicator
 	actInd = Titanium.UI.createActivityIndicator({
 		style:Titanium.UI.iPhone.ActivityIndicatorStyle.BIG,
@@ -245,7 +247,7 @@ function showIndicator()
 		width:30
 	});
 	indWin.add(actInd);
-	
+
 	// message
 	var message = Titanium.UI.createLabel({
 		text:'Loading',
@@ -258,7 +260,7 @@ function showIndicator()
 	indWin.add(message);
 	indWin.open();
 	actInd.show();
-	
+
 };
 
 function hideIndicator()
@@ -293,5 +295,4 @@ Ti.include("welcome.js");
 // test out logging to developer console
 Ti.API.info("Welcome to Kitchen Sink for Titanium/"+Titanium.version);
 Ti.API.debug("user agent set to "+Titanium.userAgent);
-
 

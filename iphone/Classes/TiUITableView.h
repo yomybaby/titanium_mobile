@@ -20,6 +20,8 @@
 	BOOL autohideSearch;
 	BOOL searchHidden;
 	BOOL editable;
+	BOOL initiallyDisplayed;
+	NSIndexPath *initialSelection;
 	NSMutableArray * sectionIndex;
 	NSMutableDictionary * sectionIndexMap;
 	TiDimension rowHeight;
@@ -31,7 +33,8 @@
 	UITableView *searchTableView;
 	NSString * filterAttribute;
 	NSMutableArray * searchResultIndexes;
-	
+	BOOL filterCaseInsensitive;
+	BOOL allowsSelectionSet;
 	id	lastFocusedView; //DOES NOT RETAIN.	
 }
 

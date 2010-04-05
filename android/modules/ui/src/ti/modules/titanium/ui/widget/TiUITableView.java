@@ -10,14 +10,19 @@ import java.util.concurrent.Semaphore;
 
 import org.appcelerator.titanium.TiDict;
 import org.appcelerator.titanium.proxy.TiViewProxy;
+import org.appcelerator.titanium.util.AsyncResult;
+import org.appcelerator.titanium.util.TiConvert;
 import org.appcelerator.titanium.view.TiUIView;
 import org.json.JSONObject;
 
 import ti.modules.titanium.ui.TableViewProxy;
+import ti.modules.titanium.ui.ViewProxy;
 import ti.modules.titanium.ui.widget.searchbar.TiUISearchBar;
 import ti.modules.titanium.ui.widget.tableview.TiTableView;
 import ti.modules.titanium.ui.widget.tableview.TiTableView.OnItemClickedListener;
 import android.os.Handler;
+import android.os.Message;
+import android.view.Gravity;
 import android.widget.RelativeLayout;
 
 public class TiUITableView extends TiUIView
@@ -27,20 +32,19 @@ public class TiUITableView extends TiUIView
 	private static final String LCAT = "TitaniumTableView";
 
 	private static final String EVENT_CLICK = "click";
-
+	
 	private String callback;
 	private String searchBarName;
 	private TiUISearchBar searchBar;
-	private RelativeLayout view;
 	private Semaphore modifySemaphore;
 	private Handler handler;
-
+	private boolean hasSearch = false;
+	private TiTableView tableView;
 
 	class IndexedItem {
 		int position;
 		JSONObject item;
 	}
-
 
 	class IndexHolder extends Semaphore {
 		private static final long serialVersionUID = 1L;
@@ -57,9 +61,6 @@ public class TiUITableView extends TiUIView
 		getLayoutParams().autoFillsWidth = true;
 
 		this.modifySemaphore = new Semaphore(0);
-		TiTableView tv = new TiTableView(proxy.getTiContext(), (TableViewProxy) proxy);
-		tv.setOnItemClickListener(this);
-		setNativeView(tv);
 		//this.hasBeenOpened = false;
 	}
 
@@ -67,16 +68,69 @@ public class TiUITableView extends TiUIView
 	public void onClick(TiDict data) {
 		proxy.fireEvent(EVENT_CLICK, data);
 	}
+	
+	public void setModelDirty() {
+		tableView.getTableViewModel().setDirty();
+	}
+	
+	public void updateView() {
+		tableView.dataSetChanged();
+	}	
 
-	private TiTableView getView() {
-		return (TiTableView) getNativeView();
+	public void scrollToIndex(final int index) {
+		tableView.getListView().setSelection(index);
 	}
 
 	@Override
 	public void processProperties(TiDict d)
 	{
-		TiTableView tv = getView();
-
+		tableView = new TiTableView(proxy.getTiContext(), (TableViewProxy) proxy);
+		tableView.setOnItemClickListener(this);
+	
+		if (d.containsKey("search")) {
+			RelativeLayout layout = new RelativeLayout(proxy.getTiContext().getActivity());
+			layout.setGravity(Gravity.NO_GRAVITY);
+			layout.setPadding(4, 2, 4, 2);
+			
+			TiViewProxy searchView = (TiViewProxy) d.get("search");
+			TiUISearchBar searchBar = (TiUISearchBar)searchView.getView(proxy.getTiContext().getActivity());
+			searchBar.setOnSearchChangeListener(tableView);
+			searchBar.getNativeView().setId(102);
+			
+			RelativeLayout.LayoutParams p = new RelativeLayout.LayoutParams(
+					RelativeLayout.LayoutParams.FILL_PARENT,
+					RelativeLayout.LayoutParams.FILL_PARENT);
+			p.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+			p.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
+			p.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+			p.height = 52;
+			
+			layout.addView(searchBar.getNativeView(), p);
+			
+			p = new RelativeLayout.LayoutParams(
+				RelativeLayout.LayoutParams.FILL_PARENT,
+				RelativeLayout.LayoutParams.FILL_PARENT);
+			p.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
+			p.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+			p.addRule(RelativeLayout.ALIGN_PARENT_RIGHT);
+			p.addRule(RelativeLayout.BELOW, 102);
+			layout.addView(tableView, p);
+			setNativeView(layout);
+			hasSearch = true;
+		} else {
+			setNativeView(tableView);
+		}
+		
+		if (d.containsKey("filterAttribute")) {
+			tableView.setFilterAttribute(TiConvert.toString(d, "filterAttribute"));
+		}
+		
+		boolean filterCaseInsensitive = true;
+		if (d.containsKey("filterCaseInsensitive")) {
+			filterCaseInsensitive = TiConvert.toBoolean(d, "filterCaseInsensitive");
+		}
+		tableView.setFilterCaseInsensitive(filterCaseInsensitive);
+		
 //		if (d.containsKey("data")) {
 //			tv.setData((Object[]) d.get("data"));
 //		}
@@ -311,5 +365,4 @@ public class TiUITableView extends TiUIView
 //	public void setOption(String key, String value) {
 //		defaults.put(key, value);
 //	}
-
 }

@@ -124,6 +124,16 @@
 	[self replaceValue:args forKey:@"searchHidden" notification:YES];
 }
 
+-(void)selectRow:(id)args
+{
+	[[self view] performSelectorOnMainThread:@selector(selectRow:) withObject:args waitUntilDone:NO];
+}
+
+-(void)deselectRow:(id)args
+{
+	[[self view] performSelectorOnMainThread:@selector(deselectRow:) withObject:args waitUntilDone:NO];
+}
+
 -(void)scrollToIndex:(id)args
 {
 	ENSURE_UI_THREAD(scrollToIndex,args);
@@ -162,11 +172,10 @@
 	ENSURE_UI_THREAD(updateRow,args);
 	
 	int index = [TiUtils intValue:[args objectAtIndex:0]];
-	NSDictionary *data = [args objectAtIndex:1];
-	NSDictionary *anim = [args count] > 2 ? [args objectAtIndex:2] : nil;
+    id data = [args objectAtIndex:1]; // Can be either dictionary or row object
+    NSDictionary *anim = [args count] > 2 ? [args objectAtIndex:2] : nil;
 	
 	TiUITableViewRowProxy *newrow = [self tableRowFromArg:data];
-
 	TiUITableView *table = [self tableView];
 	
 	NSMutableArray *sections = [self valueForKey:@"data"];
@@ -201,7 +210,11 @@
 	newrow.row = rowProxy.row;
 	newrow.parent = newrow.section;
 	
-	[newrow updateRow:data withObject:anim];
+    // Only update the row if we're loading it with data; but most of this should
+    // be taken care of by -[TiUITableViewProxy tableRowFromArg:] anyway, right?
+    if ([data isKindOfClass:[NSDictionary class]]) {
+        [newrow updateRow:data withObject:anim];
+    }
 	
 	TiUITableViewAction *action = [[[TiUITableViewAction alloc] initWithRow:newrow animation:anim section:-1 type:TiUITableViewActionUpdateRow] autorelease];
 	[table dispatchAction:action];
@@ -347,7 +360,6 @@
 	Class sectionClass = [TiUITableViewSectionProxy class];
 	Class rowClass = [TiUITableViewRowProxy class];
 	
-	BOOL tableAttached = [self viewAttached];
 	TiUITableView *table = [self tableView];
 	
 	NSMutableArray *data = [NSMutableArray array];
@@ -406,11 +418,9 @@
 	}
 	
 	[self replaceValue:data forKey:@"data" notification:NO];
-//	if (tableAttached)
-	{
-		TiUITableViewAction *action = [[[TiUITableViewAction alloc] initWithRow:nil animation:properties section:0 type:TiUITableViewActionSetData] autorelease];
-		[table dispatchAction:action];
-	}
+
+	TiUITableViewAction *action = [[[TiUITableViewAction alloc] initWithRow:nil animation:properties section:0 type:TiUITableViewActionSetData] autorelease];
+	[table dispatchAction:action];
 }
 
 -(void)setData:(id)args

@@ -177,10 +177,6 @@ extern BOOL const TI_APPLICATION_ANALYTICS;
 - (void)scriptError:(NSString*)message
 {
 	[[TitaniumApp app] showModalError:message];
-	/*
-	UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Script Error" message:message delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil];
-	[alert show];
-	[alert autorelease];*/
 }
 
 - (void)evalFileOnThread:(NSString*)path context:(KrollContext*)context_ 
@@ -219,7 +215,16 @@ extern BOOL const TI_APPLICATION_ANALYTICS;
 	if (error!=nil)
 	{
 		NSLog(@"[ERROR] error loading path: %@, %@",path,error);
-		[self scriptError:[NSString stringWithFormat:@"Error loading script %@. %@",[path lastPathComponent],[error description]]];
+		
+		// check for file not found a give a friendlier message
+		if ([error code]==260 && [error domain]==NSCocoaErrorDomain)
+		{
+			[self scriptError:[NSString stringWithFormat:@"Could not find the file %@",[path lastPathComponent]]];
+		}
+		else 
+		{
+			[self scriptError:[NSString stringWithFormat:@"Error loading script %@. %@",[path lastPathComponent],[error description]]];
+		}
 		return;
 	}
 

@@ -116,7 +116,6 @@
 		id properties = (args!=nil && [args count] > 0) ? [args objectAtIndex:0] : nil;
 		BOOL animated = [TiUtils boolValue:@"animated" properties:properties def:YES];
 		[[controller navigationController] setNavigationBarHidden:NO animated:animated];
-//		[navController setNavigationBarHidden:NO animated:animated];
 	}
 }
 
@@ -129,7 +128,6 @@
 		id properties = (args!=nil && [args count] > 0) ? [args objectAtIndex:0] : nil;
 		BOOL animated = [TiUtils boolValue:@"animated" properties:properties def:YES];
 		[[controller navigationController] setNavigationBarHidden:YES animated:animated];
-//		[navController setNavigationBarHidden:YES animated:animated];
 		//TODO: need to fix height
 	}
 }
@@ -311,7 +309,6 @@
 			backButton = [[UIBarButtonItem alloc] initWithTitle:backTitle style:UIBarButtonItemStylePlain target:nil action:nil];
 		}
 	}
-//	[[parentController navigationItem] setBackBarButtonItem:nil];
 	[[parentController navigationItem] setBackBarButtonItem:backButton];
 	[backButton release];
 }
@@ -322,7 +319,8 @@
 	[self replaceValue:proxy forKey:@"backButtonTitle" notification:NO];
 	if (controller!=nil)
 	{
-		[self _refreshBackButton];	//Because this is actually a property of a DIFFERENT view controller, we can't attach this until 
+		[self _refreshBackButton];	//Because this is actually a property of a DIFFERENT view controller,
+		//we can't attach this until we're in the navbar stack.
 	}
 }
 
@@ -332,7 +330,8 @@
 	[self replaceValue:proxy forKey:@"backButtonTitleImage" notification:NO];
 	if (controller!=nil)
 	{
-		[self _refreshBackButton];	//Because this is actually a property of a DIFFERENT view controller, we can't attach this until 
+		[self _refreshBackButton];	//Because this is actually a property of a DIFFERENT view controller, 
+		//we can't attach this until we're in the navbar stack.
 	}
 }
 
@@ -347,10 +346,11 @@
 	if ([oldView isKindOfClass:[TiUIView class]])
 	{
 		TiViewProxy * oldProxy = (TiViewProxy *)[(TiUIView *)oldView proxy];
-		if (oldProxy != titleControl)
+		if (oldProxy == titleControl)
 		{
-			[oldProxy removeBarButtonView];
+			return;	//No need to update?
 		}
+		[oldProxy removeBarButtonView];
 	}
 
 	if ([titleControl isKindOfClass:[TiViewProxy class]])
@@ -360,7 +360,8 @@
 	else
 	{
 		NSURL * path = [TiUtils toURL:[self valueForKey:@"titleImage"] proxy:self];
-		UIImage *image = [[ImageLoader sharedLoader] loadImmediateImage:path];
+		//Todo: This should be [TiUtils navBarTitleViewSize] with the thumbnail scaling. For now, however, we'll go with auto.
+		UIImage *image = [[ImageLoader sharedLoader] loadImmediateImage:path withSize:CGSizeZero];
 		if (image!=nil)
 		{
 			newTitleView = [[[UIImageView alloc] initWithImage:image] autorelease];
@@ -520,14 +521,11 @@ else{\
 	if (controller!=nil)
 	{
 		[[controller navigationController] setToolbarHidden:!hasToolbar animated:YES];
-//		[navController setToolbarHidden:!hasToolbar animated:YES];
 	}
 	
 	SETPROP(@"title",setTitle);
 	SETPROP(@"titlePrompt",setTitlePrompt);
 	[self updateTitleView];
-//	SETPROP(@"titleImage",setTitleImage);
-//	SETPROP(@"titleControl",setTitleControl);
 	SETPROP(@"barColor",setBarColor);
 	SETPROP(@"translucent",setTranslucent);
 

@@ -11,6 +11,15 @@
 
 @implementation TiUITabGroupProxy
 
+- (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
+{
+	if ([self viewAttached])
+	{
+		[(TiUITabGroup *)[self view] willAnimateRotationToInterfaceOrientation:toInterfaceOrientation duration:duration];
+	}
+	[super willAnimateRotationToInterfaceOrientation:toInterfaceOrientation duration:duration];
+}
+
 -(void)dealloc
 {
 	RELEASE_TO_NIL(tabs);
@@ -27,6 +36,11 @@
 {
 	TiUITabGroup *group = [[TiUITabGroup alloc] initWithFrame:[self appFrame]];
 	return group;
+}
+
+-(UITabBar*)tabbar
+{
+	return [(TiUITabGroup*)[self view] tabbar];
 }
 
 #pragma mark Public APIs

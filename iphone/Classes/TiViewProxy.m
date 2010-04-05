@@ -94,7 +94,7 @@
 	if (view!=nil)
 	{
 		TiUIView *childView = [(TiViewProxy *)arg view];
-		BOOL verticalNeedsRearranging = TiLayoutRuleIsVertical([view layoutProperties]->layout);
+		BOOL verticalNeedsRearranging = TiLayoutRuleIsVertical(layoutProperties.layout);
 		if ([NSThread isMainThread])
 		{
 			[childView removeFromSuperview];
@@ -105,7 +105,7 @@
 		}
 		else
 		{
-			[self performSelectorOnMainThread:@selector(removeFromSuperview) withObject:childView waitUntilDone:NO];
+			[childView performSelectorOnMainThread:@selector(removeFromSuperview) withObject:nil waitUntilDone:NO];
 			if (verticalNeedsRearranging)
 			{
 				[self performSelectorOnMainThread:@selector(layout) withObject:nil waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
@@ -202,7 +202,10 @@
 			return [[viewClass alloc] init];
 		}
 	}
-
+	else
+	{
+		NSLog(@"[WARN] No TiView for Proxy: %@, couldn't find class: %@",self,proxyName);
+	}
 	return [[TiUIView alloc] initWithFrame:[self appFrame]];
 }
 
@@ -343,7 +346,7 @@
 		
 		// on open we need to create a new view
 		view = [self newView];
-
+		
 		view.proxy = self;
 		view.parent = parent;
 		view.layer.transform = CATransform3DIdentity;
@@ -367,7 +370,6 @@
 			for (id child in self.children)
 			{
 				TiUIView *childView = [(TiViewProxy*)child view];
-				//[childView setParent:self];
 				[view addSubview:childView];
 			}
 			[childLock unlock];
@@ -376,7 +378,8 @@
 		[self viewDidAttach];
 
 		// make sure we do a layout of ourselves
-		[self setNeedsReposition];
+
+		[view updateLayout:NULL withBounds:view.bounds];
 		
 		viewInitialized = YES;
 	}
@@ -384,7 +387,6 @@
 	CGRect bounds = [view bounds];
 	if (!CGPointEqualToPoint(bounds.origin, CGPointZero))
 	{
-		NSLog(@"Unusual bounds origin again! (%f,%f) %@",bounds.origin.x, bounds.origin.y,view);
 		[view setBounds:CGRectMake(0, 0, bounds.size.width, bounds.size.height)];
 	}
 	
@@ -392,6 +394,39 @@
 }
 
 #pragma mark Layout 
+
+-(void)getAnimatedCenterPoint:(NSMutableDictionary *)resultDict
+{
+	UIView * ourView = view;
+	CALayer * ourLayer = [ourView layer];
+	CALayer * animatedLayer = [ourLayer presentationLayer];
+	
+	CGPoint result;
+	if (animatedLayer !=nil)
+	{
+		result = [animatedLayer position];
+	}
+	else
+	{
+		result = [ourLayer position];
+	}
+
+	[resultDict setObject:NUMFLOAT(result.x) forKey:@"x"];
+	[resultDict setObject:NUMFLOAT(result.y) forKey:@"y"];
+}
+
+-(id)animatedCenter;
+{
+	if (![self viewAttached])
+	{
+		return nil;
+	}
+	NSMutableDictionary * result = [NSMutableDictionary dictionary];
+	[self performSelectorOnMainThread:@selector(getAnimatedCenterPoint:) withObject:result waitUntilDone:YES];
+
+	return result;
+}
+
 
 -(void)layoutChild:(TiViewProxy*)child;
 {
@@ -411,7 +446,12 @@
 	}
 
 	UIView *childView = [child view];
-	[childView insertIntoView:view bounds:bounds];
+
+	if ([childView superview]!=view)
+	{
+		[view addSubview:childView];
+	}
+	[[child view] updateLayout:NULL withBounds:bounds];
 	
 	// tell our children to also layout
 	[child layoutChildren];
@@ -440,7 +480,21 @@
 
 -(CGRect)appFrame
 {
-	return [[UIScreen mainScreen] applicationFrame];
+	CGRect result=[[UIScreen mainScreen] applicationFrame];
+	switch ([[UIApplication sharedApplication] statusBarOrientation])
+	{
+		case UIInterfaceOrientationLandscapeLeft:
+		case UIInterfaceOrientationLandscapeRight:
+		{
+			CGFloat leftMargin = result.origin.y;
+			CGFloat topMargin = result.origin.x;
+			CGFloat newHeight = result.size.width;
+			CGFloat newWidth = result.size.height;
+			result = CGRectMake(leftMargin, topMargin, newWidth, newHeight);
+			break;
+		}
+	}
+	return result;
 }
 
 #pragma mark Memory Management
@@ -538,6 +592,11 @@
 	// called to remove
 }
 
+- (BOOL) isUsingBarButtonItem
+{
+	return FALSE;
+}
+
 #pragma mark For autosizing of table views
 
 -(LayoutConstraint *)layoutProperties
@@ -559,7 +618,6 @@
 		result = MAX(result,[thisChildProxy minimumParentWidthForWidth:suggestedWidth]);
 	}
 	return MIN(suggestedWidth,result);
-//	return MIN(suggestedWidth,AutoWidthForView([self view], suggestedWidth));
 }
 
 -(CGFloat)autoHeightForWidth:(CGFloat)width
@@ -680,7 +738,7 @@
 -(void)repositionIfNeeded
 {
 	BOOL wasSet=OSAtomicTestAndClearBarrier(NEEDS_REPOSITION, &dirtyflags);
-	if (wasSet && [self viewAttached]) // && ![parent willBeRelaying])
+	if (wasSet && [self viewAttached])
 	{
 		[self reposition];
 	}
@@ -705,10 +763,6 @@
 -(void)clearNeedsReposition
 {
 	BOOL wasSet = OSAtomicTestAndClearBarrier(NEEDS_REPOSITION, &dirtyflags);
-	if (wasSet)
-	{
-		NSLog(@"Was set was set to %d",wasSet);
-	}
 }
 
 -(void)setNeedsRepositionIfAutoSized

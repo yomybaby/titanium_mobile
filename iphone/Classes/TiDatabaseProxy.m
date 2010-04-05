@@ -14,11 +14,7 @@
 
 -(void)dealloc
 {
-	if (database!=nil)
-	{
-		[database close];
-	}
-	RELEASE_TO_NIL(database);
+	[self _destroy];
 	RELEASE_TO_NIL(name);
 	[super dealloc];
 }
@@ -206,6 +202,12 @@
 -(NSString*)name
 {
 	return name;
+}
+
+#pragma mark Internal
+-(PLSqliteDatabase*)database
+{
+	return database;
 }
 
 @end

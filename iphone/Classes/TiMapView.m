@@ -76,6 +76,19 @@
 	return proxy;
 }
 
+-(NSArray*)annotationsFromArgs:(id)value
+{
+	ENSURE_TYPE_OR_NIL(value,NSArray);
+	NSMutableArray * result = [NSMutableArray arrayWithCapacity:[value count]];
+	if (value!=nil)
+	{
+		for (id arg in value)
+		{
+			[result addObject:[self annotationFromArg:arg]];
+		}
+	}
+	return result;
+}
 
 -(void)refreshAnnotation:(TiMapAnnotationProxy*)proxy readd:(BOOL)yn
 {
@@ -87,10 +100,7 @@
 	}
 	else
 	{
-//		MKAnnotationView * doomedView = [map viewForAnnotation:proxy];
-//		[map deselectAnnotation:proxy animated:NO];
 		[map removeAnnotation:proxy];
-//		[doomedView prepareForReuse];
 		[map addAnnotation:proxy];
 		[map setNeedsLayout];
 	}
@@ -107,6 +117,13 @@
 	ENSURE_UI_THREAD(addAnnotation,args);
 	ENSURE_SINGLE_ARG(args,NSObject);
 	[[self map] addAnnotation:[self annotationFromArg:args]];
+}
+
+-(void)addAnnotations:(id)args
+{
+	ENSURE_UI_THREAD(addAnnotations,args);
+	ENSURE_SINGLE_ARG(args,NSObject);
+	[[self map] addAnnotations:[self annotationsFromArgs:args]];
 }
 
 -(void)removeAnnotation:(id)args
@@ -131,6 +148,21 @@
 		[[self map] removeAnnotation:args];
 	}
 }
+
+-(void)removeAnnotations:(id)args
+{
+	ENSURE_UI_THREAD(removeAnnotations,args);
+	ENSURE_SINGLE_ARG(args,NSObject);
+	ENSURE_TYPE(args,NSArray); // assumes an array of TiMapAnnotationProxy classes
+	[[self map] removeAnnotations:args];
+}
+
+-(void)removeAllAnnotations:(id)args
+{
+	[[self map] removeAnnotations:[[self map] annotations]];
+}
+
+
 
 -(void)selectAnnotation:(id)args
 {
@@ -394,10 +426,6 @@
 		{
 			if ([annotation tag] == pinview.tag)
 			{
-				if ([annotation needsRefreshingWithSelection])
-				{
-//					return nil;
-				}
 				return annotation;
 			}
 		}
@@ -411,30 +439,11 @@
                        context:(void *)context
 {
 	NSString *action = (NSString*)context;
-	if([action isEqualToString:@"ANSELECTED"])
+	if([action isEqualToString:@"ANSELECTED"] && [object isKindOfClass:[TiMapPinAnnotationView class]])
 	{
-		if ([object isKindOfClass:[MKPinAnnotationView class]])
-		{
-			MKPinAnnotationView *pinview = (MKPinAnnotationView*)object;
-			TiMapAnnotationProxy *viewProxy = [self proxyForAnnotation:pinview];
-			if (viewProxy!=nil)
-			{
-				//NOTE: clicksource is new for 0.9, was source in 0.8 but that conflicts with generic event naming
-				NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:@"annotation",@"clicksource",viewProxy,@"annotation",[viewProxy title],@"title",NUMINT(pinview.tag),@"index",nil];
-				
-				// attempt to fire to the proxy's click listener
-				if ([viewProxy _hasListeners:@"click"])
-				{
-					[viewProxy fireEvent:@"click" withObject:event];
-				}
-				
-				// also allow the map itself to receive the click event
-				if ([self.proxy _hasListeners:@"click"])
-				{
-					[self.proxy fireEvent:@"click" withObject:event];
-				}
-			}
-		}
+		BOOL isSelected = [(MKPinAnnotationView *)object isSelected];
+		[self fireClickEvent:(MKPinAnnotationView*)object source:
+				isSelected?@"pin":[(TiMapPinAnnotationView*)object lastHitName]];
 	}
 }
 
@@ -443,51 +452,18 @@
 	if ([aview isKindOfClass:[MKPinAnnotationView class]])
 	{
 		MKPinAnnotationView *pinview = (MKPinAnnotationView*)aview;
-		TiMapAnnotationProxy *viewProxy = [self proxyForAnnotation:pinview];
-		if (viewProxy!=nil)
+		NSString * clickSource = @"unknown";
+		if (aview.leftCalloutAccessoryView == control)
 		{
-			BOOL parentWants = [self.proxy _hasListeners:@"click"];
-			BOOL viewWants = [viewProxy _hasListeners:@"click"];
-			
-			if (parentWants||viewWants)
-			{
-				NSMutableDictionary *event = [NSMutableDictionary dictionaryWithObjectsAndKeys:viewProxy,@"annotation",[viewProxy title],@"title",NUMINT(viewProxy.tag),@"index",nil];
-			
-				if (aview.leftCalloutAccessoryView == control)
-				{
-					[event setObject:@"leftButton" forKey:@"clicksource"];
-				}
-				else if (aview.rightCalloutAccessoryView == control)
-				{
-					[event setObject:@"rightButton" forKey:@"clicksource"];
-				}
-				
-				if (parentWants)
-				{
-					// give the parent listener a hook to the specific annotation being clicked
-					[event setObject:viewProxy forKey:@"annotation"];
-					[self.proxy fireEvent:@"click" withObject:event];
-				}
-				if (viewWants)
-				{
-					// give the annotation listener a hook to the map
-					[event setObject:self.proxy forKey:@"map"];
-					[self.proxy fireEvent:@"click" withObject:event];
-				}
-			}
+			clickSource = @"leftButton";
 		}
+		else if (aview.rightCalloutAccessoryView == control)
+		{
+			clickSource = @"rightButton";
+		}
+		[self fireClickEvent:pinview source:clickSource];
 	}
 }
-
-
-//-(void)applyAnnotation:(TiMapAnnotationProxy *)ann toView:(MKPinAnnotationView *)annView
-//{
-//
-//
-//
-//
-//}
-
 
 
 // mapView:viewForAnnotation: provides the view for each annotation.
@@ -536,6 +512,47 @@
 // Use the current positions of the annotation views as the destinations of the animation.
 - (void)mapView:(MKMapView *)mapView didAddAnnotationViews:(NSArray *)views
 {
+}
+
+#pragma mark Event generation
+
+- (void)fireClickEvent:(MKPinAnnotationView *) pinview source:(NSString *)source
+{
+	TiMapAnnotationProxy *viewProxy = [self proxyForAnnotation:pinview];
+	if ((viewProxy == nil) || (source == nil))
+	{
+		return;
+	}
+
+	TiProxy * ourProxy = [self proxy];
+	BOOL parentWants = [ourProxy _hasListeners:@"click"];
+	BOOL viewWants = [viewProxy _hasListeners:@"click"];
+	if(!parentWants && !viewWants)
+	{
+		return;
+	}
+	
+	id title = [viewProxy title];
+	if (title == nil)
+	{
+		title = [NSNull null];
+	}
+
+	NSNumber * indexNumber = NUMINT([pinview tag]);
+
+	NSDictionary * event = [NSDictionary dictionaryWithObjectsAndKeys:
+			source,@"clicksource",	viewProxy,@"annotation",	ourProxy,@"map",
+			title,@"title",			indexNumber,@"index",		nil];
+
+
+	if (parentWants)
+	{
+		[ourProxy fireEvent:@"click" withObject:event];
+	}
+	if (viewWants)
+	{
+		[viewProxy fireEvent:@"click" withObject:event];
+	}
 }
 
 

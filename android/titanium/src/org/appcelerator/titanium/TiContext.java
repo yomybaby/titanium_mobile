@@ -12,11 +12,11 @@ import java.lang.ref.WeakReference;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.Map.Entry;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.appcelerator.titanium.bridge.OnEventListenerChange;
@@ -29,21 +29,32 @@ import org.appcelerator.titanium.util.TiActivitySupport;
 import org.appcelerator.titanium.util.TiConfig;
 import org.appcelerator.titanium.util.TiFileHelper;
 import org.appcelerator.titanium.util.TiFileHelper2;
+import org.mozilla.javascript.ErrorReporter;
+import org.mozilla.javascript.EvaluatorException;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.content.DialogInterface.OnClickListener;
 import android.content.res.Configuration;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
+import android.os.Process;
 import android.os.RemoteException;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
-public class TiContext implements TiEvaluator, ITiMenuDispatcherListener
+public class TiContext implements TiEvaluator, ITiMenuDispatcherListener, ErrorReporter
 {
 	private static final String LCAT = "TiContext";
 	private static final boolean DBG = TiConfig.LOGD;
+	private static final boolean TRACE = TiConfig.LOGV;
 
 	private long mainThreadId;
 
@@ -51,12 +62,13 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener
 
 	private WeakReference<Activity> weakActivity;
 	private SoftReference<TiEvaluator>	softTiEvaluator;
+	private TiEvaluator strongTiEvaluator; // used to avoid temporary dereferencing before we execute app.js
 	private HashMap<String, HashMap<Integer, TiListener>> eventListeners;
 	private AtomicInteger listenerIdGenerator;
 
 	private ArrayList<WeakReference<OnEventListenerChange>> eventChangeListeners;
 	private ArrayList<WeakReference<OnLifecycleEvent>> lifecycleListeners;
-	private WeakReference<OnMenuEvent> weakMenuEvent;
+	private OnMenuEvent menuEventListener;
 	private WeakReference<OnConfigurationChanged> weakConfigurationChangedListeners;
 
 	public static interface OnLifecycleEvent
@@ -141,6 +153,11 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener
 	}
 
 	private TiEvaluator getJSContext() {
+		if (strongTiEvaluator != null) {
+			TiEvaluator tmp = strongTiEvaluator;
+			strongTiEvaluator = null;
+			return tmp;
+		}
 		return softTiEvaluator.get();
 	}
 
@@ -148,7 +165,8 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener
 		if (DBG) {
 			Log.i(LCAT, "Setting JS Context");
 		}
-		this.softTiEvaluator = new SoftReference<TiEvaluator>(evaluator);
+		this.strongTiEvaluator = evaluator;
+		softTiEvaluator = new SoftReference<TiEvaluator>(strongTiEvaluator);
 	}
 
 	public Activity getActivity() {
@@ -491,7 +509,9 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener
 					}
 				}
 			} else {
-				Log.w(LCAT, "No listeners for eventName: " + eventName);
+				if(TRACE) {
+					Log.w(LCAT, "No listeners for eventName: " + eventName);
+				}
 			}
 		} else {
 			throw new IllegalStateException("dispatchEvent expects a non-null eventName");
@@ -518,13 +538,13 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener
 
 	public void setOnMenuEventListener(OnMenuEvent listener) {
 		if (listener != null) {
-			weakMenuEvent = new WeakReference<OnMenuEvent>(listener);
+			menuEventListener = listener;
 			TiActivitySupport tis = (TiActivitySupport) getActivity();
 			if (tis != null) {
 				tis.setMenuDispatchListener(this);
 			}
 		} else {
-			weakMenuEvent = null;
+			menuEventListener = null;
 			TiActivitySupport tis = (TiActivitySupport) getActivity();
 			if (tis != null) {
 				tis.setMenuDispatchListener(null);
@@ -534,11 +554,8 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener
 
 	public boolean dispatchHasMenu()
 	{
-		if (weakMenuEvent != null) {
-			OnMenuEvent listener = weakMenuEvent.get();
-			if (listener != null) {
-				return listener.hasMenu();
-			}
+		if (menuEventListener != null) {
+			return menuEventListener.hasMenu();
 		}
 
 		return false;
@@ -546,11 +563,8 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener
 
 	public boolean dispatchPrepareMenu(Menu menu)
 	{
-		if (weakMenuEvent != null) {
-			OnMenuEvent listener = weakMenuEvent.get();
-			if (listener != null) {
-				return listener.prepareMenu(menu);
-			}
+		if (menuEventListener != null) {
+			return menuEventListener.prepareMenu(menu);
 		}
 
 		return false;
@@ -558,11 +572,8 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener
 
 	public boolean dispatchMenuItemSelected(MenuItem item)
 	{
-		if (weakMenuEvent != null) {
-			OnMenuEvent listener = weakMenuEvent.get();
-			if (listener != null) {
-				return listener.menuItemSelected(item);
-			}
+		if (menuEventListener != null) {
+			return menuEventListener.menuItemSelected(item);
 		}
 
 		return false;
@@ -661,6 +672,26 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener
 		}
 	}
 
+
+	@Override
+	public void error(String message, String sourceName, int line, String lineSource, int lineOffset)
+	{
+		doRhinoDialog("Error", message, sourceName, line, lineSource, lineOffset);
+	}
+
+	@Override
+	public EvaluatorException runtimeError(String message, String sourceName, int line, String lineSource, int lineOffset)
+	{
+		doRhinoDialog("Runtime Error", message, sourceName, line, lineSource, lineOffset);
+		return null;
+	}
+
+	@Override
+	public void warning(String message, String sourceName, int line, String lineSource, int lineOffset)
+	{
+		doRhinoDialog("Warning", message, sourceName, line, lineSource, lineOffset);
+	}
+
 	public static TiContext createTiContext(Activity activity, TiDict preload, String baseUrl)
 	{
 		TiContext tic = new TiContext(activity, baseUrl);
@@ -669,4 +700,96 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener
 		tic.setJSContext(krollBridge);
 		return tic;
 	}
+
+	private void doRhinoDialog(final String title, final String message, final String sourceName, final int line,
+			final String lineSource, final int lineOffset)
+	{
+		final Semaphore s = new Semaphore(0);
+		final Activity activity = getActivity();
+
+		activity.runOnUiThread(new Runnable(){
+
+			@Override
+			public void run()
+			{
+				OnClickListener listener = new OnClickListener() {
+
+					public void onClick(DialogInterface dialog, int which) {
+						Process.killProcess(Process.myPid());
+					}
+				};
+
+				FrameLayout layout = new FrameLayout(activity);
+				layout.setBackgroundColor(Color.rgb(128, 0, 0));
+
+				LinearLayout vlayout = new LinearLayout(activity);
+				vlayout.setOrientation(LinearLayout.VERTICAL);
+				vlayout.setPadding(10, 10, 10, 10);
+
+				layout.addView(vlayout);
+
+				TextView sourceInfoView = new TextView(activity);
+				sourceInfoView.setBackgroundColor(Color.WHITE);
+				sourceInfoView.setTextColor(Color.BLACK);
+				sourceInfoView.setPadding(4, 5, 4, 0);
+				sourceInfoView.setText("[" + line + "," + lineOffset + "] " + sourceName);
+
+				TextView messageView = new TextView(activity);
+				messageView.setBackgroundColor(Color.WHITE);
+				messageView.setTextColor(Color.BLACK);
+				messageView.setPadding(4, 5, 4, 0);
+				messageView.setText(message);
+
+				TextView sourceView = new TextView(activity);
+				sourceView.setBackgroundColor(Color.WHITE);
+				sourceView.setTextColor(Color.BLACK);
+				sourceView.setPadding(4, 5, 4, 0);
+				sourceView.setText(lineSource);
+
+				TextView infoLabel = new TextView(activity);
+				infoLabel.setText("Location: ");
+				infoLabel.setTextColor(Color.WHITE);
+				infoLabel.setTextScaleX(1.5f);
+
+				TextView messageLabel = new TextView(activity);
+				messageLabel.setText("Message: ");
+				messageLabel.setTextColor(Color.WHITE);
+				messageLabel.setTextScaleX(1.5f);
+
+				TextView sourceLabel = new TextView(activity);
+				sourceLabel.setText("Source: ");
+				sourceLabel.setTextColor(Color.WHITE);
+				sourceLabel.setTextScaleX(1.5f);
+
+				vlayout.addView(infoLabel);
+				vlayout.addView(sourceInfoView);
+				vlayout.addView(messageLabel);
+				vlayout.addView(messageView);
+				vlayout.addView(sourceLabel);
+				vlayout.addView(sourceView);
+
+		        new AlertDialog.Builder(activity)
+		        .setTitle(title)
+		        .setView(layout)
+		        .setPositiveButton("Kill",listener)
+		        .setNeutralButton("Continue", new OnClickListener(){
+					@Override
+					public void onClick(DialogInterface arg0, int arg1) {
+						s.release();
+					}})
+		        .setCancelable(false)
+		        .create()
+		        .show();
+
+			}
+		});
+
+        try {
+        	s.acquire();
+        } catch (InterruptedException e) {
+        	// Ignore
+        }
+	}
+
+
 }

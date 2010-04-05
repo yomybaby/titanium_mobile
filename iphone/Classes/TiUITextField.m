@@ -201,7 +201,6 @@
 		[wrapperView autorelease];
 	}
 
-NSLog(@"Left view (%fx%f) %@",[value bounds].size.width,[value bounds].size.height,value);
 	[super setLeftView:value];
 }
 
@@ -218,7 +217,6 @@ NSLog(@"Left view (%fx%f) %@",[value bounds].size.width,[value bounds].size.heig
 		[wrapperView autorelease];
 	}
 
-NSLog(@"Right view (%fx%f) %@",[value bounds].size.width,[value bounds].size.height,value);
 	[super setRightView:value];
 }
 
@@ -236,6 +234,13 @@ NSLog(@"Right view (%fx%f) %@",[value bounds].size.width,[value bounds].size.hei
 	[TiUtils setView:textWidgetView positionRect:bounds];
 }
 
+- (void) dealloc
+{
+	[[NSNotificationCenter defaultCenter] removeObserver:self name:UITextFieldTextDidChangeNotification object:nil];
+	[super dealloc];
+}
+
+
 -(UIView<UITextInputTraits>*)textWidgetView
 {
 	if (textWidgetView==nil)
@@ -247,12 +252,15 @@ NSLog(@"Right view (%fx%f) %@",[value bounds].size.width,[value bounds].size.hei
 		((TiTextField *)textWidgetView).contentVerticalAlignment = UIControlContentVerticalAlignmentCenter;
 		[(TiTextField *)textWidgetView configure];
 		[self addSubview:textWidgetView];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillHide:) name:UIKeyboardWillHideNotification object:nil];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardWillShow:) name:UIKeyboardWillShowNotification object:nil];
-		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardDidHide:) name:UIKeyboardDidHideNotification object:nil];
+		NSNotificationCenter * theNC = [NSNotificationCenter defaultCenter];
+		[theNC addObserver:self selector:@selector(keyboardWillHide:) name:UIKeyboardWillHideNotification object:nil];
+		[theNC addObserver:self selector:@selector(keyboardWillShow:) name:UIKeyboardWillShowNotification object:nil];
+		[theNC addObserver:self selector:@selector(keyboardDidHide:) name:UIKeyboardDidHideNotification object:nil];
+		[theNC addObserver:self selector:@selector(textFieldDidChange:) name:UITextFieldTextDidChangeNotification object:textWidgetView];
 	}
 	return textWidgetView;
 }
+
 
 #pragma mark Public APIs
 
@@ -404,6 +412,12 @@ NSLog(@"Right view (%fx%f) %@",[value bounds].size.width,[value bounds].size.hei
 
 
 
+- (BOOL)textFieldShouldBeginEditing:(UITextField *)textField;        // return NO to disallow editing.
+{
+	return YES;
+}
+
+
 - (BOOL)textField:(UITextField *)tf shouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string
 {
 	NSString *curText = [tf text];
@@ -429,9 +443,9 @@ NSLog(@"Right view (%fx%f) %@",[value bounds].size.width,[value bounds].size.hei
 	}
 }
 
-- (void)textFieldDidChange:(UITextField *)tf
+- (void)textFieldDidChange:(NSNotification *)notification
 {
-	[(TiUITextFieldProxy *)self.proxy noteValueChange:[tf text]];
+	[(TiUITextFieldProxy *)self.proxy noteValueChange:[(UITextField *)textWidgetView text]];
 }
 
 - (BOOL)textFieldShouldEndEditing:(UITextField *)tf
@@ -448,15 +462,18 @@ NSLog(@"Right view (%fx%f) %@",[value bounds].size.width,[value bounds].size.hei
 
 -(BOOL)textFieldShouldReturn:(UITextField *)tf 
 {
-//	[tf resignFirstResponder];
 	if ([self.proxy _hasListeners:@"return"])
 	{
 		[self.proxy fireEvent:@"return" withObject:[NSDictionary dictionaryWithObject:[tf text] forKey:@"value"]];
 	}
 
-	
 
-//	[self makeRootViewFirstResponder];
+	if (suppressReturn)
+	{
+		[tf resignFirstResponder];
+		return NO;
+	}
+
 	return YES;
 }
 	

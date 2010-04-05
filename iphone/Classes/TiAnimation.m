@@ -13,6 +13,8 @@
 #import "LayoutConstraint.h"
 #import "KrollCallback.h"
 
+#import <QuartzCore/QuartzCore.h>
+
 #ifdef DEBUG 
 	#define ANIMATION_DEBUG 0
 #endif
@@ -22,7 +24,7 @@
 
 @synthesize delegate;
 @synthesize zIndex, left, right, top, bottom, width, height;
-@synthesize duration, center, backgroundColor, color, opacity, opaque, view;
+@synthesize duration, color, backgroundColor, opacity, opaque, view;
 @synthesize visible, curve, repeat, autoreverse, delay, transform, transition;
 
 -(id)initWithDictionary:(NSDictionary*)properties context:(id<TiEvaluator>)context_ callback:(KrollCallback*)callback_
@@ -107,7 +109,7 @@ self.p = v;\
 		SET_ID_PROP(transform,properties);
 		SET_INT_PROP(transition,properties);
 		SET_PROXY_PROP(view,properties);
-		
+
 		if (context_!=nil)
 		{
 			callback = [[ListenerEntry alloc] initWithListener:callback_ context:context_ proxy:self type:nil];
@@ -207,6 +209,19 @@ self.p = v;\
 		return [[[TiAnimation alloc] _initWithPageContext:context] autorelease];
 	}
 	return nil;
+}
+
+-(void)setCenter:(id)center_
+{
+    if (center != center_) {
+        [center release];
+        center = [[TiPoint alloc] initWithPoint:[TiUtils pointValue:center_]];
+    }
+}
+
+-(TiPoint*)center
+{
+    return center;
 }
 
 -(id)description
@@ -343,19 +358,31 @@ self.p = v;\
 		// we need to first make sure our new view that we're transitioning to is sized but we don't want
 		// to add to the view hiearchry inside the animation block or you'll get the sizings as part of the
 		// animation.. which we don't want
-		LayoutConstraint *contraints = [(TiViewProxy*)[view_ proxy] layoutProperties];
+		TiViewProxy * ourProxy = (TiViewProxy*)[view_ proxy];
+		LayoutConstraint *contraints = [ourProxy layoutProperties];
 		ApplyConstraintToViewWithinViewWithBounds(contraints, view_, transitionView, transitionView.bounds, NO);
+		[ourProxy layoutChildren];
 	}
+	else
+	{
+		CALayer * modelLayer = [view_ layer];
+		CALayer * transitionLayer = [modelLayer presentationLayer];
+		NSArray * animationKeys = [transitionLayer animationKeys];
+		for (NSString * thisKey in animationKeys)
+		{
+			[modelLayer setValue:[transitionLayer valueForKey:thisKey] forKey:thisKey];
+		}
+	}
+
 
 	// hold on to our animation during the animation and until it stops
 	[self retain];
 	[theview retain];
 	
-	[UIView beginAnimations:[NSString stringWithFormat:@"%@",[self description]] context:(void*)theview];
+	[UIView beginAnimations:[NSString stringWithFormat:@"%X",(void *)theview] context:(void*)theview];
 	[UIView setAnimationDelegate:self];
 	[UIView setAnimationWillStartSelector:@selector(animationStarted:context:)];
 	[UIView setAnimationDidStopSelector:@selector(animationCompleted:finished:context:)];
-	[UIView setAnimationBeginsFromCurrentState:YES];
 	
 	if (duration!=nil)
 	{

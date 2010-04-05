@@ -17,6 +17,7 @@ var data = [
 	{title:'3D Transform', hasChild:true, test:'../examples/3d_transform.js'},
 	{title:'Anchor Point', hasChild:true, test:'../examples/anchor_point.js'},
 	{title:'Image Scaling', hasChild:true, test:'../examples/image_scaling.js'},
+	{title:'Animation Points', hasChild:true, test:'../examples/animation_points.js'}
 
 ];
 
@@ -35,7 +36,7 @@ tableview.addEventListener('click', function(e)
 			title:e.rowData.title,
 			backgroundColor:'#fff'
 		});
-		Titanium.UI.currentTab.open(win,{animated:true})
+		Titanium.UI.currentTab.open(win,{animated:true});
 	}
 });
 

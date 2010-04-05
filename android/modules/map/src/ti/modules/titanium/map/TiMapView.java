@@ -7,21 +7,27 @@
 
 package ti.modules.titanium.map;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.appcelerator.titanium.TiApplication;
 import org.appcelerator.titanium.TiDict;
 import org.appcelerator.titanium.TiProperties;
+import org.appcelerator.titanium.TiProxy;
 import org.appcelerator.titanium.TiContext.OnLifecycleEvent;
+import org.appcelerator.titanium.io.TiBaseFile;
+import org.appcelerator.titanium.io.TiFileFactory;
 import org.appcelerator.titanium.proxy.TiViewProxy;
 import org.appcelerator.titanium.util.Log;
 import org.appcelerator.titanium.util.TiConfig;
 import org.appcelerator.titanium.util.TiConvert;
+import org.appcelerator.titanium.util.TiUIHelper;
 import org.appcelerator.titanium.view.TiUIView;
-import org.json.JSONObject;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.OvalShape;
@@ -72,6 +78,7 @@ public class TiMapView extends TiUIView
 	private static final int MSG_ADD_ANNOTATION = 307;
 	private static final int MSG_REMOVE_ANNOTATION = 308;
 	private static final int MSG_SELECT_ANNOTATION = 309;
+	private static final int MSG_REMOVE_ALL_ANNOTATIONS = 310;
 
 	//private MapView view;
 	private boolean scrollEnabled;
@@ -84,12 +91,16 @@ public class TiMapView extends TiUIView
 	private TitaniumOverlay overlay;
 	private MyLocationOverlay myLocation;
 	private TiOverlayItemView itemView;
-	private TiDict[] annotations;
+	private ArrayList<AnnotationProxy> annotations;
 	private Handler handler;
 
 	class LocalMapView extends MapView
 	{
 		private boolean scrollEnabled;
+		private int lastLongitude;
+		private int lastLatitude;
+		private int lastLatitudeSpan;
+		private int lastLongitudeSpan;
 
 		public LocalMapView(Context context, String apiKey) {
 			super(context, apiKey);
@@ -115,11 +126,35 @@ public class TiMapView extends TiUIView
 			}
 			return super.dispatchTrackballEvent(ev);
 		}
+
+		@Override
+		public void computeScroll() {
+			super.computeScroll();
+
+			GeoPoint center = getMapCenter();
+			if (lastLatitude != center.getLatitudeE6() || lastLongitude != center.getLongitudeE6() ||
+					lastLatitudeSpan != getLatitudeSpan() || lastLongitudeSpan != getLongitudeSpan())
+			{
+				lastLatitude = center.getLatitudeE6();
+				lastLongitude = center.getLongitudeE6();
+				lastLatitudeSpan = getLatitudeSpan();
+				lastLongitudeSpan = getLongitudeSpan();
+
+				TiDict d = new TiDict();
+				d.put("latitude", scaleFromGoogle(lastLatitude));
+				d.put("longitude", scaleFromGoogle(lastLongitude));
+				d.put("latitudeDelta", scaleFromGoogle(lastLatitudeSpan));
+				d.put("longitudeDelta", scaleFromGoogle(lastLongitudeSpan));
+
+				proxy.fireEvent("regionChanged", d);
+			}
+
+		}
 	}
 
 	class TitaniumOverlay extends ItemizedOverlay<TiOverlayItem>
 	{
-		TiDict[] annotations;
+		ArrayList<AnnotationProxy> annotations;
 		TitaniumOverlayListener listener;
 
 		public TitaniumOverlay(Drawable defaultDrawable, TitaniumOverlayListener listener) {
@@ -127,8 +162,8 @@ public class TiMapView extends TiUIView
 			this.listener = listener;
 		}
 
-		public void setAnnotations(TiDict[] annotations) {
-			this.annotations = annotations;
+		public void setAnnotations(ArrayList<AnnotationProxy> annotations) {
+			this.annotations = new ArrayList<AnnotationProxy>(annotations);
 
 			populate();
 		}
@@ -137,27 +172,36 @@ public class TiMapView extends TiUIView
 		protected TiOverlayItem createItem(int i) {
 			TiOverlayItem item = null;
 
-			TiDict a = annotations[i];
+			AnnotationProxy p = annotations.get(i);
+			TiDict a = p.getDynamicProperties();
 			if (a.containsKey("latitude") && a.containsKey("longitude")) {
 				String title = a.optString("title", "");
 				String subtitle = a.optString("subtitle", "");
 
 				GeoPoint location = new GeoPoint(scaleToGoogle(a.getDouble("latitude")), scaleToGoogle(a.getDouble("longitude")));
-				item = new TiOverlayItem(location, title, subtitle);
+				item = new TiOverlayItem(location, title, subtitle, p);
 
-				if (a.containsKey("pincolor")) {
+				//prefer pinImage to pincolor.
+				if (a.containsKey("pinImage"))
+				{
+					String imagePath = a.getString("pinImage");
+					Drawable marker = makeMarker(imagePath);
+					boundCenterBottom(marker);
+					item.setMarker(marker);
+				} else if (a.containsKey("pincolor")) {
 					switch(a.getInt("pincolor")) {
-					case 1 : // RED
-						item.setMarker(makeMarker(Color.RED));
-						break;
-					case 2 : // GREEN
-						item.setMarker(makeMarker(Color.GREEN));
-						break;
-					case 3 : // PURPLE
-						item.setMarker(makeMarker(Color.argb(255,192,0,192)));
-						break;
+						case 1 : // RED
+							item.setMarker(makeMarker(Color.RED));
+							break;
+						case 2 : // GREEN
+							item.setMarker(makeMarker(Color.GREEN));
+							break;
+						case 3 : // PURPLE
+							item.setMarker(makeMarker(Color.argb(255,192,0,192)));
+							break;
 					}
 				}
+
 
 				if (a.containsKey("leftButton")) {
 					item.setLeftButton(a.getString("leftButton"));
@@ -173,7 +217,7 @@ public class TiMapView extends TiUIView
 
 		@Override
 		public int size() {
-			return (annotations == null) ? 0 : annotations.length;
+			return (annotations == null) ? 0 : annotations.size();
 		}
 
 		@Override
@@ -194,6 +238,7 @@ public class TiMapView extends TiUIView
 
 		this.mapWindow = mapWindow;
 		this.handler = new Handler(this);
+		this.annotations = new ArrayList<AnnotationProxy>();
 
 		//TODO MapKey
 		TiApplication app = proxy.getTiContext().getTiApp();
@@ -201,7 +246,7 @@ public class TiMapView extends TiUIView
 		String oldKey = appProperties.getString(OLD_API_KEY, TI_DEVELOPMENT_KEY);
 		String developmentKey = appProperties.getString(DEVELOPMENT_API_KEY, oldKey);
 		String productionKey = appProperties.getString(PRODUCTION_API_KEY, oldKey);
-		
+
 		String apiKey = developmentKey;
 		if (app.getDeployType().equals(TiApplication.DEPLOY_TYPE_PRODUCTION)) {
 			apiKey = productionKey;
@@ -256,11 +301,12 @@ public class TiMapView extends TiUIView
 				TiOverlayItem item = overlay.getItem(lastIndex);
 				if (item != null) {
 					TiDict d = new TiDict();
-					d.put("source", clickedItem);
 					d.put("title", item.getTitle());
 					d.put("subtitle", item.getSnippet());
 					d.put("latitude", scaleFromGoogle(item.getPoint().getLatitudeE6()));
 					d.put("longitude", scaleFromGoogle(item.getPoint().getLongitudeE6()));
+					d.put("annotation", item.getProxy());
+					d.put("clicksource", clickedItem);
 
 					fproxy.fireEvent(EVENT_CLICK, d);
 				}
@@ -305,7 +351,7 @@ public class TiMapView extends TiUIView
 				}
 				return true;
 			case MSG_ADD_ANNOTATION :
-				doAddAnnotation((TiDict) msg.obj);
+				doAddAnnotation((AnnotationProxy) msg.obj);
 				return true;
 			case MSG_REMOVE_ANNOTATION :
 				doRemoveAnnotation((String) msg.obj);
@@ -315,6 +361,10 @@ public class TiMapView extends TiUIView
 				boolean animate = msg.arg2 == 1 ? true : false;
 				String title = (String) msg.obj;
 				doSelectAnnotation(select, title, animate);
+				return true;
+			case MSG_REMOVE_ALL_ANNOTATIONS :
+				annotations.clear();
+				doSetAnnotations(annotations);
 				return true;
 		}
 
@@ -333,9 +383,10 @@ public class TiMapView extends TiUIView
 	{
 		if (view != null && itemView != null && item != null) {
 			itemView.setItem(index, item);
-
+			//Make sure the atonnation is always on top of the marker
+			int y = -1*item.getMarker(TiOverlayItem.ITEM_STATE_FOCUSED_MASK).getIntrinsicHeight();
 			MapView.LayoutParams params = new MapView.LayoutParams(LayoutParams.WRAP_CONTENT,
-					LayoutParams.WRAP_CONTENT, item.getPoint(), MapView.LayoutParams.BOTTOM_CENTER);
+					LayoutParams.WRAP_CONTENT, item.getPoint(), 0, y, MapView.LayoutParams.BOTTOM_CENTER);
 			params.mode = MapView.LayoutParams.MODE_MAP;
 
 			view.addView(itemView, params);
@@ -391,16 +442,40 @@ public class TiMapView extends TiUIView
 			doUserLocation(d.getBoolean("userLocation"));
 		}
 		if (d.containsKey("annotations")) {
-			Object[] annotations = (Object[]) d.get("annotations");
-			TiDict[] anns = new TiDict[annotations.length];
+			proxy.internalSetDynamicValue("annotations", d.get("annotations"), false);
+			Object [] annotations = (Object[]) d.get("annotations");
 			for(int i = 0; i < annotations.length; i++) {
 				AnnotationProxy ap = (AnnotationProxy) annotations[i];
-				anns[i] = ap.getDynamicProperties();
+				this.annotations.add(ap);
 			}
-			doSetAnnotations(anns);
+			doSetAnnotations(this.annotations);
 		}
 
 		super.processProperties(d);
+	}
+
+	@Override
+	public void propertyChanged(String key, Object oldValue, Object newValue, TiProxy proxy)
+	{
+
+		if (key.equals("location")) {
+			if (newValue != null) {
+				if (newValue instanceof AnnotationProxy) {
+					AnnotationProxy ap = (AnnotationProxy) newValue;
+					doSetLocation(ap.getDynamicProperties());
+				} else if (newValue instanceof TiDict) {
+					doSetLocation((TiDict) newValue);
+				}
+			}
+		} else if (key.equals("mapType")) {
+			if (newValue == null) {
+				doSetMapType(MAP_VIEW_STANDARD);
+			} else {
+				doSetMapType(TiConvert.toInt(newValue));
+			}
+		} else {
+			super.propertyChanged(key, oldValue, newValue, proxy);
+		}
 	}
 
 	public void doSetLocation(TiDict d)
@@ -449,9 +524,10 @@ public class TiMapView extends TiUIView
 		}
 	}
 
-	public void doSetAnnotations(TiDict[] annotations)
+	public void doSetAnnotations(ArrayList<AnnotationProxy> annotations)
 	{
 		if (annotations != null) {
+
 			this.annotations = annotations;
 			List<Overlay> overlays = view.getOverlays();
 
@@ -461,44 +537,47 @@ public class TiMapView extends TiUIView
 					overlay = null;
 				}
 
-				int len = annotations.length;
-				if (len > 0) {
+				if (annotations.size() > 0) {
 					overlay = new TitaniumOverlay(makeMarker(Color.BLUE), this);
 					overlay.setAnnotations(annotations);
 					overlays.add(overlay);
-					view.invalidate();
 				}
+
+				view.invalidate();
 			}
 		}
 	}
 
-	public void addAnnotation(JSONObject annotation) {
+	public void addAnnotation(AnnotationProxy annotation) {
 		handler.obtainMessage(MSG_ADD_ANNOTATION, annotation).sendToTarget();
 	};
 
-	public void doAddAnnotation(TiDict annotation)
+	public void doAddAnnotation(AnnotationProxy annotation)
 	{
-//		if (annotation != null && view != null) {
-//			if (annotations == null) {
-//				annotations = new JSONArray();
-//			}
-//
-//			annotations.put(annotation);
-//			doSetAnnotations(annotations);
-//		}
+		if (annotation != null && view != null) {
+
+			annotations.add(annotation);
+			doSetAnnotations(annotations);
+		}
 	};
 
 	public void removeAnnotation(String title) {
 		handler.obtainMessage(MSG_REMOVE_ANNOTATION, title).sendToTarget();
 	};
 
+	public void removeAllAnnotations() {
+		handler.obtainMessage(MSG_REMOVE_ALL_ANNOTATIONS).sendToTarget();
+	}
+
 	private int findAnnotation(String title)
 	{
 		int existsIndex = -1;
 		// Check for existence
-		for(int i = 0; i < annotations.length; i++) {
-			TiDict a = annotations[i];
-			String t = a.optString("title", null);
+		int len = annotations.size();
+		for(int i = 0; i < len; i++) {
+			AnnotationProxy a = annotations.get(i);
+			String t = (String) a.getDynamicValue("title");
+
 			if (t != null) {
 				if (title.equals(t)) {
 					if (DBG) {
@@ -519,14 +598,7 @@ public class TiMapView extends TiUIView
 			int existsIndex = findAnnotation(title);
 			// If found, build a new annotation list
 			if (existsIndex > -1) {
-				TiDict[] a = new TiDict[annotations.length-1];
-				int j = 0;
-				for(int i = 0; i < annotations.length; i++) {
-					if (i != existsIndex) {
-						a[j++] = (annotations[i]);
-					}
-				}
-				annotations = a;
+				annotations.remove(existsIndex);
 
 				doSetAnnotations(annotations);
 			}
@@ -618,8 +690,22 @@ public class TiMapView extends TiUIView
 
 		return d;
 	}
+
+	private Drawable makeMarker(String pinImage)
+	{
+		String url = proxy.getTiContext().resolveUrl(null, pinImage);
+		TiBaseFile file = TiFileFactory.createTitaniumFile(proxy.getTiContext(), new String[] { url }, false);
+		try {
+			Drawable d = new BitmapDrawable(TiUIHelper.createBitmap(file.getInputStream()));
+			d.setBounds(0, 0, d.getIntrinsicWidth(), d.getIntrinsicHeight());
+			return d;
+		} catch (IOException e) {
+			Log.e(LCAT, "Error creating drawable from path: " + pinImage.toString(), e);
+		}
+		return null;
+	}
 	private double scaleFromGoogle(int value) {
-		return value / 1000000;
+		return (double)value / 1000000.0;
 	}
 
 	private int scaleToGoogle(double value) {

@@ -1,9 +1,16 @@
 // create table view data object
 var data = [
-	{title:'Local', hasChild:true, test:'../examples/movie_local.js'},
-	
-
+	{title:'Local', hasChild:true, test:'../examples/movie_local.js'}
 ];
+
+Ti.include("version.js");
+
+
+if (isIPhone3_2_Plus())
+{
+	// can only test this support on a 3.2+ device
+	data.push({title:'Embedded Video', hasChild:true, test:'../examples/movie_embed.js'});
+}
 
 // add iphone specific tests
 if (Titanium.Platform.name == 'iPhone OS')
@@ -25,7 +32,7 @@ tableview.addEventListener('click', function(e)
 			url:e.rowData.test,
 			title:e.rowData.title
 		});
-		Titanium.UI.currentTab.open(win,{animated:true})
+		Titanium.UI.currentTab.open(win,{animated:true});
 	}
 });
 

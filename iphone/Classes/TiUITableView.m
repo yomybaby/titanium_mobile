@@ -23,6 +23,7 @@
 	if (self = [super init])
 	{
 		sections = [[NSMutableArray array] retain];
+		filterCaseInsensitive = YES; // defaults to true on search
 	}
 	return self;
 }
@@ -39,15 +40,8 @@
 	RELEASE_TO_NIL(searchTableView);
 	RELEASE_TO_NIL(filterAttribute);
 	RELEASE_TO_NIL(searchResultIndexes);
+	RELEASE_TO_NIL(initialSelection);
 	[super dealloc];
-}
-
--(void)frameSizeChanged:(CGRect)frame bounds:(CGRect)bounds
-{
-//	if (tableview!=nil && CGRectIsEmpty(bounds)==NO)
-//	{
-//		[TiUtils setView:tableview positionRect:bounds];
-//	}
 }
 
 -(CGFloat)tableRowHeight:(CGFloat)height
@@ -533,6 +527,8 @@
 		ourSearchAttribute = @"title";
 	}
 	
+	NSStringCompareOptions searchOpts = (filterCaseInsensitive ? NSCaseInsensitiveSearch : 0);
+	
 	for (TiUITableViewSectionProxy * thisSection in sections) 
 	{
 		NSMutableIndexSet * thisIndexSet = [searchResultIndexEnumerator nextObject];
@@ -550,7 +546,7 @@
 		for (TiUITableViewRowProxy *row in [thisSection rows]) 
 		{
 			id value = [row valueForKey:ourSearchAttribute];
-			if (value!=nil && [[TiUtils stringValue:value] rangeOfString:searchString].location!=NSNotFound)
+			if (value!=nil && [[TiUtils stringValue:value] rangeOfString:searchString options:searchOpts].location!=NSNotFound)
 			{
 				[thisIndexSet addIndex:cellIndex];
 			}
@@ -733,6 +729,12 @@
 	[[self tableView] setBackgroundColor:[UIColor colorWithPatternImage:image]];
 }
 
+-(void)setAllowsSelection_:(id)arg
+{
+	allowsSelectionSet = [TiUtils boolValue:arg];
+	[[self tableView] setAllowsSelection:allowsSelectionSet];
+}
+
 -(void)setSeparatorStyle_:(id)arg
 {
 	[[self tableView] setSeparatorStyle:[TiUtils intValue:arg]];
@@ -850,6 +852,14 @@
 		[sectionIndex addObject:title];
 		[sectionIndexMap setObject:[NSNumber numberWithInt:[TiUtils intValue:theindex]] forKey:title];
 	}
+    
+    [[self tableView] reloadData]; // HACK - Should just reload section indexes when reloadSelectionIndexTitles functions properly.
+    //[[self tableView] reloadSectionIndexTitles];  THIS DOESN'T WORK.
+}
+
+-(void)setFilterCaseInsensitive_:(id)caseBool
+{
+	filterCaseInsensitive = [TiUtils boolValue:caseBool];
 }
 
 -(void)setEditable_:(id)args
@@ -1038,8 +1048,18 @@ if(tableView == searchTableView)	\
 		[self triggerActionForIndexPath:indexPath fromPath:nil wasAccessory:NO search:NO name:@"delete"];
 		
 		[[section rows] removeObjectAtIndex:[indexPath row]];
+        
+        // If the section is empty, we want to remove it as well.
+        BOOL emptySection = ([[section rows] count] == 0);
+        if (emptySection) {
+            [sections removeObjectAtIndex:[indexPath section]];
+        }
+
 		[table beginUpdates];
-		[table deleteRowsAtIndexPaths:[NSArray arrayWithObject:path] withRowAnimation:UITableViewRowAnimationFade];
+        [table deleteRowsAtIndexPaths:[NSArray arrayWithObject:path] withRowAnimation:UITableViewRowAnimationFade];
+        if (emptySection) {
+            [table deleteSections:[NSIndexSet indexSetWithIndex:[indexPath section]] withRowAnimation:UITableViewRowAnimationFade];
+        }
 		[table endUpdates];
 	}
 }
@@ -1111,11 +1131,39 @@ if(tableView == searchTableView)	\
 	return 0;
 }
 
+-(void)selectRow:(id)args
+{
+	NSInteger index = [TiUtils intValue:[args objectAtIndex:0]];
+	NSIndexPath *path = [self indexPathFromInt:index];
+	if (initiallyDisplayed==NO)
+	{
+		RELEASE_TO_NIL(initialSelection);
+		initialSelection = [path retain];
+		return;
+	}
+	NSDictionary *dict = [args count] > 1 ? [args objectAtIndex:1] : nil;
+	BOOL animated = [TiUtils boolValue:@"animated" properties:dict def:YES];
+	int scrollPosition = [TiUtils intValue:@"position" properties:dict def:UITableViewScrollPositionMiddle];
+	[[self tableView] selectRowAtIndexPath:path animated:animated scrollPosition:scrollPosition];
+}
+
+-(void)deselectRow:(id)args
+{
+	NSInteger index = [TiUtils intValue:[args objectAtIndex:0]];
+	NSDictionary *dict = [args count] > 1 ? [args objectAtIndex:1] : nil;
+	BOOL animated = [TiUtils boolValue:@"animated" properties:dict def:YES];
+	NSIndexPath *path = [self indexPathFromInt:index];
+	[[self tableView] deselectRowAtIndexPath:path animated:animated];
+}
+
 #pragma mark Delegate
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath
 {
-	[tableView deselectRowAtIndexPath:indexPath animated:YES];
+	if (allowsSelectionSet==NO || [tableView allowsSelection]==NO)
+	{
+		[tableView deselectRowAtIndexPath:indexPath animated:YES];
+	}
 	if(tableView == searchTableView)
 	{
 		[self hideSearchScreen:nil];
@@ -1143,6 +1191,24 @@ if(tableView == searchTableView)	\
 	if (color!=nil)
 	{
 		cell.backgroundColor = UIColorWebColorNamed(color);
+	}
+	
+	if (initiallyDisplayed==NO && [indexPath section]==[sections count]-1 && [indexPath row]==[section rowCount]-1)
+	{
+		// we need to track when we've initially rendered the last row
+		initiallyDisplayed = YES;
+		
+		// trigger the initial selection
+		if (initialSelection!=nil)
+		{
+			// we seem to have to do this after this has fully completed so we 
+			// just spin off and do this just a few ms later
+			NSInteger index = [self indexForIndexPath:initialSelection];
+			NSDictionary *dict = [NSDictionary dictionaryWithObject:NUMBOOL(NO) forKey:@"animated"];
+			NSArray *args = [NSArray arrayWithObjects:NUMINT(index),dict,nil];
+			[self performSelector:@selector(selectRow:) withObject:args afterDelay:0.09];
+			RELEASE_TO_NIL(initialSelection);
+		}
 	}
 }
 
@@ -1210,18 +1276,19 @@ if(tableView == searchTableView)	\
 	RETURN_IF_SEARCH_TABLE_VIEW(tableView.sectionHeaderHeight);
 	TiUITableViewSectionProxy *sectionProxy = nil;
 	TiUIView *view = [self sectionView:section forLocation:@"headerView" section:&sectionProxy];
+	TiViewProxy *viewProxy = (TiViewProxy *)[view proxy];
 	CGFloat size = 0;
 	BOOL hasTitle = NO;
-	if (view!=nil)
+	if (viewProxy!=nil)
 	{
-		LayoutConstraint *viewLayout = [view layoutProperties];
+		LayoutConstraint *viewLayout = [viewProxy layoutProperties];
 		switch (viewLayout->height.type)
 		{
 			case TiDimensionTypePixels:
 				size += viewLayout->height.value;
 				break;
 			case TiDimensionTypeAuto:
-				size += [view autoHeightForWidth:[tableView bounds].size.width];
+				size += [viewProxy autoHeightForWidth:[tableView bounds].size.width];
 				break;
 			default:
 				size+=DEFAULT_SECTION_HEADERFOOTER_HEIGHT;
@@ -1249,18 +1316,19 @@ if(tableView == searchTableView)	\
 	RETURN_IF_SEARCH_TABLE_VIEW(tableView.sectionFooterHeight);
 	TiUITableViewSectionProxy *sectionProxy = nil;
 	TiUIView *view = [self sectionView:section forLocation:@"footerView" section:&sectionProxy];
+	TiViewProxy *viewProxy = (TiViewProxy *)[view proxy];
 	CGFloat size = 0;
 	BOOL hasTitle = NO;
-	if (view!=nil)
+	if (viewProxy!=nil)
 	{
-		LayoutConstraint *viewLayout = [view layoutProperties];
+		LayoutConstraint *viewLayout = [viewProxy layoutProperties];
 		switch (viewLayout->height.type)
 		{
 			case TiDimensionTypePixels:
 				size += viewLayout->height.value;
 				break;
 			case TiDimensionTypeAuto:
-				size += [view autoHeightForWidth:[tableView bounds].size.width];
+				size += [viewProxy autoHeightForWidth:[tableView bounds].size.width];
 				break;
 			default:
 				size+=DEFAULT_SECTION_HEADERFOOTER_HEIGHT;

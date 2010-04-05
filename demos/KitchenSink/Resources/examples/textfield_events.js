@@ -1,5 +1,12 @@
 var win = Titanium.UI.currentWindow;
 
+// initialize to all modes
+win.orientationModes = [
+	Titanium.UI.PORTRAIT,
+	Titanium.UI.LANDSCAPE_LEFT,
+	Titanium.UI.LANDSCAPE_RIGHT
+]; 
+
 var tf1 = Titanium.UI.createTextField({
 	color:'#336699',
 	height:35,
@@ -8,6 +15,17 @@ var tf1 = Titanium.UI.createTextField({
 	width:250,
 	borderStyle:Titanium.UI.INPUT_BORDERSTYLE_ROUNDED
 });
+
+var l = Titanium.UI.createLabel({
+	top:50,
+	left:10,
+	width:300,
+	height:'auto',
+	color:'#777',
+	font:{fontSize:13},
+	text:'do something like click a button...'
+});
+win.add(l);
 
 //
 // TEXT FIELD EVENTS (return, focus, blur, change)
@@ -28,34 +46,23 @@ tf1.addEventListener('blur',function(e)
 tf1.addEventListener('change', function(e)
 {
 	l.text = 'change received, event val = ' + e.value + '\nfield val = ' + tf1.value;	
-})
+});
 
 win.add(tf1);
 
 
-var l = Titanium.UI.createLabel({
-	top:50,
-	left:10,
-	width:300,
-	height:'auto',
-	color:'#777',
-	height:'auto',
-	font:{fontSize:13},
-	text:'do something like click a button...'
-});
-win.add(l);
 
 //
 // FOCUS
 //
-var focus = Titanium.UI.createButton({
+var focusLabel = Titanium.UI.createButton({
 	top:100,
 	height:40,
 	width:200,
 	title:'Focus'
 });
-win.add(focus);
-focus.addEventListener('click', function()
+win.add(focusLabel);
+focusLabel.addEventListener('click', function()
 {
 	tf1.focus();
 });
@@ -63,14 +70,14 @@ focus.addEventListener('click', function()
 //
 // BLUR
 //
-var blur = Titanium.UI.createButton({
+var blurLabel = Titanium.UI.createButton({
 	top:150,
 	height:40,
 	width:200,
 	title:'Blur'
 });
-win.add(blur);
-blur.addEventListener('click', function()
+win.add(blurLabel);
+blurLabel.addEventListener('click', function()
 {
 	tf1.blur();
 });
@@ -99,4 +106,12 @@ showHide.addEventListener('click', function()
 		visible = false;
 	}
 });
+
+var instructions = Ti.UI.createLabel({
+	text:'Rotate device while keyboard is up',
+	bottom:10,
+	height:30,
+	color:'#777'
+});
+win.add(instructions);
 

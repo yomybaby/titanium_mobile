@@ -341,6 +341,7 @@ void MyUncaughtExceptionHandler(NSException *exception)
 //		navController = [controller currentNavController];
 	}
 	// if we have a nav controller, use him, otherwise use our root controller
+	[controller windowFocused:modalController];
 	if (navController!=nil)
 	{
 		[navController presentModalViewController:modalController animated:animated];
@@ -351,13 +352,14 @@ void MyUncaughtExceptionHandler(NSException *exception)
 	}
 }
 
--(void)dismissModalController:(BOOL)animated
+-(void)hideModalController:(UIViewController*)modalController animated:(BOOL)animated
 {
-	UINavigationController *navController = [controller navigationController];
+	UIViewController *navController = [modalController parentViewController];
 	if (navController==nil)
 	{
 //		navController = [controller currentNavController];
 	}
+	[controller windowClosed:modalController];
 	if (navController!=nil)
 	{
 		[navController dismissModalViewControllerAnimated:animated];
@@ -367,6 +369,7 @@ void MyUncaughtExceptionHandler(NSException *exception)
 		[controller dismissModalViewControllerAnimated:animated];
 	}
 }
+
 
 - (void)dealloc 
 {

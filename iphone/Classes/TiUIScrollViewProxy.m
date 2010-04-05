@@ -51,7 +51,7 @@
 
 -(BOOL)willBeRelaying
 {
-	return [super willBeRelaying]; // || 
+	return [super willBeRelaying];
 }
 
 -(void)childWillResize:(TiViewProxy *)child
@@ -85,7 +85,8 @@
 		bounds.size.height = [child minimumParentHeightForWidth:bounds.size.width];
 		verticalLayoutBoundary += bounds.size.height;
 	}
-	[[child view] relayout:bounds];
+
+	[[child view] updateLayout:NULL withBounds:bounds];
 	
 	// tell our children to also layout
 	[child layoutChildren];

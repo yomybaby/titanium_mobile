@@ -5,9 +5,15 @@
 //
 
 var win = Titanium.UI.currentWindow;
+
+win.orientationModes = [
+	Titanium.UI.PORTRAIT,
+	Titanium.UI.LANDSCAPE_LEFT,
+	Titanium.UI.LANDSCAPE_RIGHT
+];
 win.addEventListener('focus', function()
 {
-	Ti.API.info('FOCUSED EVENT RECEIVED')
+	Ti.API.info('FOCUSED EVENT RECEIVED');
 });
 
 //
@@ -24,14 +30,14 @@ b1.addEventListener('click', function()
 {
 
 	var w = Titanium.UI.createWindow({
-		backgroundColor:'#336699',
+		backgroundColor:'#336699'
 	});
 
 	// create a button to close window
 	var b = Titanium.UI.createButton({
 		title:'Close',
 		height:30,
-		width:150,
+		width:150
 	});
 	w.add(b);
 	b.addEventListener('click', function()
@@ -59,22 +65,25 @@ b2.addEventListener('click', function()
 			width:0,
 			backgroundColor:'#336699',
 			bottom:0,
-			right:0,
+			right:0
 		};
 	if (Ti.Platform.name == 'android') {
 		options.navBarHidden = true;
 	}
 	var w = Titanium.UI.createWindow(options);
 	var a = Titanium.UI.createAnimation();
-	a.height = 460;
-	a.width = 320;
+	
+	// NOTE: good example of making dynamic platform height / width values
+	// iPad vs. iPhone vs Android etc.
+	a.height = Titanium.Platform.displayCaps.platformHeight;
+	a.width = Titanium.Platform.displayCaps.platformWidth;
 	a.duration = 300;
 
 	// create a button to close window
 	var b = Titanium.UI.createButton({
 		title:'Close',
 		height:30,
-		width:150,
+		width:150
 	});
 	w.add(b);
 	b.addEventListener('click', function()
@@ -84,7 +93,7 @@ b2.addEventListener('click', function()
 		w.close(a);
 	});
 
-	w.open(a)
+	w.open(a);
 });
 
 //
@@ -103,7 +112,7 @@ b3.addEventListener('click', function()
 		backgroundColor:'#336699',
 		title:'Modal Window',
 		barColor:'black',
-		url:'vibrate.js'
+		url:'vibrate.js',
 	});
 	var b = Titanium.UI.createButton({
 		title:'Close',
@@ -113,8 +122,8 @@ b3.addEventListener('click', function()
 	b.addEventListener('click',function()
 	{
 		w.close();
-	})
-	w.open({modal:true})
+	});
+	w.open({modal:true});
 });
 
 //
@@ -153,7 +162,7 @@ b4.addEventListener('click', function()
 	// when this animation completes, scale to normal size
 	a.addEventListener('complete', function()
 	{
-		Titanium.API.info('here in complete')
+		Titanium.API.info('here in complete');
 		var t2 = Titanium.UI.create2DMatrix();
 		t2 = t2.scale(1.0);
 		w.animate({transform:t2, duration:200});
@@ -164,7 +173,7 @@ b4.addEventListener('click', function()
 	var b = Titanium.UI.createButton({
 		title:'Close',
 		height:30,
-		width:150,
+		width:150
 	});
 	w.add(b);
 	b.addEventListener('click', function()
@@ -206,7 +215,7 @@ b5.addEventListener('click', function()
 	var b = Titanium.UI.createButton({
 		title:'Close',
 		height:30,
-		width:150,
+		width:150
 	});
 	w.add(b);
 	b.addEventListener('click', function()
@@ -215,7 +224,7 @@ b5.addEventListener('click', function()
 		w.close(a);
 	});
 
-	w.open(a)
+	w.open(a);
 });
 
 
@@ -232,14 +241,14 @@ var b6 = Titanium.UI.createButton({
 b6.addEventListener('click', function()
 {
 	var w = Titanium.UI.createWindow({
-		backgroundColor:'#336699',
+		backgroundColor:'#336699'
 	});
 
 	// create a button to close window
 	var b = Titanium.UI.createButton({
 		title:'Close',
 		height:30,
-		width:150,
+		width:150
 	});
 	w.add(b);
 	b.addEventListener('click', function()
@@ -283,13 +292,13 @@ b7.addEventListener('click', function()
 
 
 	var w = Titanium.UI.createWindow({
-		backgroundColor:'#336699',
+		backgroundColor:'#336699'
 	});
 	close.addEventListener('click', function()
 	{
-		Ti.API.info('IN HERE')
+		Ti.API.info('IN HERE');
 		w.close();
-	})
+	});
 
 	// create and add toolbar
 	var toolbar = Titanium.UI.createToolbar({
@@ -297,7 +306,7 @@ b7.addEventListener('click', function()
 		top:0,
 		borderTop:false,
 		borderBottom:true
-	})
+	});
 	w.add(toolbar);
 
 	var move = Titanium.UI.createButton({
@@ -310,7 +319,7 @@ b7.addEventListener('click', function()
 	move.addEventListener('click', function()
 	{
 		toolbar.animate({top:20,duration:500});
-	})
+	});
 
 	w.open();
 });
@@ -371,6 +380,11 @@ if (Titanium.Platform.name == 'iPhone OS')
 	win.add(b7);
 	win.add(b4);
 	win.add(b5);
+	var flexSpace = Titanium.UI.createButton({
+		style:Titanium.UI.iPhone.SystemButtonStyle.FLEXIBLE_SPACE
+	});
+	
+	win.setToolbar([flexSpace],{translucent:true});
 
 }
 else

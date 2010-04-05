@@ -35,7 +35,7 @@
 	return (index < [rows count]) ? [rows objectAtIndex:index] : nil;
 }
 
--(void)addRow:(id)row
+-(NSNumber*)addRow:(id)row
 {
 	ENSURE_SINGLE_ARG(row,TiUIPickerRowProxy);
 	if (rows==nil)
@@ -46,6 +46,7 @@
 	{
 		[rows addObject:row];
 	}
+	return NUMINT([rows count]-1);
 }
 
 -(void)removeRow:(id)row

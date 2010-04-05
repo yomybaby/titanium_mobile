@@ -1,5 +1,12 @@
 var win = Titanium.UI.currentWindow;
 
+// initialize to all modes
+win.orientationModes = [
+	Titanium.UI.PORTRAIT,
+	Titanium.UI.LANDSCAPE_LEFT,
+	Titanium.UI.LANDSCAPE_RIGHT
+]; 
+
 var flexSpace = Titanium.UI.createButton({
 	systemButton:Titanium.UI.iPhone.SystemButton.FLEXIBLE_SPACE
 });
@@ -18,7 +25,7 @@ var camera = Titanium.UI.createButton({
 	backgroundImage:'../images/camera.png',
 	height:33,
 	width:33
-})
+});
 camera.addEventListener('click', function()
 {
 	Titanium.UI.createAlertDialog({title:'Toolbar',message:'You clicked camera!'}).show();
@@ -28,7 +35,7 @@ var send = Titanium.UI.createButton({
 	backgroundImage:'../images/send.png',
 	backgroundSelectedImage:'../images/send_selected.png',
 	width:67,
-	height:32,
+	height:32
 });
 send.addEventListener('click', function()
 {
@@ -38,21 +45,35 @@ send.addEventListener('click', function()
 // create and add toolbar
 var toolbar1 = Titanium.UI.createToolbar({
 	items:[flexSpace,camera, flexSpace,tf,flexSpace, send,flexSpace],
-	top:30,
+	bottom:0,
 	borderTop:true,
 	borderBottom:false,
 	translucent:true,
-	barColor:'#999',
+	barColor:'#999'
 });	
 win.add(toolbar1);
 
-//
-//  Toolbar 2
-//
 var change = Titanium.UI.createButton({
 	title:'Change Toolbar',
 	style:Titanium.UI.iPhone.SystemButtonStyle.BORDERED		
 });
+
+var revert = Titanium.UI.createButton({
+	title:'Revert Toolbar',
+	style:Titanium.UI.iPhone.SystemButtonStyle.DONE		
+});
+
+//
+//  Toolbar 2
+//
+var toolbar2 = Titanium.UI.createToolbar({
+	items:[change,flexSpace,revert],
+	top:130,
+	borderTop:true,
+	borderBottom:true,
+	barColor:'#336699'
+});
+
 change.addEventListener('click', function()
 {
 	toolbar2.borderTop = false;
@@ -64,10 +85,7 @@ change.addEventListener('click', function()
 	change.width = "160";
 	change.title = "Change Toolbar (!)";
 });
-var revert = Titanium.UI.createButton({
-	title:'Revert Toolbar',
-	style:Titanium.UI.iPhone.SystemButtonStyle.DONE		
-});
+
 revert.addEventListener('click', function()
 {
 	toolbar2.borderTop = true;
@@ -79,11 +97,4 @@ revert.addEventListener('click', function()
 	change.title = "Change Toolbar";
 });
 
-var toolbar2 = Titanium.UI.createToolbar({
-	items:[change,flexSpace,revert],
-	top:130,
-	borderTop:true,
-	borderBottom:true,
-	barColor:'#336699',
-});
-win.add(toolbar2)
+win.add(toolbar2);

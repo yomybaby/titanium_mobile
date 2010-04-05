@@ -44,10 +44,9 @@ USE_PROXY_FOR_VERIFY_AUTORESIZING
 		}
 		else 
 		{
-			//TODO: count down timer requires us to drive our own timer (or the dev)
-			
 			picker = [[UIDatePicker alloc] initWithFrame:CGRectZero];
 			[(UIDatePicker*)picker setDatePickerMode:type];
+			[picker addTarget:self action:@selector(valueChanged:) forControlEvents:UIControlEventValueChanged];
 		}
 		[self addSubview:picker];
 	}
@@ -58,6 +57,12 @@ USE_PROXY_FOR_VERIFY_AUTORESIZING
 {
 	if (picker!=nil)
 	{
+		// on ipad, the height is sent in invalid but on iphone, it's fixed
+		// so we need to compensate for that here so that it will be visible
+		if (bounds.size.height<6)
+		{
+			bounds = CGRectMake(bounds.origin.x, bounds.origin.y, bounds.size.width, 228);
+		}
 		[TiUtils setView:picker positionRect:bounds];
 	}
 }
@@ -83,12 +88,51 @@ USE_PROXY_FOR_VERIFY_AUTORESIZING
 	return [self.proxy valueForKey:@"columns"];
 }
 
+-(TiProxy*)selectedRowForColumn:(NSInteger)column
+{
+	if ([self isDatePicker])
+	{
+		//FIXME
+		return nil;
+	}
+	NSInteger row = [(UIPickerView*)picker selectedRowInComponent:column];
+	if (row==-1)
+	{
+		return nil;
+	}
+	TiUIPickerColumnProxy *columnProxy = [[self columns] objectAtIndex:column];
+	return [columnProxy rowAt:row];
+}
+
+-(void)selectRowForColumn:(NSInteger)column row:(NSInteger)row animated:(BOOL)animated
+{
+	if (![self isDatePicker])
+	{
+		[(UIPickerView*)picker selectRow:row inComponent:column animated:animated];
+		[self pickerView:(UIPickerView*)picker didSelectRow:row inComponent:column];
+	}
+}
+
+-(void)selectRow:(NSArray*)array
+{
+	NSInteger column = [TiUtils intValue:[array objectAtIndex:0]];
+	NSInteger row = [TiUtils intValue:[array objectAtIndex:1]];
+	BOOL animated = [array count] > 2 ? [TiUtils boolValue:[array objectAtIndex:2]] : NO;
+	[self selectRowForColumn:column row:row animated:animated];
+}
+
+
 #pragma mark Public APIs 
 
 -(void)setType_:(id)type_
 {
+	NSInteger curtype = type;
 	type = [TiUtils intValue:type_];
-	[self picker];
+	id picker_ = [self picker];
+	if (curtype!=type && [self isDatePicker])
+	{
+		[(UIDatePicker*)picker_ setDatePickerMode:type];
+	}
 }
 
 -(void)setSelectionIndicator_:(id)value
@@ -96,6 +140,75 @@ USE_PROXY_FOR_VERIFY_AUTORESIZING
 	if ([self isDatePicker]==NO)
 	{
 		[(UIPickerView*)[self picker] setShowsSelectionIndicator:[TiUtils boolValue:value]];
+	}
+}
+
+-(void)setMinDate_:(id)date
+{
+	ENSURE_SINGLE_ARG_OR_NIL(date,NSDate);
+	if ([self isDatePicker])
+	{
+		[(UIDatePicker*)[self picker] setMinimumDate:date];
+	}
+}
+
+-(void)setMaxDate_:(id)date
+{
+	ENSURE_SINGLE_ARG_OR_NIL(date,NSDate);
+	if ([self isDatePicker])
+	{
+		[(UIDatePicker*)[self picker] setMaximumDate:date];
+	}
+}
+
+//TODO: minute interval
+
+-(void)setValue_:(id)date
+{
+	ENSURE_SINGLE_ARG_OR_NIL(date,NSDate);
+	if ([self isDatePicker] && date!=nil)
+	{
+		[(UIDatePicker*)[self picker] setDate:date];
+	}
+}
+
+-(void)setLocale_:(id)value
+{
+	ENSURE_SINGLE_ARG_OR_NIL(value,NSString);
+	if ([self isDatePicker])
+	{
+		if (value==nil)
+		{
+			[(UIDatePicker*)[self picker] setLocale:[NSLocale currentLocale]];
+		}
+		else
+		{
+			NSString *identifier = [NSLocale canonicalLocaleIdentifierFromString:value];
+			NSLocale *locale = [[NSLocale alloc] initWithLocaleIdentifier:identifier];
+			[(UIDatePicker*)[self picker] setLocale:locale];
+			[locale release];
+		}
+	}
+}
+
+-(void)setMinuteInterval_:(id)value
+{
+	ENSURE_SINGLE_ARG(value,NSObject);
+	if ([self isDatePicker])
+	{
+		NSInteger interval = [TiUtils intValue:value];
+		[(UIDatePicker*)[self picker] setMinuteInterval:interval];
+	}
+}
+
+-(void)setCountDownDuration_:(id)value
+{
+	ENSURE_SINGLE_ARG(value,NSObject);
+	if ([self isDatePicker])
+	{
+		double duration = [TiUtils doubleValue:value] / 1000;
+		[(UIDatePicker*)[self picker] setDatePickerMode:UIDatePickerModeCountDownTimer];
+		[(UIDatePicker*)[self picker] setCountDownDuration:duration];
 	}
 }
 
@@ -154,11 +267,34 @@ USE_PROXY_FOR_VERIFY_AUTORESIZING
 	return [rowproxy valueForKey:@"title"];
 }
 
-/*- (UIView *)pickerView:(UIPickerView *)pickerView viewForRow:(NSInteger)row forComponent:(NSInteger)component reusingView:(UIView *)view
+- (UIView *)pickerView:(UIPickerView *)pickerView viewForRow:(NSInteger)row forComponent:(NSInteger)component reusingView:(UIView *)view
 {
-	return view;
+	TiUIPickerColumnProxy *proxy = [[self columns] objectAtIndex:component];
+	TiUIPickerRowProxy *rowproxy = [proxy rowAt:row];
+	NSString *title = [rowproxy valueForKey:@"title"];
+	if (title!=nil)
+	{
+		UILabel *pickerLabel = (UILabel *)view;
+		
+		if (pickerLabel == nil) 
+		{
+			CGRect frame = CGRectMake(0.0, 0.0, [self pickerView:pickerView widthForComponent:component]-20, [self pickerView:pickerView rowHeightForComponent:component]);
+			pickerLabel = [[[UILabel alloc] initWithFrame:frame] autorelease];
+			[pickerLabel setTextAlignment:UITextAlignmentLeft];
+			[pickerLabel setBackgroundColor:[UIColor clearColor]];
+			
+			float fontSize = [TiUtils floatValue:[rowproxy valueForUndefinedKey:@"fontSize"] def:[TiUtils floatValue:[self.proxy valueForUndefinedKey:@"fontSize"] def:18.0]];	
+			[pickerLabel setFont:[UIFont boldSystemFontOfSize:fontSize]];
+		}
+		
+		[pickerLabel setText:title];
+		return pickerLabel;
+	}
+	else 
+	{
+		return [rowproxy view];
+	}
 }
-*/
 
 - (void)pickerView:(UIPickerView *)pickerView didSelectRow:(NSInteger)row inComponent:(NSInteger)component
 {
@@ -167,7 +303,27 @@ USE_PROXY_FOR_VERIFY_AUTORESIZING
 		TiUIPickerColumnProxy *proxy = [[self columns] objectAtIndex:component];
 		TiUIPickerRowProxy *rowproxy = [proxy rowAt:row];
 		NSMutableArray *selected = [NSMutableArray array];
-		//TODO: implemented selectedValue
+		NSInteger colIndex = 0;
+		for (TiUIPickerColumnProxy *col in [self columns])
+		{
+			int rowIndex = row;
+			if (component!=colIndex)
+			{
+				rowIndex = [pickerView selectedRowInComponent:colIndex];
+			}
+			TiUIPickerRowProxy *rowSelected = [col rowAt:rowIndex];
+			NSString *title = [rowSelected valueForUndefinedKey:@"title"];
+			// if they have a title, make that the value otherwise use the row proxy
+			if (title!=nil)
+			{
+				[selected addObject:title];
+			}
+			else 
+			{
+				[selected addObject:rowSelected];
+			}
+			colIndex++;
+		}
 		NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:
 							   selected,@"selectedValue",
 							   NUMINT(row),@"rowIndex",
@@ -175,6 +331,17 @@ USE_PROXY_FOR_VERIFY_AUTORESIZING
 							   proxy,@"column",
 							   rowproxy,@"row",
 							   nil];
+		[self.proxy fireEvent:@"change" withObject:event];
+	}
+}
+
+-(void)valueChanged:(id)sender
+{
+	if ([self.proxy _hasListeners:@"change"])
+	{
+		NSDate *date = [(UIDatePicker*)sender date];
+		NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:date,@"value",nil];
+		[self.proxy replaceValue:date forKey:@"value" notification:NO];
 		[self.proxy fireEvent:@"change" withObject:event];
 	}
 }

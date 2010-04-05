@@ -18,6 +18,9 @@
 	KrollCallback *pickerSuccessCallback;
 	KrollCallback *pickerErrorCallback;
 	KrollCallback *pickerCancelCallback;
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
+	id popover;
+#endif
 }
 
 @property(nonatomic,readonly) CGFloat volume;
@@ -32,6 +35,7 @@
 @property(nonatomic,readonly) NSNumber* NO_CAMERA;
 @property(nonatomic,readonly) NSNumber* NO_VIDEO;
 
+// these have been deprecated in 3.2 but we map them to their new values
 @property(nonatomic,readonly) NSNumber* VIDEO_CONTROL_DEFAULT;
 @property(nonatomic,readonly) NSNumber* VIDEO_CONTROL_VOLUME_ONLY;
 @property(nonatomic,readonly) NSNumber* VIDEO_CONTROL_HIDDEN;
@@ -80,5 +84,23 @@
 @property(nonatomic,readonly) NSNumber* AUDIO_FILEFORMAT_3GPP;
 @property(nonatomic,readonly) NSNumber* AUDIO_FILEFORMAT_3GP2;
 @property(nonatomic,readonly) NSNumber* AUDIO_FILEFORMAT_AMR;
+
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
+
+// NOTE: these are introduced in 3.2
+@property(nonatomic,readonly) NSNumber* VIDEO_CONTROL_NONE;			// No controls
+@property(nonatomic,readonly) NSNumber* VIDEO_CONTROL_EMBEDDED;		// Controls for an embedded view
+@property(nonatomic,readonly) NSNumber* VIDEO_CONTROL_FULLSCREEN;	// Controls for fullscreen playback
+
+@property(nonatomic,readonly) NSNumber* VIDEO_MEDIA_TYPE_NONE;
+@property(nonatomic,readonly) NSNumber* VIDEO_MEDIA_TYPE_VIDEO;
+@property(nonatomic,readonly) NSNumber* VIDEO_MEDIA_TYPE_AUDIO;
+
+@property(nonatomic,readonly) NSNumber* VIDEO_SOURCE_TYPE_UNKNOWN;
+@property(nonatomic,readonly) NSNumber* VIDEO_SOURCE_TYPE_FILE;
+@property(nonatomic,readonly) NSNumber* VIDEO_SOURCE_TYPE_STREAMING;
+
+#endif
+
 
 @end

@@ -12,7 +12,7 @@
 
 @interface TitaniumViewController : UIViewController<UIApplicationDelegate> {
 @private
-	NSMutableArray *windowProxies;	
+	NSMutableArray *windowViewControllers;	
 	TiWindowProxy *currentWindow;	//NOT RETAINED
 	
 	UIColor * backgroundColor;
@@ -21,21 +21,21 @@
 	BOOL	allowedOrientations[MAX_ORIENTATIONS];
 	NSTimeInterval	orientationRequestTimes[MAX_ORIENTATIONS];
 	UIInterfaceOrientation lastOrientation;
+	
+	UIInterfaceOrientation windowOrientation;
+
 }
 
 @property(nonatomic,readwrite,retain)	UIColor * backgroundColor;
 @property(nonatomic,readwrite,retain)	UIImage * backgroundImage;
 
--(void)windowFocused:(TiProxy*)window;
--(void)windowUnfocused:(TiProxy*)window;
--(void)windowBeforeFocused:(TiProxy*)window;
--(void)windowBeforeUnfocused:(TiProxy*)window;
-
--(void)windowClosed:(TiProxy *)window;
+-(void)windowFocused:(UIViewController*)focusedViewController;
+-(void)windowClosed:(UIViewController *)closedViewController;
 
 -(CGRect)resizeView;
 
 -(void) manuallyRotateToOrientation:(UIInterfaceOrientation)orientation;
+-(void)manuallyRotateToOrientation:(UIInterfaceOrientation)newOrientation duration:(NSTimeInterval)duration;
 
 -(void)refreshOrientationModesIfNeeded:(TiWindowProxy *)oldCurrentWindow;
 -(void)enforceOrientationModesFromWindow:(TiWindowProxy *) newCurrentWindow;

@@ -5,9 +5,8 @@
  * Please see the LICENSE included with this distribution for details.
  */
 
+#import "TiToolbar.h"
 
-#import "TiUIViewProxy.h"
-
-@interface TiUIToolbarProxy : TiUIViewProxy {
+@interface TiUIToolbarProxy : TiToolbar {
 }
 @end

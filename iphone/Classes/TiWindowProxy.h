@@ -10,6 +10,14 @@
 #import "TiUIWindow.h"
 #import "TiUIView.h"
 
+@interface TiWindowViewController : UIViewController
+{
+	TiWindowProxy *proxy;
+}
+-(id)initWithWindow:(TiWindowProxy*)window;
+@property(nonatomic,readonly)	TiWindowProxy *proxy;
+@end
+
 // specialization for TiViews that act like top level 
 // windows when opened, closed, etc.
 //
@@ -30,6 +38,7 @@
 	int transitionAnimation;
 	NSMutableArray *reattachWindows;
 	UIView *closeView;
+	UIViewController *tempController;
 }
 
 -(void)fireFocus:(BOOL)newFocused;
@@ -66,5 +75,6 @@
 -(void)_tabBeforeBlur;
 
 -(void)setupWindowDecorations;
+- (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration;
 
 @end

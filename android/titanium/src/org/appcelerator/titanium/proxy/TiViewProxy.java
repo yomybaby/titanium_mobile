@@ -26,6 +26,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Message;
+import android.view.View;
 
 public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 {
@@ -45,6 +46,7 @@ public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 	private static final int MSG_HIDE = MSG_FIRST_ID + 108;
 	private static final int MSG_ANIMATE = MSG_FIRST_ID + 109;
 	private static final int MSG_TOIMAGE = MSG_FIRST_ID + 110;
+	private static final int MSG_GETSIZE = MSG_FIRST_ID + 111;
 
 	protected static final int MSG_LAST_ID = MSG_FIRST_ID + 999;
 
@@ -137,6 +139,26 @@ public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 				result.setResult(handleToImage());
 				return true;
 			}
+			case MSG_GETSIZE : {
+				AsyncResult result = (AsyncResult) msg.obj;
+				TiDict d = null;
+				if (view != null) {
+					View v = view.getNativeView();
+					if (v != null) {
+						d = new TiDict();
+						d.put("width", v.getWidth());
+						d.put("height", v.getHeight());
+					}
+				}
+				if (d == null) {
+					d = new TiDict();
+					d.put("width", 0);
+					d.put("height", 0);
+				}
+
+				result.setResult(d);
+				return true;
+			}
 		}
 		return super.handleMessage(msg);
 	}
@@ -154,6 +176,13 @@ public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 		if (value != null && value.trim().length() > 0) {
 			zIndex = new Double(value);
 		}
+	}
+
+	public TiDict getSize() {
+		AsyncResult result = new AsyncResult(getTiContext().getActivity());
+		Message msg = getUIHandler().obtainMessage(MSG_GETSIZE, result);
+		msg.sendToTarget();
+		return (TiDict) result.getResult();
 	}
 
 	public void clearView() {
@@ -192,6 +221,7 @@ public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 
 			view = createView(activity);
 			realizeViews(activity, view);
+			view.registerForTouch();
 		}
 		return view;
 	}
@@ -199,12 +229,10 @@ public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 	public void realizeViews(Activity activity, TiUIView view)
 	{
 
-		modelListener = view;
-		modelListener.processProperties(dynprops != null ? new TiDict(dynprops) : new TiDict());
+		setModelListener(view);
 
 		// Use a copy so bundle can be modified as it passes up the inheritance
 		// tree. Allows defaults to be added and keys removed.
-
 
 		if (children != null) {
 			for (TiViewProxy p : children) {
@@ -463,11 +491,11 @@ public abstract class TiViewProxy extends TiProxy implements Handler.Callback
 			return e;
 		}
 	}
-	
+
 	@Override
 	public boolean fireEvent(String eventName, TiDict data) {
 		boolean handled = super.fireEvent(eventName, data);
-		
+
 		if (parent != null && parent.get() != null) {
 			boolean parentHandled = parent.get().fireEvent(eventName, data);
 			handled = handled || parentHandled;

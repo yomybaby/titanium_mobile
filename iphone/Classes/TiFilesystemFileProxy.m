@@ -104,23 +104,6 @@ FILENOOP(setHidden:(id)x);
 	return NUMBOOL([resultDict objectForKey:NSFileSystemFreeSize]!=nil);
 }
 
-/*-(id)resultForUndefinedMethod:(NSString*)name args:(NSArray*)args
-{
-	//NOTE: copy is already a built-in NSObject method and conflicts with ours so we 
-	//have to deal with it through the dynamic route
-	if ([name isEqualToString:@"copy"])
-	{
-		NSError * error=nil;
-		NSString * arg = [args objectAtIndex:0];
-		NSString * file = FILE_TOSTR(arg);
-		NSString * dest = [file stringByStandardizingPath];
-		BOOL result = [[NSFileManager defaultManager] copyItemAtPath:path toPath:dest error:&error];
-		if (error!=nil) return NUMBOOL(NO);
-		return NUMBOOL(result);	
-	}
-	return nil;
-}*/
-
 -(id)createDirectory:(id)args
 {
 	BOOL result = NO;
@@ -220,10 +203,22 @@ FILENOOP(setHidden:(id)x);
 		TiBlob *blob = (TiBlob*)arg;
 		return NUMBOOL([blob writeTo:path error:nil]);
 	}
+	else if ([arg isKindOfClass:[TiFile class]])
+	{
+		TiFile *file = (TiFile*)arg;
+		[[NSFileManager defaultManager] removeItemAtPath:path error:nil];
+		NSError *error = nil;
+		[[NSFileManager defaultManager] copyItemAtPath:[file path] toPath:path error:&error];
+		if (error!=nil)
+		{
+			NSLog(@"[ERROR] error writing file: %@ to: %@. Error: %@",[file path],path,error);
+		}
+		return NUMBOOL(error==nil);
+	}
 	else
 	{
 		NSString *data = [TiUtils stringValue:arg];
-		return NUMBOOL([data writeToFile:path atomically:NO encoding:NSUTF8StringEncoding error:nil]);
+		return NUMBOOL([data writeToFile:path atomically:YES encoding:NSUTF8StringEncoding error:nil]);
 	}
 }
 

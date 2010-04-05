@@ -29,12 +29,12 @@
 {
 	ENSURE_SINGLE_ARG(args,NSString);
 	NSError *error = nil;
-	NSString *xpath = [NSString stringWithFormat:@"*[local-name()='%@']",args];
+	NSString *xpath = [NSString stringWithFormat:@"self::node()/descendant::*[local-name()='%@']",args];
 	// see if it's a namespace
 	NSRange range = [args rangeOfString:@":"];
 	if (range.location!=NSNotFound)
 	{
-		xpath = [NSString stringWithFormat:@"*[name()='%@']",args];
+		xpath = [NSString stringWithFormat:@"self::node()/descendant::*[name()='%@']",args];
 	}
 	NSArray *nodes = [element nodesForXPath:xpath error:&error];
 	if (error==nil && nodes!=nil && [nodes count]>0)
@@ -42,6 +42,10 @@
 		TiDOMNodeListProxy *proxy = [[[TiDOMNodeListProxy alloc] _initWithPageContext:[self pageContext]] autorelease];
 		[proxy setNodes:nodes];
 		return proxy;
+	}
+	if (error!=nil)
+	{
+		[self throwException:[error description] subreason:nil location:CODELOCATION];
 	}
 	return nil;
 }
@@ -74,10 +78,10 @@
 -(id)getAttribute:(id)args
 {
 	ENSURE_SINGLE_ARG(args,NSString);
-	GDataXMLNode *node = [element attributeForName:args];
-	if (node!=nil)
+	GDataXMLNode *_node = [element attributeForName:args];
+	if (_node!=nil)
 	{
-		return [node stringValue];
+		return [_node stringValue];
 	}
 	return nil;
 }

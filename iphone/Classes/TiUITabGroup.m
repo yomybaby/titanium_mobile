@@ -8,6 +8,7 @@
 #import "TiUITabGroup.h"
 #import "TiUITabProxy.h"
 #import "TiUtils.h"
+#import "TiColor.h"
 #import "TiUITabController.h"
 #import "TiWindowProxy.h"
 
@@ -30,6 +31,11 @@ DEFINE_EXCEPTIONS
 		controller.delegate = self;
 	}
 	return controller;
+}
+
+-(UITabBar*)tabbar
+{
+	return [self tabController].tabBar;
 }
 
 -(int)findIndexForTab:(TiProxy*)proxy
@@ -95,6 +101,34 @@ DEFINE_EXCEPTIONS
 
 #pragma mark More tab delegate
 
+
+-(void)updateMoreBar:(UINavigationController *)moreController
+{
+	if ([[moreController viewControllers] count] != 1)
+	{
+		return;
+	}
+	UINavigationBar * ourBar = [moreController navigationBar];
+	if (moreBarColor == nil)
+	{
+		[ourBar setTintColor:nil];
+		[ourBar setOpaque:YES];
+		[ourBar setBarStyle:UIBarStyleDefault];
+	}
+	else if (moreBarColor == [UIColor clearColor])
+	{
+		[ourBar setBarStyle:UIBarStyleBlack];
+		[ourBar setOpaque:NO];
+		[ourBar setTintColor:nil];
+	}
+	else
+	{
+		[ourBar setBarStyle:UIBarStyleBlack];
+		[ourBar setOpaque:YES];
+		[ourBar setTintColor:moreBarColor];
+	}
+}
+
 -(void)navigationController:(UINavigationController *)navigationController willShowViewController:(UIViewController *)viewController animated:(BOOL)animated	
 {
 	NSArray * moreViewControllerStack = [navigationController viewControllers];
@@ -110,8 +144,8 @@ DEFINE_EXCEPTIONS
 	else
 	{
 		[self handleWillShowTab:nil];
+		[self updateMoreBar:navigationController];
 	}
-
 }
 
 
@@ -186,12 +220,14 @@ DEFINE_EXCEPTIONS
 			[(UINavigationController *)viewController setDelegate:self];
 		}
 		NSArray * moreViewControllerStack = [(UINavigationController *)viewController viewControllers];
-		if ([moreViewControllerStack count]>1)
+		int stackCount = [moreViewControllerStack count];
+		if (stackCount>1)
 		{
 			viewController = [moreViewControllerStack objectAtIndex:1];
 		}
 		else
 		{
+			[self updateMoreBar:(UINavigationController *)viewController];
 			viewController = nil;
 		}
 
@@ -208,6 +244,13 @@ DEFINE_EXCEPTIONS
 
 
 #pragma mark Public APIs
+
+- (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration
+{
+	[controller willAnimateRotationToInterfaceOrientation:toInterfaceOrientation duration:duration];
+}
+
+
 
 -(void)setTabs_:(id)tabs
 {
@@ -237,11 +280,17 @@ DEFINE_EXCEPTIONS
 	}
 }
 
+-(void)setMoreBarColor_:(id)value
+{
+	[moreBarColor release];
+	moreBarColor = [[[TiUtils colorValue:value] _color] retain];
+	[self updateMoreBar:[controller moreNavigationController]];
+}
+
 -(void)setActiveTab_:(id)value
 {
 	UIViewController *active = nil;
 	
-//	NSArray * tabViewControllers = [[self tabController] viewControllers];
 	if (controller == nil)
 	{
 		return;

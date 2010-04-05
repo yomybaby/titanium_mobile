@@ -6,17 +6,23 @@
  */
 
 #import "PlatformModule.h"
-#import "IPAddress.h"
 #import "TitaniumApp.h"
 
 #import <sys/sysctl.h>  
 #import <mach/mach.h>
 #import <sys/utsname.h>
 
+#import <sys/types.h>
+#import <sys/socket.h>
+#import <ifaddrs.h>
+#import <arpa/inet.h>
+
+NSString* const WIFI_IFACE = @"en0";
+NSString* const DATA_IFACE = @"pdp_ip0";
 
 @implementation PlatformModule
 
-@synthesize name, model, version, architecture, macaddress, processorCount, username, address, ostype, availableMemory;
+@synthesize name, model, version, architecture, macaddress, address, processorCount, username, ostype, availableMemory;
 
 #pragma mark Internal
 
@@ -30,58 +36,20 @@
 		processorCount = [[NSNumber numberWithInt:1] retain];
 		username = [theDevice name];
 		ostype = [@"32bit" retain];
+        address = [@"127.0.0.1" retain];
 		
-#ifdef IPAD 	
-		// ipad is a constant for Ti.Platform.osname
-		[self replaceValue:@"ipad" forKey:@"osname" notification:NO];
-#else
-		// iphone is a constant for Ti.Platform.osname
-		[self replaceValue:@"iphone" forKey:@"osname" notification:NO];
-#endif
+		if ([TiUtils isIPad])
+		{
+			// ipad is a constant for Ti.Platform.osname
+			[self replaceValue:@"ipad" forKey:@"osname" notification:NO];
+		}
+		else 
+		{
+			// iphone is a constant for Ti.Platform.osname
+			[self replaceValue:@"iphone" forKey:@"osname" notification:NO]; 
+		}
 		
-		//TODO: save CPU and RAM by moving these into dynamic properties
-		
-		NSString *deviceMac = nil; 
-		NSString *deviceIP = nil;
-		InitAddresses();
-		GetIPAddresses();
-		GetHWAddresses();
-		
-		for (int i=0; i<MAXADDRS; ++i)
-		{ 
-			static unsigned long localHost = 0x7F000001;            // 127.0.0.1
-			unsigned long theAddr;
-			
-			theAddr = ip_addrs[i];
-			
-			if (theAddr == 0) break;
-			if (theAddr == localHost) continue;
-			if (if_names[i] == NULL) continue;
-			NSString *s = [NSString stringWithCString:if_names[i] encoding:NSUTF8StringEncoding];
-			if ([s hasPrefix:@"lo"]) continue;
-			// guard in case we don't have a mac or ipaddress which has been reported
-			if (hw_addrs[i]!=NULL)
-			{
-				deviceMac = [NSString stringWithCString:hw_addrs[i] encoding:NSUTF8StringEncoding];
-			}
-			else
-			{
-				deviceMac = @"0-0-0-0";
-			}
-			if (ip_names[i]!=NULL)
-			{
-				deviceIP = [NSString stringWithCString:ip_names[i] encoding:NSUTF8StringEncoding];
-			}
-			else 
-			{
-				deviceIP = @"0.0.0.0";
-			}
-			
-			break;
-		}		
-		
-		address = [deviceIP retain];
-		macaddress = [deviceMac	retain];
+		macaddress = [[[UIDevice currentDevice] uniqueIdentifier] retain];
 		
 		NSString *themodel = [theDevice model];
 		
@@ -170,6 +138,35 @@
 	}
 }
 
+-(NSString*)getIface:(NSString*)iname mask:(BOOL)mask
+{
+    struct ifaddrs* head = NULL;
+    struct ifaddrs* ifaddr = NULL;
+    getifaddrs(&head);
+    
+    NSString* str = nil;
+    for (ifaddr = head; ifaddr != NULL; ifaddr = ifaddr->ifa_next) {
+        if (ifaddr->ifa_addr->sa_family == AF_INET &&
+            !strcmp(ifaddr->ifa_name, [iname UTF8String])) {
+            
+            char ipaddr[20];
+            struct sockaddr_in* addr;
+            if (mask) {
+                addr = (struct sockaddr_in*)ifaddr->ifa_netmask;
+            }
+            else {
+                addr = (struct sockaddr_in*)ifaddr->ifa_addr;
+            }
+            inet_ntop(ifaddr->ifa_addr->sa_family, &(addr->sin_addr), ipaddr, 20);
+            str = [NSString stringWithUTF8String:ipaddr];
+            break;
+        }
+    }
+    
+    freeifaddrs(head);
+    return str;
+}
+
 #pragma mark Public APIs
 
 -(NSString*)locale
@@ -246,11 +243,29 @@
 	return NUMFLOAT([[UIDevice currentDevice] batteryLevel]);
 }
 
+/*
+ * COMMENTED OUT until we can perform testing on all physical devices (iPod Touch, 2G, 3G, 3GS, iPad)
+-(NSString*)address
+{
+    return [self getIface:WIFI_IFACE mask:NO];
+}
+
+-(NSString*)dataAddress
+{
+    return [self getIface:DATA_IFACE mask:NO];
+}
+
+// Only available for the local wifi; why would you want it for the data network?
+-(NSString*)netmask
+{
+    return [self getIface:WIFI_IFACE mask:YES];
+}
+ */
+
 MAKE_SYSTEM_PROP(BATTERY_STATE_UNKNOWN,UIDeviceBatteryStateUnknown);
 MAKE_SYSTEM_PROP(BATTERY_STATE_UNPLUGGED,UIDeviceBatteryStateUnplugged);
 MAKE_SYSTEM_PROP(BATTERY_STATE_CHARGING,UIDeviceBatteryStateCharging);
 MAKE_SYSTEM_PROP(BATTERY_STATE_FULL,UIDeviceBatteryStateFull);
-
 
 #pragma mark Delegates
 

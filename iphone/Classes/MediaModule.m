@@ -41,6 +41,9 @@ enum
 
 -(void)dealloc
 {
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
+	RELEASE_TO_NIL(popover);
+#endif
 	RELEASE_TO_NIL(picker);
 	RELEASE_TO_NIL(pickerSuccessCallback);
 	RELEASE_TO_NIL(pickerErrorCallback);
@@ -50,6 +53,9 @@ enum
 
 -(void)destroyPicker
 {
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
+	RELEASE_TO_NIL(popover);
+#endif
 	RELEASE_TO_NIL(picker);
 	RELEASE_TO_NIL(pickerSuccessCallback);
 	RELEASE_TO_NIL(pickerErrorCallback);
@@ -246,8 +252,27 @@ enum
 			picker.cameraViewTransform = CGAffineTransformScale(picker.cameraViewTransform, CAMERA_TRANSFORM_X, CAMERA_TRANSFORM_Y);
 		}
 	}
-	
-	[[[TitaniumApp app] controller] presentModalViewController:picker animated:animatedPicker];
+	TitaniumApp * tiApp = [TitaniumApp app];
+	if ([TiUtils isIPad]==NO)
+	{
+		[[tiApp controller] manuallyRotateToOrientation:UIInterfaceOrientationPortrait];
+		[tiApp showModalController:picker animated:animatedPicker];
+	}
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
+	else
+	{
+		RELEASE_TO_NIL(popover);
+		TiViewProxy *popoverViewProxy = [args objectForKey:@"popoverView"];
+		UIView *poView = [tiApp controller].view;
+		if (popoverViewProxy!=nil)
+		{
+			poView = [popoverViewProxy view];
+		}
+		UIPopoverArrowDirection arrow = [TiUtils intValue:@"arrowDirection" properties:args def:UIPopoverArrowDirectionAny];
+		popover = [[UIPopoverController alloc] initWithContentViewController:picker];
+		[popover presentPopoverFromRect:poView.frame inView:poView permittedArrowDirections:arrow animated:animatedPicker];
+	}
+#endif
 }
 
 #pragma mark Public APIs
@@ -257,9 +282,11 @@ MAKE_SYSTEM_PROP(DEVICE_BUSY,MediaModuleErrorImagePickerBusy);
 MAKE_SYSTEM_PROP(NO_CAMERA,MediaModuleErrorNoCamera);
 MAKE_SYSTEM_PROP(NO_VIDEO,MediaModuleErrorNoVideo);
 
+// these have been deprecated in 3.2 but we need them for older devices
 MAKE_SYSTEM_PROP(VIDEO_CONTROL_DEFAULT,MPMovieControlModeDefault);
 MAKE_SYSTEM_PROP(VIDEO_CONTROL_VOLUME_ONLY,MPMovieControlModeVolumeOnly);
 MAKE_SYSTEM_PROP(VIDEO_CONTROL_HIDDEN,MPMovieControlModeHidden);
+
 MAKE_SYSTEM_PROP(VIDEO_SCALING_NONE,MPMovieScalingModeNone);
 MAKE_SYSTEM_PROP(VIDEO_SCALING_ASPECT_FIT,MPMovieScalingModeAspectFit);
 MAKE_SYSTEM_PROP(VIDEO_SCALING_ASPECT_FILL,MPMovieScalingModeAspectFill);
@@ -300,6 +327,24 @@ MAKE_SYSTEM_UINT(AUDIO_FILEFORMAT_CAF,kAudioFileCAFType);
 MAKE_SYSTEM_UINT(AUDIO_FILEFORMAT_3GPP,kAudioFile3GPType);
 MAKE_SYSTEM_UINT(AUDIO_FILEFORMAT_3GP2,kAudioFile3GP2Type);
 MAKE_SYSTEM_UINT(AUDIO_FILEFORMAT_AMR,kAudioFileAMRType);
+
+
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
+// these are new in 3.2
+MAKE_SYSTEM_PROP(VIDEO_CONTROL_NONE,MPMovieControlStyleNone);
+MAKE_SYSTEM_PROP(VIDEO_CONTROL_EMBEDDED,MPMovieControlStyleEmbedded);
+MAKE_SYSTEM_PROP(VIDEO_CONTROL_FULLSCREEN,MPMovieControlStyleFullscreen);
+
+MAKE_SYSTEM_PROP(VIDEO_MEDIA_TYPE_NONE,MPMovieMediaTypeMaskNone);
+MAKE_SYSTEM_PROP(VIDEO_MEDIA_TYPE_VIDEO,MPMovieMediaTypeMaskVideo);
+MAKE_SYSTEM_PROP(VIDEO_MEDIA_TYPE_AUDIO,MPMovieMediaTypeMaskAudio);
+
+MAKE_SYSTEM_PROP(VIDEO_SOURCE_TYPE_UNKNOWN,MPMovieSourceTypeUnknown);
+MAKE_SYSTEM_PROP(VIDEO_SOURCE_TYPE_FILE,MPMovieSourceTypeFile);
+MAKE_SYSTEM_PROP(VIDEO_SOURCE_TYPE_STREAMING,MPMovieSourceTypeStreaming);
+				 
+#endif
+
 
 -(CGFloat)volume
 {
@@ -475,7 +520,7 @@ MAKE_SYSTEM_UINT(AUDIO_FILEFORMAT_AMR,kAudioFileAMRType);
 	ENSURE_UI_THREAD(hideCamera,args);
 	if (picker!=nil)
 	{
-		[[picker parentViewController] dismissModalViewControllerAnimated:animatedPicker];
+		[[TitaniumApp app] hideModalController:picker animated:animatedPicker];
 		[self destroyPicker];
 	}
 }
@@ -486,7 +531,18 @@ MAKE_SYSTEM_UINT(AUDIO_FILEFORMAT_AMR,kAudioFileAMRType);
 {
 	if (autoHidePicker)
 	{
-		[[picker parentViewController] dismissModalViewControllerAnimated:animatedPicker];
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
+		if ([TiUtils isIPad]==YES)
+		{
+			[(UIPopoverController*)popover dismissPopoverAnimated:animatedPicker];
+		}
+		else
+		{
+#endif
+			[[TitaniumApp app] hideModalController:picker animated:animatedPicker];
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
+		}
+#endif		
 	}
 	
 	NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
@@ -517,7 +573,7 @@ MAKE_SYSTEM_UINT(AUDIO_FILEFORMAT_AMR,kAudioFileAMRType);
 		}
 		else 
 		{
-			[media setMimeType:@"image/jpeg" type:TiBlobTypeImage];
+			[media setMimeType:@"image/jpeg" type:TiBlobTypeFile];
 		}
 		
 		if (saveToRoll)
@@ -585,7 +641,7 @@ MAKE_SYSTEM_UINT(AUDIO_FILEFORMAT_AMR,kAudioFileAMRType);
 
 - (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker_
 {
-	[[picker parentViewController] dismissModalViewControllerAnimated:animatedPicker];
+	[[TitaniumApp app] hideModalController:picker animated:animatedPicker];
 	[self sendPickerCancel];
 }
 

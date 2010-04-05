@@ -10,65 +10,138 @@
 #import "TiUtils.h"
 #import "ASIHTTPRequest.h"
 #import "TitaniumApp.h"
+#import "UIImage+Resize.h"
+
 
 @interface ImageCacheEntry : NSObject
 {
 	UIImage * fullImage;
-	UIImage * thumbnail;
+	UIImage * stretchableImage;
+	UIImage * recentlyResizedImage;
 }
 
 @property(nonatomic,readwrite,retain) UIImage * fullImage;
+@property(nonatomic,readwrite,retain) UIImage * recentlyResizedImage;
 -(UIImage *)imageForSize:(CGSize)imageSize;
+-(UIImage *)stretchableImage;
+
+-(BOOL)purgable;
 
 @end
 
 @implementation ImageCacheEntry
-@synthesize fullImage;
+@synthesize fullImage, recentlyResizedImage;
 
--(UIImage *)imageForSize:(CGSize)imageSize
+-(UIImage *)imageForSize:(CGSize)imageSize scalingStyle:(TiImageScalingStyle)scalingStyle
 {
-	if (CGSizeEqualToSize(imageSize, CGSizeZero))
+	if (scalingStyle == TiImageScalingStretch)
 	{
-		return fullImage;
+		return [self stretchableImage];
 	}
 
 	CGSize fullImageSize = [fullImage size];
 
-	if (imageSize.width == 0)
+	if (scalingStyle != TiImageScalingNonProportional)
 	{
-		imageSize.width = fullImageSize.width * imageSize.height/fullImageSize.height;
-	}
-	else if(imageSize.height == 0)
-	{
-		imageSize.height = fullImageSize.height * imageSize.width/fullImageSize.width;
+		BOOL validScale = NO;
+		CGFloat scale = 1.0;
+		
+		if (imageSize.height > 1.0)
+		{
+			scale = imageSize.height/fullImageSize.height;
+			validScale = YES;
+		}
+		if (imageSize.width > 1.0)
+		{
+			CGFloat widthScale = imageSize.width/fullImageSize.width;
+			if (!validScale || (widthScale<scale))
+			{
+				scale = widthScale;
+				validScale = YES;
+			}
+		}
+		
+		if (validScale && ((scalingStyle != TiImageScalingThumbnail) || (scale < 1.0)))
+		{
+			imageSize = CGSizeMake(ceilf(scale*fullImageSize.width),
+					ceilf(scale*fullImageSize.height));
+		}
+		else
+		{
+			imageSize = fullImageSize;
+		}
 	}
 
 	if (CGSizeEqualToSize(imageSize, fullImageSize))
 	{
 		return fullImage;
 	}
-
-	CGSize thumbnailSize = [thumbnail size];
-	if (CGSizeEqualToSize(imageSize, thumbnailSize))
+	
+	if (CGSizeEqualToSize(imageSize, [recentlyResizedImage size]))
 	{
-		return thumbnail;
+		return recentlyResizedImage;
 	}
 
-    CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-	CGContextRef thumbnailContext = CGBitmapContextCreate (NULL, imageSize.width,imageSize.height, 8,0, colorSpace, kCGImageAlphaPremultipliedLast);
-    CGColorSpaceRelease(colorSpace);	
+//TODO: Tweak quality depending on how large the result will be.
+	CGInterpolationQuality quality = kCGInterpolationDefault;
 
-	CGImageRef fullImageRef = [fullImage CGImage];
-	CGContextDrawImage(thumbnailContext, CGRectMake(0, 0, imageSize.width, imageSize.height), fullImageRef);
+	[self setRecentlyResizedImage:[UIImageResize
+			resizedImage:imageSize
+			interpolationQuality:quality
+			image:fullImage]];
+	return recentlyResizedImage;
+}
 
-	CGImageRef thumbnailRef = CGBitmapContextCreateImage(thumbnailContext);
-	CGContextRelease(thumbnailContext);
+-(UIImage *)stretchableImage
+{
+	if (stretchableImage == nil)
+	{
+		CGSize imageSize = [fullImage size];
+		stretchableImage = [[fullImage stretchableImageWithLeftCapWidth:imageSize.width/2 topCapHeight:imageSize.height/2] retain];
+	}
+	return stretchableImage;
+}
 
-	[thumbnail release];
-	thumbnail = [[UIImage alloc] initWithCGImage:thumbnailRef];
-	CGImageRelease(thumbnailRef);
+-(UIImage *)imageForSize:(CGSize)imageSize
+{
+	return [self imageForSize:imageSize scalingStyle:TiImageScalingDefault];
+}
 
-	return thumbnail;
+-(BOOL)purgable
+{
+	BOOL canPurge = YES;
+	if ([recentlyResizedImage retainCount]<2)
+	{
+		RELEASE_TO_NIL(recentlyResizedImage)
+	}
+	else
+	{
+		canPurge = NO;
+	}
+
+	if ([stretchableImage retainCount]<2)
+	{
+		RELEASE_TO_NIL(stretchableImage)
+	}
+	else
+	{
+		canPurge = NO;
+	}
+
+	if (canPurge && [fullImage retainCount]<2)
+	{
+		RELEASE_TO_NIL(fullImage);
+		return YES;
+	}
+	return NO;
+}
+
+- (void) dealloc
+{
+	RELEASE_TO_NIL(recentlyResizedImage);
+	RELEASE_TO_NIL(stretchableImage);
+	RELEASE_TO_NIL(fullImage);
+	[super dealloc];
 }
 
 
@@ -86,7 +159,7 @@ ImageLoader *sharedLoader = nil;
 
 @implementation ImageLoaderRequest
 
-@synthesize completed, delegate;
+@synthesize completed, delegate, imageSize;
 
 DEFINE_EXCEPTIONS
 
@@ -176,8 +249,8 @@ DEFINE_EXCEPTIONS
 		doomedKey = nil;
 		for (NSString * thisKey in cache)
 		{
-			id thisValue = [cache valueForKey:thisKey];
-			if ([thisValue retainCount]<2)
+			ImageCacheEntry * thisValue = [cache objectForKey:thisKey];
+			if ([thisValue purgable])
 			{
 				doomedKey = thisKey;
 				break;
@@ -201,9 +274,9 @@ DEFINE_EXCEPTIONS
 	return sharedLoader;
 }
 
--(id)cache:(UIImage*)image forURL:(NSURL*)url
+-(ImageCacheEntry *)setImage:(UIImage *)image forKey:(NSString *)urlString
 {
-	if (image==nil) 
+	if (image==nil)
 	{
 		return nil;
 	}
@@ -211,15 +284,51 @@ DEFINE_EXCEPTIONS
 	{
 		cache = [[NSMutableDictionary alloc] init];
 	}
-	NSLog(@"[INFO] Caching image %@: %@",url,image);
-	[cache setObject:image forKey:[url absoluteString]];
-	return image;
+	ImageCacheEntry * newEntry = [[[ImageCacheEntry alloc] init] autorelease];
+	[newEntry setFullImage:image];
+	
+	NSLog(@"[DEBUG] Caching image %@: %@",urlString,image);
+	[cache setObject:newEntry forKey:urlString];
+	return newEntry;
 }
+
+-(ImageCacheEntry *)entryForKey:(NSURL *)url
+{
+	if (url == nil)
+	{
+		return nil;
+	}
+
+	NSString * urlString = [url absoluteString];
+	ImageCacheEntry * result = [cache objectForKey:urlString];
+	
+	if ((result == nil) && [url isFileURL])
+	{
+		//Well, let's make it for them!
+		UIImage * resultImage = [UIImage imageWithContentsOfFile:[url path]];
+		result = [self setImage:resultImage forKey:urlString];
+	}
+	
+	return result;
+}
+
+
+
+-(id)cache:(UIImage*)image forURL:(NSURL*)url size:(CGSize)imageSize
+{
+	return [[self setImage:image forKey:[url absoluteString]] imageForSize:imageSize];
+}
+
+-(id)cache:(UIImage*)image forURL:(NSURL*)url
+{
+	return [self cache:image forURL:url size:CGSizeZero];
+}
+
 
 -(id)loadRemote:(NSURL*)url
 {
 	if (url==nil) return nil;
-	UIImage *image = [cache objectForKey:[url absoluteString]];
+	UIImage *image = [[self entryForKey:url] imageForSize:CGSizeZero];
 	if (image!=nil)
 	{
 		return image;
@@ -233,7 +342,8 @@ DEFINE_EXCEPTIONS
 	
 	if (req!=nil && [req error]==nil)
 	{
-		return [self cache:[[[UIImage alloc] initWithData:[req responseData]] autorelease] forURL:url];
+		UIImage * resultImage = [UIImage imageWithData:[req responseData]];
+		return [[self setImage:resultImage forKey:[url absoluteString]] imageForSize:CGSizeZero];
 	}
 	
 	return nil;
@@ -247,27 +357,12 @@ DEFINE_EXCEPTIONS
 
 -(UIImage *)loadImmediateImage:(NSURL *)url withSize:(CGSize)imageSize;
 {
-	if (url==nil) return nil;
-	UIImage *image = [cache objectForKey:[url absoluteString]];
-	if (image!=nil)
-	{
-		return image;
-	}
-	if ([url isFileURL])
-	{
-		return [self cache:[UIImage imageWithContentsOfFile:[url path]] forURL:url];
-	}
-	return nil;
+	return [[self entryForKey:url] imageForSize:imageSize];
 }
 
 -(UIImage *)loadImmediateStretchableImage:(NSURL *)url
 {
-	UIImage * result = [self loadImmediateImage:url];
-	if (result != nil){
-		CGSize imageSize = [result size];
-		return [result stretchableImageWithLeftCapWidth:imageSize.width/2 topCapHeight:imageSize.height/2];
-	}
-	return nil;
+	return [[self entryForKey:url] stretchableImage];
 }
 
 -(void)notifyImageCompleted:(NSArray*)args
@@ -284,20 +379,11 @@ DEFINE_EXCEPTIONS
 {
 	NSURL *url = [request url];
 	
-	UIImage *image = [cache objectForKey:[url absoluteString]];
+	UIImage *image = [[self entryForKey:url] imageForSize:[request imageSize]];
 	if (image!=nil)
 	{
 		[self performSelectorOnMainThread:@selector(notifyImageCompleted:) withObject:[NSArray arrayWithObjects:request,image,nil] waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
 		return;
-	}
-	if ([url isFileURL])
-	{
-		UIImage *image = [self loadImmediateImage:url];
-		if (image!=nil)
-		{
-			[self performSelectorOnMainThread:@selector(notifyImageCompleted:) withObject:[NSArray arrayWithObjects:request,image,nil] waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
-			return;
-		}
 	}
 	
 	// we don't have it local or in the cache so we need to fetch it remotely

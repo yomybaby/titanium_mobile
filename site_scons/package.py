@@ -24,7 +24,7 @@ def ignore(file):
 			return True
 	 return False
 
-def zip_dir(zf,dir,basepath):
+def zip_dir(zf,dir,basepath,subs=None):
 	for root, dirs, files in os.walk(dir):
 		for name in ignoreDirs:
 			if name in dirs:
@@ -34,7 +34,13 @@ def zip_dir(zf,dir,basepath):
 			if len(e)==2 and e[1]=='.pyc': continue
 			from_ = os.path.join(root, file)
 			to_ = from_.replace(dir, basepath, 1)
-			zf.write(from_, to_)
+			if subs!=None:
+				c = open(from_).read()
+				for key in subs:
+					c = c.replace(key,subs[key])
+				zf.writestr(to_,c)
+			else:		
+				zf.write(from_, to_)
 
 def zip_android(zf,basepath):
 	android_dist_dir = os.path.join(top_dir, 'dist', 'android')
@@ -44,7 +50,6 @@ def zip_android(zf,basepath):
 	titanium_lib_dir = os.path.join(top_dir, 'android', 'titanium', 'lib')
 	for thirdparty_jar in os.listdir(titanium_lib_dir):
 		if thirdparty_jar == "smalljs.jar": continue
-		elif thirdparty_jar == "commons-codec-1.3.jar": continue
 		elif thirdparty_jar == "commons-logging-1.1.1.jar": continue
 		jar_path = os.path.join(top_dir, 'android', 'titanium', 'lib', thirdparty_jar)
 		zf.write(jar_path, '%s/android/%s' % (basepath, thirdparty_jar))
@@ -64,16 +69,14 @@ def zip_android(zf,basepath):
 		 jarname = os.path.split(android_module_jar)[1]
 		 zf.write(android_module_jar, '%s/android/modules/%s' % (basepath, jarname))
 	
-	#zip_dir(zf, android_dir, basepath+'/android')
-	#zip_dir(zf, os.path.join(android_dir, 'resources'), basepath+'/android/resources')
-	#zip_dir(zf, os.path.join(android_dir, 'templates'), basepath+'/android/templates')
-	#zip_dir(zf, os.path.join(android_dir, 'mako'), basepath+'/android/mako')
-
-def zip_iphone(zf,basepath):
+def resolve_source_imports(platform):
 	sys.path.append(iphone_dir)
 	import run,prereq
+	return importresolver.resolve_source_imports(os.path.join(top_dir,platform,'Classes'))
+	
+def zip_iphone_ipad(zf,basepath,platform,version):
 	  
-	zf.writestr('%s/iphone/imports.json'%basepath,importresolver.resolve_source_imports(os.path.join(top_dir,'iphone','Classes')))
+	zf.writestr('%s/iphone/imports.json'%basepath,resolve_source_imports(platform))
 	
 	# include our headers such that 3rd party modules can be compiled
 	headers_dir=os.path.join(top_dir,'iphone','Classes')
@@ -92,17 +95,22 @@ def zip_iphone(zf,basepath):
 		if os.path.isfile(os.path.join(tp_headers_dir,f)) and os.path.splitext(f)[1]=='.h':
 			 zf.write(os.path.join(tp_headers_dir,f),'%s/iphone/include/TiCore/%s' % (basepath,f))
 	
+	subs = {
+		"__VERSION__":version
+	}
 	xcode_templates_dir =  os.path.join(top_dir,'iphone','templates','xcode')
-	zip_dir(zf,xcode_templates_dir,basepath+'/iphone/xcode/templates')
+	zip_dir(zf,xcode_templates_dir,basepath+'/iphone/xcode/templates',subs)
 	
-	iphone_lib = os.path.join(top_dir,'iphone','iphone','build')
-	zf.write(os.path.join(iphone_lib,'libTitanium.a'),'%s/iphone/libTitanium.a'%basepath)
+	iphone_lib = os.path.join(top_dir,'iphone',platform,'build')
+	zf.write(os.path.join(iphone_lib,'libTitanium.a'),'%s/%s/libTitanium.a'%(basepath,platform))
+	
+	# in 3.2 apple supports only ipad based simulator testing so we have to distribute
+	# both until they resolve this and then we can do one library with weak linking again
+	zf.write(os.path.join(iphone_lib,'libTitanium_3.2.a'),'%s/%s/libTitanium_3.2.a'%(basepath,platform))
 	
 	ticore_lib = os.path.join(top_dir,'iphone','lib')
-	zf.write(os.path.join(ticore_lib,'libTiCore.a'),'%s/iphone/libTiCore.a'%basepath)
+	zf.write(os.path.join(ticore_lib,'libTiCore.a'),'%s/%s/libTiCore.a'%(basepath,platform))
 	
-	#zip_dir(zf,iphone_dir,basepath+'/iphone')
-	#zip_dir(zf,os.path.join(iphone_dir,'resources'),basepath+'/iphone/resources')
 	zip_dir(zf,osx_dir,basepath)
 	
 	modules_dir = os.path.join(top_dir,'iphone','Resources','modules')
@@ -111,33 +119,35 @@ def zip_iphone(zf,basepath):
 			module_images = os.path.join(modules_dir,f)
 			if os.path.exists(module_images):
 				module_name = f.replace('Module','').lower()
-				zip_dir(zf,module_images,'%s/iphone/modules/%s/images' % (basepath,module_name))
+				zip_dir(zf,module_images,'%s/%s/modules/%s/images' % (basepath,platform,module_name))
 	
-		
-def zip_it(dist_dir,osname,version,android,iphone):
+def create_platform_zip(platform,dist_dir,osname,version):
 	if not os.path.exists(dist_dir):
 		os.makedirs(dist_dir)
-	basepath = 'mobilesdk/%s/%s' % (osname,version)
-	sdkzip = os.path.join(dist_dir,'mobilesdk-%s-%s.zip' % (version,osname))
+	basepath = '%s/%s/%s' % (platform,osname,version)
+	sdkzip = os.path.join(dist_dir,'%s-%s-%s.zip' % (platform,version,osname))
 	zf = zipfile.ZipFile(sdkzip, 'w', zipfile.ZIP_DEFLATED)
-	
-	osdir = os.path.join(template_dir,osname)
-	
+	return (zf,basepath)
+
+def zip_mobilesdk(dist_dir,osname,version,android,iphone,ipad):
+	zf, basepath = create_platform_zip('mobilesdk',dist_dir,osname,version)
 	zip_dir(zf,all_dir,basepath)
 	zip_dir(zf,template_dir,basepath)
 	if android: zip_android(zf,basepath)
-	if iphone and osname == "osx": zip_iphone(zf,basepath)
-
+	if (iphone or ipad) and osname == "osx": zip_iphone_ipad(zf,basepath,'iphone',version)
 	zf.close()
+				
+def zip_it(dist_dir,osname,version,android,iphone,ipad):
+	zip_mobilesdk(dist_dir,osname,version,android,iphone,ipad)
 
 class Packager(object):
 	def __init__(self):
 		pass
 	 
-	def build(self,dist_dir,version,android=True,iphone=True):
+	def build(self,dist_dir,version,android=True,iphone=True,ipad=True):
 		os_names = { "Windows":"win32", "Linux":"linux", "Darwin":"osx" }
-		zip_it(dist_dir,os_names[platform.system()],version,android,iphone)
+		zip_it(dist_dir,os_names[platform.system()],version,android,iphone,ipad)
 
 
 if __name__ == '__main__':
-	Packager().build(os.path.abspath('../dist'), "0.9.0")
+	Packager().build(os.path.abspath('../dist'), "1.1.0")

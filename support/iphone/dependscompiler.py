@@ -73,13 +73,30 @@ Titanium.package = 'Ti'
 
 class DependencyCompiler(object):
 	def __init__(self):
-		pass
 		self.modules = []
 		self.required_modules = []
 		
-	def compile(self,iphone_dir,app_dir,thirdparty_modules):
+	def compile(self,iphone_dir,app_dir,thirdparty_modules,thirdparty_depends,simulator,iphone_version):
+		
+		self.simulator = simulator
 		
 		start_time = time.time()
+		
+		resources_dir = os.path.join(app_dir,'Resources')
+		iphone_build_dir = os.path.join(app_dir,'build','iphone')
+		build_dir = os.path.join(iphone_build_dir,'Resources')
+		build_tmp_dir = os.path.join(iphone_build_dir,'tmp')
+		finallibfile = os.path.join(build_dir,'libTitanium.a')
+		if iphone_version.startswith('3.2'):
+			toplibfile = os.path.join(iphone_dir,'libTitanium_3.2.a')
+		else:
+			toplibfile = os.path.join(iphone_dir,'libTitanium.a')
+		
+		# if running in simulator, we just use all symbols
+		if simulator and (thirdparty_modules==None or len(thirdparty_modules)==0):
+			shutil.copy(toplibfile,finallibfile)
+			return
+		
 		import_depends.append('TitaniumModule')
 		import_depends.append('AnalyticsModule')
 		import_depends.append('PlatformModule')
@@ -88,11 +105,11 @@ class DependencyCompiler(object):
 		import_depends.append('Base64Transcoder') 
 		import_depends.append('NSData+Additions')
 		
-		resources_dir = os.path.join(app_dir,'Resources')
-		iphone_build_dir = os.path.join(app_dir,'build','iphone')
-		build_dir = os.path.join(iphone_build_dir,'Resources')
-		build_tmp_dir = os.path.join(iphone_build_dir,'tmp')
-		finallibfile = os.path.join(build_dir,'libTitanium.a')
+		# add any internal dependencies that our third-party modules
+		# depend on
+		if thirdparty_depends!=None and len(thirdparty_depends)>0:
+			for d in thirdparty_depends:
+				import_depends.append(d)
 		
 		# read in the imports map
 		import_path = os.path.join(iphone_dir,'imports.json')
@@ -223,7 +240,11 @@ class DependencyCompiler(object):
 			except:
 				dependencies.append(fn)
 
-		compilezone = os.path.join(iphone_dir,'compilezone')
+		v = ''
+		if iphone_version.startswith('3.2'):
+			v='_3_2'
+
+		compilezone = os.path.join(iphone_dir,'compilezone%s'%v)
 		
 		skip = False
 		if not os.path.exists(build_tmp_dir):
@@ -261,9 +282,10 @@ class DependencyCompiler(object):
 			arm_dir = os.path.join(compilezone,'arm')
 		
 			if not os.path.exists(compilezone):
+				print "[INFO] Preparing compiler for the first time. This will take a little while but will only need to be done once."
+				sys.stdout.flush()
 				os.makedirs(compilezone)
 			
-			toplibfile = os.path.join(iphone_dir,'libTitanium.a')
 			i386libfile = os.path.join(i386_dir,'libTitanium.a')
 			armlibfile = os.path.join(arm_dir,'libTitanium.a')
 			curdir = os.path.abspath(os.curdir)
@@ -356,8 +378,9 @@ class DependencyCompiler(object):
 
 if __name__ == '__main__':
 	compiler = DependencyCompiler()
-	iphone_dir = '/Library/Application Support/Titanium/mobilesdk/osx/0.9.0/iphone'
+	iphone_dir = '/Library/Application Support/Titanium/mobilesdk/osx/1.1.0/iphone'
 	#app_dir = '/Users/jhaynie/tmp/blahblah/foobar'
 	app_dir = '/Users/jhaynie/work/titanium_mobile/demos/KitchenSink'
-	compiler.compile(iphone_dir,app_dir)
+	compiler.compile(iphone_dir,app_dir,[],True)
+	
 	

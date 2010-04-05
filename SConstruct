@@ -12,7 +12,9 @@ from SCons.Script import *
 # this is used by other python scripts too
 cwd = os.path.abspath(os.path.dirname(sys._getframe(0).f_code.co_filename))
 sys.path.append(path.join(cwd,"build"))
-import titanium_version
+sys.path.append(path.join(cwd,"support","android"))
+import titanium_version, ant
+from androidsdk import AndroidSDK
 version = titanium_version.version
 
 # allow it to be overriden on command line or in env
@@ -22,9 +24,6 @@ elif ARGUMENTS.get('PRODUCT_VERSION', 0):
 	version = ARGUMENTS.get('PRODUCT_VERSION')
 
 # we clean at the top-level but do incremental at the specific folder level
-if os.path.exists('iphone/build'):
-	shutil.rmtree('iphone/build')
-
 if os.path.exists('android/titanium/bin'):
 	shutil.rmtree('android/titanium/bin')
 	
@@ -47,6 +46,11 @@ only_package = False
 if ARGUMENTS.get("package",0):
 	only_package = True
 
+clean = "clean" in COMMAND_LINE_TARGETS or ARGUMENTS.get("clean", 0)
+
+if clean and os.path.exists('iphone/iphone/build'):
+	shutil.rmtree('iphone/iphone/build')
+
 # TEMP until android is merged
 build_type = 'full'
 build_dirs = ['iphone', 'android']
@@ -59,19 +63,33 @@ if ARGUMENTS.get('android',0):
 	build_type='android'
 	build_dirs=['android']
 
+if ARGUMENTS.get('ipad',0):
+	build_type='ipad'
+	build_dirs=['ipad']
+
 if ARGUMENTS.get('COMPILER_FLAGS', 0):
 	flags = ARGUMENTS.get('COMPILER_FLAGS')
 
 env = Environment()
 Export("env cwd version")
 if build_type in ['full', 'android'] and not only_package:
-	env.SConscript("android/SConscript", variant_dir="dist/android", duplicate=0)
+	d = os.getcwd()
+	os.chdir('android')
+	try:
+		sdk = AndroidSDK(ARGUMENTS.get("android_sdk", None), 4)
+		target = ""
+		if clean: target = "clean"
+		ant.build(target=target, properties={"build.version": version,
+			"android.sdk": sdk.get_android_sdk(), "android.platform": sdk.get_platform_dir(), "google.apis": sdk.get_google_apis_dir()})
+	finally:
+		os.chdir(d)
 
-if build_type in ['full', 'iphone'] and not only_package:
+if build_type in ['full', 'iphone', 'ipad'] and not only_package:
 	d = os.getcwd()
 	os.chdir('iphone')
 	try:
 		#output = 0
+		if clean: build_type = "clean"
 		output = os.system("scons PRODUCT_VERSION=%s COMPILER_FLAGS='%s' BUILD_TYPE='%s'" % (version,flags,build_type))	
 		if output!=0:
 			sys.stderr.write("BUILD FAILED!!!!\n")
@@ -89,8 +107,13 @@ def package_sdk(target, source, env):
 	print "Packaging MobileSDK (%s)..." % version
 	android = build_type in ['full', 'android']
 	iphone = build_type in ['full', 'iphone']
-	package.Packager().build(os.path.abspath('dist'), version, android, iphone)
+	ipad = build_type in ['full', 'ipad']
+	package.Packager().build(os.path.abspath('dist'), version, android, iphone, ipad)
 
 package_builder = Builder(action = package_sdk)
 env.Append(BUILDERS = {'PackageMobileSDK': package_builder})
 env.PackageMobileSDK("#dummy-sdk-target", [])
+
+if clean:
+	# don't error 
+	Exit(0)

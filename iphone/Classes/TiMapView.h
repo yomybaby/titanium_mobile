@@ -19,12 +19,16 @@
 
 #pragma mark Public APIs
 -(void)addAnnotation:(id)args;
+-(void)addAnnotations:(id)args;
 -(void)removeAnnotation:(id)args;
+-(void)removeAnnotations:(id)args;
 -(void)selectAnnotation:(id)args;
 -(void)deselectAnnotation:(id)args;
 -(void)zoom:(id)args;
 
 #pragma mark Framework
 -(void)refreshAnnotation:(TiMapAnnotationProxy*)proxy readd:(BOOL)yn;
+
+-(void)fireClickEvent:(MKPinAnnotationView *) pinview source:(NSString *)source;
 
 @end

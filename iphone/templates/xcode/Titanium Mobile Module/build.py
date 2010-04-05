@@ -9,8 +9,8 @@ import zipfile
 cwd = os.path.abspath(os.path.dirname(sys._getframe(0).f_code.co_filename))
 required_module_keys = ['name','version','moduleid','description','copyright','license','copyright','platform','minsdk']
 module_defaults = {
-	'name':'mymodule',
-	'moduleid':'com.company.yourmodule',
+	'name':'___PROJECTNAMEASIDENTIFIER___',
+	'moduleid':'com.company.___PROJECTNAMEASIDENTIFIER___',
 	'description':'My module',
 	'author': 'Your Name',
 	'license' : 'Specify your license',
@@ -80,6 +80,7 @@ def package_module(manifest,mf):
 	name = manifest['name'].lower()
 	version = manifest['version']
 	modulezip = '%s-iphone-%s.zip' % (name,version)
+	if os.path.exists(modulezip): os.remove(modulezip)
 	zf = zipfile.ZipFile(modulezip, 'w', zipfile.ZIP_DEFLATED)
 	modulepath = 'modules/iphone/%s/%s' % (name,version)
 	zf.write(mf,'%s/manifest' % modulepath)
