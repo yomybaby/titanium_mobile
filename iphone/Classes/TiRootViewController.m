@@ -143,16 +143,27 @@
 	[rootView release];
 }
 
+- (void)viewWillAppear:(BOOL)animated;    // Called when the view is about to made visible. Default does nothing
+{
+	NSLog(@"%@%@",self,CODELOCATION);
+}
+- (void)viewWillDisappear:(BOOL)animated; // Called when the view is dismissed, covered or otherwise hidden. Default does nothing
+{
+	NSLog(@"%@%@",self,CODELOCATION);
+}
+
 - (void) viewDidAppear:(BOOL)animated
 {
 	[self.view becomeFirstResponder];
     [super viewDidAppear:animated];
+	NSLog(@"%@%@",self,CODELOCATION);
 }
 
 - (void) viewDidDisappear:(BOOL)animated
 {
 	[self.view resignFirstResponder];
     [super viewDidDisappear:animated];
+	NSLog(@"%@%@",self,CODELOCATION);
 }
 
 -(void)repositionSubviews

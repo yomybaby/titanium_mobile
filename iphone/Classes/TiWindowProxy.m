@@ -51,6 +51,23 @@
 	[super willAnimateRotationToInterfaceOrientation:toInterfaceOrientation duration:duration];
 }
 
+- (void)viewWillAppear:(BOOL)animated;    // Called when the view is about to made visible. Default does nothing
+{
+	NSLog(@"%@%@",self,CODELOCATION);
+}
+- (void)viewDidAppear:(BOOL)animated;     // Called when the view has been fully transitioned onto the screen. Default does nothing
+{
+	NSLog(@"%@%@",self,CODELOCATION);
+}
+- (void)viewWillDisappear:(BOOL)animated; // Called when the view is dismissed, covered or otherwise hidden. Default does nothing
+{
+	NSLog(@"%@%@",self,CODELOCATION);
+}
+- (void)viewDidDisappear:(BOOL)animated;  // Called after the view was dismissed, covered or otherwise hidden. Default does nothing
+{
+	NSLog(@"%@%@",self,CODELOCATION);
+}
+
 @end
 
 
@@ -498,7 +515,7 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 	
 	// hold ourself during close
 	[[self retain] autorelease];
-	
+
 	if ([self _hasListeners:@"close"])
 	{
 		[self fireEvent:@"close" withObject:nil];
@@ -580,7 +597,7 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 	UIView *rootView = [[TiApp app] controller].view;
 	
 	TiUIView *view = [self view];
-	
+		
 	if (![self _isChildOfTab])
 	{
 		//TEMP hack for splitview until we can get things worked out
