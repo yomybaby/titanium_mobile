@@ -61,8 +61,8 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener, ErrorR
 	private String baseUrl;
 
 	private WeakReference<Activity> weakActivity;
-	private SoftReference<TiEvaluator>	softTiEvaluator;
-	private TiEvaluator strongTiEvaluator; // used to avoid temporary dereferencing before we execute app.js
+	private TiEvaluator	tiEvaluator;
+	private TiApplication tiApp;
 	private HashMap<String, HashMap<Integer, TiListener>> eventListeners;
 	private AtomicInteger listenerIdGenerator;
 
@@ -127,6 +127,7 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener, ErrorR
 	{
 		this.mainThreadId = Looper.getMainLooper().getThread().getId();
 
+		this.tiApp = (TiApplication) activity.getApplication();
 		this.weakActivity = new WeakReference<Activity>(activity);
 		this.listenerIdGenerator = new AtomicInteger(0);
 		this.eventListeners = new HashMap<String, HashMap<Integer,TiListener>>();
@@ -155,20 +156,14 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener, ErrorR
 	}
 
 	private TiEvaluator getJSContext() {
-		if (strongTiEvaluator != null) {
-			TiEvaluator tmp = strongTiEvaluator;
-			strongTiEvaluator = null;
-			return tmp;
-		}
-		return softTiEvaluator.get();
+		return tiEvaluator;
 	}
 
 	public void setJSContext(TiEvaluator evaluator) {
 		if (DBG) {
 			Log.i(LCAT, "Setting JS Context");
 		}
-		this.strongTiEvaluator = evaluator;
-		softTiEvaluator = new SoftReference<TiEvaluator>(strongTiEvaluator);
+		tiEvaluator = evaluator;
 	}
 
 	public Activity getActivity() {
@@ -177,7 +172,7 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener, ErrorR
 	}
 
 	public TiApplication getTiApp() {
-		return (TiApplication) getActivity().getApplication();
+		return tiApp;
 	}
 
 	public TiRootActivity getRootActivity() {
@@ -254,7 +249,7 @@ public class TiContext implements TiEvaluator, ITiMenuDispatcherListener, ErrorR
 	{
 		return resolveUrl(scheme, path, getBaseUrl());
 	}
-	
+
 	public String resolveUrl(String scheme, String path, String relativeTo)
 	{
 		if (!TiFileFactory.isLocalScheme(path)) {

@@ -26,12 +26,14 @@
     TiDimension leftCap;
     TiDimension topCap;
     BOOL recapStretchableImage;
+	BOOL isLocalImage;
 }
 
 @property(nonatomic,readwrite,retain) UIImage * fullImage;
 @property(nonatomic,readwrite,retain) UIImage * recentlyResizedImage;
 @property(nonatomic,readwrite) TiDimension leftCap;
 @property(nonatomic,readwrite) TiDimension topCap;
+@property(nonatomic,readwrite) BOOL isLocalImage;
 -(UIImage *)imageForSize:(CGSize)imageSize;
 -(UIImage *)stretchableImage;
 
@@ -40,7 +42,15 @@
 @end
 
 @implementation ImageCacheEntry
-@synthesize fullImage, recentlyResizedImage, leftCap, topCap;
+@synthesize fullImage, recentlyResizedImage, leftCap, topCap, isLocalImage;
+
+-(void)ensureFullImageForUrl:(NSURL *)url
+{
+	if (isLocalImage && (fullImage == nil))
+	{
+		[self setFullImage:[UIImage imageWithContentsOfFile:[url path]]];
+	}
+}
 
 -(UIImage *)imageForSize:(CGSize)imageSize scalingStyle:(TiImageScalingStyle)scalingStyle
 {
@@ -107,7 +117,7 @@
     if (!TiDimensionEqual(leftCap, cap)) {
         leftCap = cap;
         recapStretchableImage = YES;
-    }
+    } 
 }
 
 -(void)setTopCap:(TiDimension)cap
@@ -124,7 +134,7 @@
         [stretchableImage release];
         
         CGSize imageSize = [fullImage size];
-        
+		
         NSInteger left = (TiDimensionIsAuto(leftCap) || TiDimensionIsUndefined(leftCap) || leftCap.value == 0) ?
                                 imageSize.width/2  : 
                                 TiDimensionCalculateValue(leftCap, imageSize.width);
@@ -170,6 +180,11 @@
 		RELEASE_TO_NIL(fullImage);
 		return YES;
 	}
+	else if(isLocalImage && [fullImage retainCount]<2)
+	{
+		RELEASE_TO_NIL(fullImage);
+	}
+
 	return NO;
 }
 
@@ -281,8 +296,8 @@ DEFINE_EXCEPTIONS
 {
 	NSString * doomedKey;
 
-#ifdef VERBOSE
 	int cacheCount = [cache count];
+#ifdef VERBOSE
 	vm_statistics_data_t vmStats;
 	mach_msg_type_number_t infoCount = HOST_VM_INFO_COUNT;
 	kern_return_t kernReturn = host_statistics(mach_host_self(), HOST_VM_INFO, (host_info_t)&vmStats, &infoCount);
@@ -311,6 +326,9 @@ DEFINE_EXCEPTIONS
 #ifdef VERBOSE
 	kernReturn = host_statistics(mach_host_self(), HOST_VM_INFO, (host_info_t)&vmStats, &infoCount);
 	NSLog(@"[INFO] %d of %d images remain in cache, %d pages now free.",[cache count],cacheCount,vmStats.free_count);
+#else
+	int newCacheCount = [cache count];
+	NSLog(@"[INFO] Due to memory conditions, %d of %d images were unloaded from cache.",cacheCount - newCacheCount,cacheCount);
 #endif
 
 
@@ -361,11 +379,34 @@ DEFINE_EXCEPTIONS
 	NSString * urlString = [url absoluteString];
 	ImageCacheEntry * result = [cache objectForKey:urlString];
 	
-	if ((result == nil) && [url isFileURL])
+	if ([url isFileURL])
 	{
-		//Well, let's make it for them!
-		UIImage * resultImage = [UIImage imageWithContentsOfFile:[url path]];
-		result = [self setImage:resultImage forKey:urlString];
+		if (result == nil)
+		{
+			//Well, let's make it for them!
+			NSString * path = [url path];
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
+			BOOL scaleUp = NO;
+			if ([TiUtils isIPhone4] && [path rangeOfString:@"@2x"].location!=NSNotFound)
+			{
+				scaleUp = YES;
+			}
+#endif
+			UIImage * resultImage = [UIImage imageWithContentsOfFile:path];
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
+			if (scaleUp && [resultImage scale]==1.0)
+			{
+				// if we specified a 2x, we need to upscale it
+				resultImage = [UIImage imageWithCGImage:[resultImage CGImage] scale:2.0 orientation:[resultImage imageOrientation]];
+			}
+#endif
+			result = [self setImage:resultImage forKey:urlString];
+			[result setIsLocalImage:YES];
+		}
+		else
+		{
+			[result ensureFullImageForUrl:url];
+		}
 	}
 	
 	return result;
@@ -507,6 +548,18 @@ DEFINE_EXCEPTIONS
 	if (queue!=nil)
 	{
 		[queue setSuspended:YES];
+	}
+	[lock unlock];
+}
+
+-(void)cancel
+{
+	//NOTE: this should only be called on suspend
+	//to cause the queue to be stopped
+	[lock lock];
+	if (queue!=nil)
+	{
+		[queue reset];
 	}
 	[lock unlock];
 }

@@ -145,13 +145,22 @@
 {
 	if (tableview==nil)
 	{
-		UITableViewStyle style = [TiUtils intValue:[self.proxy valueForKey:@"style"] def:UITableViewStylePlain];
+		id styleObject = [self.proxy valueForKey:@"style"];
+		UITableViewStyle style = [TiUtils intValue:styleObject def:UITableViewStylePlain];
+#ifdef VERBOSE
+		NSLog(@"[DEBUG] Generating a new tableView, and style for %@ is %d",[self.proxy valueForKey:@"style"],style);
+		if(styleObject == nil)
+		{
+			NSLog(@"[WARN] No style object!");
+		}
+#endif
 		tableview = [[UITableView alloc] initWithFrame:CGRectMake(0, 0, [self bounds].size.width, [self bounds].size.height) style:style];
 		tableview.delegate = self;
 		tableview.dataSource = self;
 		tableview.autoresizingMask = UIViewAutoresizingFlexibleWidth|UIViewAutoresizingFlexibleHeight;
 		tableview.backgroundColor = style == UITableViewStylePlain ? [UIColor whiteColor] : [UIColor groupTableViewBackgroundColor];
 		tableview.opaque = YES;
+		
 		[self updateSearchView];
 	}
 	if ([tableview superview] != self)
@@ -160,6 +169,12 @@
 	}
 	
 	return tableview;
+}
+
+-(void)relayout:(CGRect)bounds
+{
+	[super relayout:bounds];
+	[self replaceData:UITableViewRowAnimationNone];
 }
 
 -(NSInteger)indexForRow:(TiUITableViewRowProxy*)row
@@ -251,7 +266,7 @@
 -(void)reloadDataFromCount:(int)oldCount toCount:(int)newCount animation:(UITableViewRowAnimation)animation
 {
 	UITableView *table = [self tableView];
-
+	
 	if ((animation == UITableViewRowAnimationNone) && ![tableview isEditing])
 	{
 		[tableview reloadData];
@@ -380,8 +395,6 @@
 -(void)dispatchAction:(TiUITableViewAction*)action
 {
 	ENSURE_UI_THREAD(dispatchAction,action);
-	
-	UITableView *table = [self tableView];
 	
 	switch (action.type)
 	{
@@ -536,6 +549,8 @@
         [(TiUIViewProxy*)[(TiUIView*)footerView proxy] reposition];
         [[self tableView] setTableFooterView:footerView];
     }
+	
+	[tableview reloadData];
 }
 
 - (void)triggerActionForIndexPath:(NSIndexPath *)indexPath fromPath:(NSIndexPath*)fromPath tableView:(UITableView*)ourTableView wasAccessory: (BOOL)accessoryTapped search:(BOOL)viaSearch name:(NSString*)name
@@ -720,12 +735,44 @@
 	}
 	// if the first frame size change, don't reload - otherwise, we'll reload
 	// the entire table twice each time - which is a killer on big tables
-	if (frameChanges++ > 0)
+	if (frameChanges++ > 1)
 	{
 		int sectionCount = [sections count];
 		[self reloadDataFromCount:sectionCount toCount:sectionCount animation:UITableViewRowAnimationNone];
 	}
 	[super frameSizeChanged:frame bounds:bounds];
+	
+	if (tableHeaderPullView!=nil)
+	{
+		tableHeaderPullView.frame = CGRectMake(0.0f, 0.0f - self.tableView.bounds.size.height, self.tableView.bounds.size.width, self.tableView.bounds.size.height);
+		TiViewProxy *proxy = [self.proxy valueForUndefinedKey:@"headerPullView"];
+		[TiUtils setView:[proxy view] positionRect:[tableHeaderPullView bounds]];
+		[proxy windowWillOpen];
+		[proxy layoutChildren:NO];
+	}
+	
+	if ([tableview tableHeaderView]!=nil)
+	{
+		TiViewProxy *proxy = [self.proxy valueForUndefinedKey:@"headerView"];
+		if (proxy!=nil)
+		{
+			[TiUtils setView:[proxy view] positionRect:bounds];
+			[proxy windowWillOpen];
+			[proxy layoutChildren:NO];
+		}
+	}
+
+	if ([tableview tableFooterView]!=nil)
+	{
+		TiViewProxy *proxy = [self.proxy valueForUndefinedKey:@"footerView"];
+		if (proxy!=nil)
+		{
+			[TiUtils setView:[proxy view] positionRect:bounds];
+			[proxy windowWillOpen];
+			[proxy layoutChildren:NO];
+		}
+	}
+	
 }
 
 #pragma mark Searchbar-related IBActions
@@ -895,6 +942,7 @@
 	TiViewProxy* viewproxy = [proxy valueForKey:location];
 	if (viewproxy!=nil && [viewproxy isKindOfClass:[TiViewProxy class]])
 	{
+		[viewproxy windowWillOpen];
 		return [viewproxy view];
 	}
 	return nil;
@@ -971,6 +1019,7 @@
 	ENSURE_SINGLE_ARG_OR_NIL(args,TiViewProxy);
 	if (args!=nil)
 	{
+		[args windowWillOpen];
 		UIView *view = [args view];
 		[[self tableView] setTableFooterView:view];
 	}
@@ -997,6 +1046,7 @@
 		//doing our own custom search screen since the controller gives this to us
 		//for free
 		searchField = [search retain];
+		[searchField windowWillOpen];
 		[searchField setDelegate:self];
 		tableController = [[UITableViewController alloc] init];
 		tableController.tableView = [self tableView];
@@ -1232,6 +1282,7 @@ if(ourTableView != tableview)	\
 	}
 	
 	TiUITableViewRowProxy *row = [self rowForIndexPath:index];
+	[row triggerAttach];
 	
 	// the classname for all rows that have the same substainal layout will be the same
 	// we reuse them for speed
@@ -1480,7 +1531,7 @@ if(ourTableView != tableview)	\
 			color = [self.proxy valueForKey:@"backgroundColor"];
 		}
 	}
-	UIColor * cellColor = UIColorWebColorNamed(color);
+	UIColor * cellColor = [Webcolor webColorNamed:color];
 	cell.backgroundColor = (cellColor != nil)?cellColor:[UIColor whiteColor];
 	
 	if (tableview == ourTableView) {
@@ -1544,7 +1595,9 @@ if(ourTableView != tableview)	\
 	}
 	
 	TiUITableViewRowProxy *row = [self rowForIndexPath:index];
-	CGFloat height = [row rowHeight:tableview.bounds];
+	
+	CGFloat width = [row sizeWidthForDecorations:tableview.bounds.size.width forceResizing:YES];
+	CGFloat height = [row rowHeight:width];
 	height = [self tableRowHeight:height];
 	return height < 1 ? tableview.rowHeight : height;
 }

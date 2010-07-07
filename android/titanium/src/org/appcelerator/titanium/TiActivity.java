@@ -10,6 +10,7 @@ import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 
+import org.appcelerator.titanium.proxy.TiWindowProxy;
 import org.appcelerator.titanium.util.Log;
 import org.appcelerator.titanium.util.TiActivityResultHandler;
 import org.appcelerator.titanium.util.TiActivitySupport;
@@ -38,9 +39,10 @@ public class TiActivity extends Activity
 	private static final String LCAT = "TiActivity";
 	private static final boolean DBG = TiConfig.LOGD;
 
-	protected TiContext tiContext;
+	protected WeakReference<TiContext> createdContext;
 	protected TiCompositeLayout layout;
 	protected TiActivitySupportHelper supportHelper;
+	protected TiWindowProxy proxy;
 
 	protected Handler handler;
 	protected ArrayList<WeakReference<TiContext>> contexts;
@@ -66,7 +68,7 @@ public class TiActivity extends Activity
         Messenger messenger = null;
         Integer messageId = null;
         boolean vertical = false;
-        
+
         if (intent != null) {
         	if (intent.hasExtra("modal")) {
         		modal = intent.getBooleanExtra("modal", modal);
@@ -245,6 +247,7 @@ public class TiActivity extends Activity
 	protected void onPause() {
 		super.onPause();
 		((TiApplication) getApplication()).setWindowHandler(null);
+		((TiApplication) getApplication()).setCurrentActivity(this, null);
 
 		for (WeakReference<TiContext> contextRef : contexts) {
 			if (contextRef.get() != null) {
@@ -257,6 +260,7 @@ public class TiActivity extends Activity
 	protected void onResume() {
 		super.onResume();
 		((TiApplication) getApplication()).setWindowHandler(this);
+		((TiApplication) getApplication()).setCurrentActivity(this, this);
 		for (WeakReference<TiContext> contextRef : contexts) {
 			if (contextRef.get() != null) {
 				contextRef.get().dispatchOnResume();
@@ -304,8 +308,12 @@ public class TiActivity extends Activity
 		TiDict data = new TiDict();
 		for (WeakReference<TiContext> contextRef : contexts) {
 			if (contextRef.get() != null) {
-				contextRef.get().dispatchEvent("close", data);
+				contextRef.get().dispatchEvent("close", data, proxy);
 			}
+		}
+
+		if (createdContext != null && createdContext.get() != null) {
+			createdContext.get().dispatchEvent("close", data, proxy);
 		}
 
 		Intent intent = getIntent();
@@ -324,5 +332,13 @@ public class TiActivity extends Activity
 		}
 
 		super.finish();
+	}
+
+	public void setCreatedContext(TiContext context) {
+		createdContext = new WeakReference<TiContext>(context);
+	}
+
+	public void setWindowProxy(TiWindowProxy proxy) {
+		this.proxy = proxy;
 	}
 }

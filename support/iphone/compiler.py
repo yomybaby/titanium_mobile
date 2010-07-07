@@ -56,7 +56,6 @@ MODULE_IMPL_HEADER = """#import "ApplicationMods.h"
 
 def read_module_properties(dir):
 	file = os.path.join(dir,'manifest')
-	print file
 	dict = {}
 	if os.path.exists(file):
 		contents = open(file).read()
@@ -129,9 +128,11 @@ class Compiler(object):
 			print "[INFO] iPhone SDK version: %s" % iphone_version
 		
 		main_template_out = os.path.join(self.iphone_dir,'main.m')	
-		main_file = open(main_template_out,'w')
-		main_file.write(main_template)
-		main_file.close()
+		main_file = open(main_template_out,'w+')
+		main_file_contents = main_file.read()
+		if main_file_contents!=main_template:
+			main_file.write(main_template)
+			main_file.close()
 		
 		if deploytype == 'production':
 			version = ti.properties['version']
@@ -178,7 +179,10 @@ class Compiler(object):
 					self.modules_metadata.append({'guid':tp_guid,'name':tp_module_name,'id':tp_module_id,'dir':tp_dir,'version':tp_version})
 					xcfile = os.path.join(module_root,tp_name,tp_version,"module.xcconfig")
 					if os.path.exists(xcfile):
-						xcconfig_c+="#include \"%s\"\n" % xcfile.replace('.xcconfig','')
+						xcconfig_c+="#include \"%s\"\n" % xcfile
+					xcfile = os.path.join(self.project_dir,'modules','iphone',"%s.xcconfig" % tp_name)
+					if os.path.exists(xcfile):
+						xcconfig_c+="#include \"%s\"\n" % xcfile
 					mods.write("	[modules addObject:[NSDictionary dictionaryWithObjectsAndKeys:@\"%s\",@\"name\",@\"%s\",@\"moduleid\",@\"%s\",@\"version\",nil]];\n" % (tp_module_name,tp_module_id,tp_version));
 				mods.write("	return modules;\n")	
 				mods.write("}\n")
@@ -203,12 +207,15 @@ class Compiler(object):
 				self.copy_resources([resources_dir],app_dir)
 				
 			if deploytype!='development':	
-				defines_header = open(os.path.join(self.classes_dir,'defines.h'),'w')
-				defines_header.write("// Warning: this is generated file. Do not modify!\n\n")
-				defines_header.write("#define TI_VERSION %s\n"%sdk_version)
+				defines_file = os.path.join(self.classes_dir,'defines.h')
+				defines_header = open(defines_file,'w+')
+				defines_content = "// Warning: this is generated file. Do not modify!\n\n"
+				defines_content+= "#define TI_VERSION %s\n"%sdk_version
 				for sym in self.defines:
-					defines_header.write("#define %s 1\n"%sym)
-				defines_header.flush()
+					defines_content+="#define %s 1\n"%sym
+				if defines_content!=defines_header.read():
+					defines_header.write(defines_content)
+					defines_header.close()	
 
 			# deploy any module image files 
 			for module in self.modules:
@@ -221,11 +228,20 @@ class Compiler(object):
 				self.copy_resources([img_dir],dest_img_dir,False)
 			
 			
-			if deploytype!='development':
+			if deploytype!='development' and os.path.exists(app_dir):
 				# optimize PNGs - since we don't include them in the Resources of the xcodeproj
 				# the ones we copy in won't get optimized so we need to run it manually
 				# we can skip this on the simulator but should do it on device
-				run.run(["/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/iphoneos-optimize",app_dir],False)
+				dev_path = "/Developer"
+				# we need to ask xcode where the root path is
+				path = run.run(["/usr/bin/xcode-select","-print-path"],True,False)
+				if path:
+					dev_path = path.strip()
+				run.run(["%s/Platforms/iPhoneOS.platform/Developer/usr/bin/iphoneos-optimize"%dev_path,app_dir],False)
+				
+				# remove empty directories
+				os.chdir(app_dir)
+				os.system("find . -type d -empty -delete")
 			
 		else:
 			print "[INFO] Skipping JS compile, running from simulator"

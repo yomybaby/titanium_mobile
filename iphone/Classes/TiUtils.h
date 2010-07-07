@@ -40,6 +40,7 @@
 +(UIImage *)stretchableImage:(id)object proxy:(TiProxy*)proxy;
 
 +(NSString*)stringValue:(id)value;
++(NSString*)replaceString:(NSString *)string characters:(NSCharacterSet *)characterSet withString:(NSString *)replacementString;
 
 +(BOOL)boolValue:(id)value;
 
@@ -174,5 +175,8 @@
 +(BOOL)isIPad;
 
 +(BOOL)isiPhoneOS3_2OrGreater;
++(BOOL)isIOS4OrGreater;
+
++(BOOL)isIPhone4;
 
 @end

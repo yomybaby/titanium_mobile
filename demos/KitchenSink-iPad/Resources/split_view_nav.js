@@ -36,6 +36,12 @@ SplitViewNav.masterButton.addEventListener('click', function()
 		textAlign:'center'
 	});
 	w.add(l)
+	w.addEventListener('blur', function() {
+		Titanium.UI.createAlertDialog({
+			title:'Master blur',
+			message:'You blurred the master window!'
+		}).show();
+	});
 	SplitViewNav.masterNav.open(w,{animated:true});
 });
 SplitViewNav.masterWindow.add(SplitViewNav.masterButton);
@@ -55,10 +61,28 @@ SplitViewNav.detailButton.addEventListener('click', function()
 		textAlign:'center'
 	});
 	w.add(l)
+	w.addEventListener('blur', function() {
+		Titanium.UI.createAlertDialog({
+			title:'Detail blur',
+			message:'You blurred the detail window!'
+		}).show();
+	});
 	SplitViewNav.detailNav.open(w,{animated:true});
 });
 SplitViewNav.detailWindow.add(SplitViewNav.detailButton);
 
+var done = Titanium.UI.createButton({
+ 	systemButton:Titanium.UI.iPhone.SystemButton.DONE
+});
+
+SplitViewNav.detailWindow.setRightNavButton(done);
+done.addEventListener('click',function()
+{
+	Titanium.UI.createAlertDialog({
+		title:'Clicked!', 
+		message:'You clicked the right nav button!'
+	}).show();
+});
 
 
 SplitViewNav.open = function()
@@ -66,3 +90,16 @@ SplitViewNav.open = function()
 	Ti.API.info('in open for split view nav')
 	SplitViewNav.splitView.open();	
 };
+
+SplitViewNav.splitView.addEventListener('visible', function(e) {
+	Ti.API.log('View: '+e.view);
+	if (e.view == 'detail') {
+		e.button.title = "Popover";
+		SplitViewNav.detailWindow.leftNavButton = e.button;
+		Ti.API.log('Set button');
+	}
+	else if (e.view == 'master') {
+		SplitViewNav.detailWindow.leftNavButton = null;
+		Ti.API.log('Removed button');
+	}
+});

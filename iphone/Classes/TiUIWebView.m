@@ -9,7 +9,7 @@
 #import "TiUIWebView.h"
 #import "TiUIWebViewProxy.h"
 
-#import "TiUtils.h"
+#import "TiUtils.h" 
 #import "TiProxy.h"
 #import "SBJSON.h"
 #import "TiHost.h"
@@ -104,11 +104,11 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 {
 	if (webview==nil)
 	{
-		webview = [[UIWebView alloc] initWithFrame:CGRectZero];
+		webview = [[UIWebView alloc] initWithFrame:CGRectMake(0, 0, 10, 1)];
 		webview.delegate = self;
 		webview.opaque = NO;
 		webview.backgroundColor = [UIColor whiteColor];
-       webview.contentMode = UIViewContentModeRedraw;
+		webview.contentMode = UIViewContentModeRedraw;
 		[self addSubview:webview];
 		
 		// only show the loading indicator if it's a remote URL
@@ -158,14 +158,14 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 	{
 		path = [path substringFromIndex:1];
 	}
-	return [NSURL URLWithString:[NSString stringWithFormat:@"app://%@/%@",TI_APPLICATION_ID,path]];
+	return [NSURL URLWithString:[[NSString stringWithFormat:@"app://%@/%@",TI_APPLICATION_ID,path] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
 }
 
 -(NSString*)titaniumInjection
 {
 	NSMutableString *html = [[[NSMutableString alloc] init] autorelease];
 	[html appendString:@"<script id='__ti_injection'>"];
-	NSString *ti = [NSString stringWithFormat:@"%@%s",@"Ti","anium"];
+	NSString *ti = [NSString stringWithFormat:@"%@%s",@"Ti","tanium"];
 	[html appendFormat:@"window.%@={};window.Ti=%@;Ti.pageToken=%@;Ti.appId='%@';",ti,ti,pageToken,TI_APPLICATION_ID];
 	[html appendString:kTitaniumJavascript];
 	[html appendString:@"</script>"];
@@ -184,6 +184,7 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 	   encoding:(NSStringEncoding)encoding 
 	   textEncodingName:(NSString*)textEncodingName
 	   mimeType:(NSString*)mimeType
+	   baseURL:(NSURL*)baseURL
 {
 	// attempt to make well-formed HTML and inject in our Titanium bridge code
 	// However, we only do this if the content looks like HTML
@@ -209,8 +210,8 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 		
 		content = [html autorelease];
 	}
-	
-	NSURL *relativeURL = [self fileURLToAppURL:url];
+	  
+	NSURL *relativeURL = baseURL == nil ? [self fileURLToAppURL:url] : baseURL;
 	
 	if (url!=nil)
 	{
@@ -291,7 +292,7 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 
 -(void)setBackgroundColor_:(id)color
 {
-	UIColor *c = UIColorWebColorNamed(color);
+	UIColor *c = [Webcolor webColorNamed:color];
 	[self setBackgroundColor:c];
 	[[self webview] setBackgroundColor:c];
 }
@@ -308,7 +309,7 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 
 -(void)setHtml_:(NSString*)content
 {
-	[self loadHTML:content encoding:NSUTF8StringEncoding textEncodingName:@"utf-8" mimeType:@"text/html"];
+	[self loadHTML:content encoding:NSUTF8StringEncoding textEncodingName:@"utf-8" mimeType:@"text/html" baseURL:nil];
 }
 
 -(void)setData_:(id)args
@@ -368,6 +369,10 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 	[[self webview] setScalesPageToFit:scaling];
 }
 
+#ifndef USE_BASE_URL
+#define USE_BASE_URL	1
+#endif
+
 -(void)setUrl_:(id)args
 {
 	RELEASE_TO_NIL(url);
@@ -399,6 +404,9 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 		NSString *textEncodingName = @"utf-8";
 		NSString *path = [url path];
 		NSError *error = nil;
+#if USE_BASE_URL
+		NSURL *baseURL = [[url retain] autorelease];
+#endif
 		
 		// first check to see if we're attempting to load a file from the 
 		// filesystem and if so, and it exists, use that 
@@ -489,7 +497,12 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 		}
 		if (html!=nil)
 		{
-			[self loadHTML:html encoding:encoding textEncodingName:textEncodingName mimeType:mimeType];
+			//Because local HTML may rely on JS that's stored in the app: schema, we must kee the url in the app: format.
+#if USE_BASE_URL
+			[self loadHTML:html encoding:encoding textEncodingName:textEncodingName mimeType:mimeType baseURL:baseURL];
+#else
+			[self loadHTML:html encoding:encoding textEncodingName:textEncodingName mimeType:mimeType baseURL:url];
+#endif
 		}
 		else 
 		{
@@ -574,7 +587,7 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 -(CGFloat)autoHeightForWidth:(CGFloat)value
 {
 	CGRect oldBounds = [[self webview] bounds];
-	[webview setBounds:CGRectMake(0, 0, value, 0)];
+	[webview setBounds:CGRectMake(0, 0, MAX(value,10), 1)];
 	CGFloat result = [[webview stringByEvaluatingJavaScriptFromString:@"document.height"] floatValue];
 	[webview setBounds:oldBounds];
 	return result;
@@ -584,7 +597,7 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 {
     CGRect oldBounds = [[self webview] bounds];
     CGFloat currentHeight = [[webview stringByEvaluatingJavaScriptFromString:@"document.height"] floatValue];
-    [webview setBounds:CGRectMake(0, 0, 0, currentHeight)];
+    [webview setBounds:CGRectMake(0, 0, 10, currentHeight)];
     CGFloat realWidth = [[webview stringByEvaluatingJavaScriptFromString:@"document.width"] floatValue];
     [webview setBounds:oldBounds];
     return (value < realWidth) ? value : realWidth;

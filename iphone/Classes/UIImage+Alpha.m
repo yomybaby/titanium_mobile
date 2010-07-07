@@ -106,6 +106,13 @@
     
     // Create a mask to make the border transparent, and combine it with the image
     CGImageRef maskImageRef = [UIImageAlpha newBorderMask:borderSize size:newRect.size image:image_];
+	if((maskImageRef == NULL) || (borderImageRef == NULL))
+	{
+		CGContextRelease(bitmap);
+		CGImageRelease(maskImageRef);
+		CGImageRelease(borderImageRef);
+		return nil;
+	}
     CGImageRef transparentBorderImageRef = CGImageCreateWithMask(borderImageRef, maskImageRef);
     UIImage *transparentBorderImage = [UIImage imageWithCGImage:transparentBorderImageRef];
     

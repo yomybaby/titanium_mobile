@@ -14,33 +14,122 @@
 #import "TiApp.h"
 #import "TiTabController.h"
 
-@implementation TiUIWindowProxy
+// this is how long we should wait on the new JS context to be loaded
+// holding the UI thread before we return during an window open. we 
+// attempt to hold it for a small period of time to allow the window
+// to loaded before we return from the open such that the paint will be
+// much smoother on the new window during a tab transition
+#define EXTERNAL_JS_WAIT_TIME (150/1000)
 
--(void)_destroy
+/** 
+ * This class is a helper that will be used when we have an external
+ * window w/ JS so that we can attempt to wait for the window context
+ * to be fully loaded on the UI thread (since JS runs in a different
+ * thread) and attempt to wait up til EXTERNAL_JS_WAIT_TIME before
+ * timing out. If timed out, will go ahead and start opening the window
+ * and as the JS context finishes, will continue opening from there - 
+ * this has a nice effect of immediately opening if fast but not delaying
+ * if slow (so you get weird button delay effects for example)
+ *
+ */
+
+@interface TiUIWindowProxyLatch : NSObject
 {
-	RELEASE_TO_NIL(context);
-	RELEASE_TO_NIL(barImageView);
-	if (context!=nil)
+	NSCondition *lock;
+	TiUIWindowProxy* window;
+	BOOL completed;
+	BOOL timeout;
+}
+@end
+
+@implementation TiUIWindowProxyLatch
+
+-(id)initWithWindow:(id)window_
+{
+	if (self = [super init])
 	{
-		[context shutdown];
-		RELEASE_TO_NIL(context);
+		window = [window_ retain];
+		lock = [[NSCondition alloc] init];
 	}
-	RELEASE_TO_NIL(oldBaseURL);
-	[super _destroy];
+	return self;
+}
+
+-(void)dealloc
+{
+	RELEASE_TO_NIL(lock);
+	RELEASE_TO_NIL(window);
+	[super dealloc];
 }
 
 -(void)booted:(id)arg
 {
-	// nothing to do, in the future we might show and hide indicator on a context load 
-	// but for now, nothing...
-	contextReady = YES;
-	
-	if (!navWindow) 
+	[lock lock];
+	completed = YES;
+	[lock signal];
+	if (timeout)
 	{
-		[self open:nil];
+		[window boot:YES];
 	}
-	else {
+	[lock unlock];
+}
+
+-(BOOL)waitForBoot
+{
+	BOOL yn = NO;
+	[lock lock];
+	if(completed)
+	{
+		yn = YES;
+	}
+	else
+	{
+		if ([lock waitUntilDate:[NSDate dateWithTimeIntervalSinceNow:EXTERNAL_JS_WAIT_TIME]]==NO)
+		{
+			timeout = YES;
+		}
+		else 
+		{
+			yn = YES;
+		}
+	}
+	[lock unlock];
+	return yn;
+}
+
+@end
+
+
+@implementation TiUIWindowProxy
+
+-(void)_destroy
+{
+	[self performSelectorOnMainThread:@selector(close:) withObject:nil waitUntilDone:YES];
+	RELEASE_TO_NIL(barImageView);
+	if (context!=nil)
+	{
+		[context shutdown:nil];
+		RELEASE_TO_NIL(context);
+	}
+	RELEASE_TO_NIL(oldBaseURL);
+	RELEASE_TO_NIL(latch);
+	[super _destroy];
+}
+
+-(void)boot:(BOOL)timeout
+{
+	RELEASE_TO_NIL(latch);
+	contextReady = YES;
+
+	if (navWindow) 
+	{
 		[self prepareForNavView:[self navController]];
+	}
+	else 
+	{
+		if (timeout)
+		{
+			[self open:nil];
+		}
 	}
 }
 
@@ -79,8 +168,17 @@
 				contextReady=NO;
 				context = [[KrollBridge alloc] initWithHost:[self _host]];
 				NSDictionary *preload = [NSDictionary dictionaryWithObjectsAndKeys:self,@"currentWindow",[self.tab tabGroup],@"currentTabGroup",self.tab,@"currentTab",nil];
-				[context boot:self url:url preload:preload];
-				return NO;
+				latch = [[TiUIWindowProxyLatch alloc]initWithWindow:self];
+				[context boot:latch url:url preload:preload];
+				if ([latch waitForBoot])
+				{
+					[self boot:NO];
+					return YES;
+				}
+				else 
+				{
+					return NO;
+				}
 			}
 		}
 		else 
@@ -96,7 +194,7 @@
 {
 	if (context!=nil)
 	{
-		[context shutdown];
+		[context performSelector:@selector(shutdown:) withObject:nil afterDelay:1.0];
 		RELEASE_TO_NIL(context);
 	}
 	[super windowDidClose];
@@ -234,8 +332,9 @@
     else {
         [self setValue:properties forKey:@"rightNavSettings"];
     }
-    
-	if (controller!=nil)
+	
+	if (controller!=nil && 
+		[controller navigationController] != nil)
 	{
 		ENSURE_TYPE_OR_NIL(proxy,TiViewProxy);
 		[self replaceValue:proxy forKey:@"rightNavButton" notification:NO];
@@ -281,7 +380,7 @@
         [self setValue:properties forKey:@"leftNavSettings"];
     }
     
-	if (controller!=nil)
+	if (controller!=nil && [controller navigationController] != nil)
 	{
 		ENSURE_TYPE_OR_NIL(proxy,TiViewProxy);
 		[self replaceValue:proxy forKey:@"leftNavButton" notification:NO];
@@ -293,6 +392,7 @@
 			{
 				[(TiViewProxy*)item removeBarButtonView];
 			}
+			controller.navigationItem.leftBarButtonItem = nil;			
 			if (proxy!=nil)
 			{
 				// add the new one
@@ -340,6 +440,11 @@
 -(void)_refreshBackButton
 {
 	ENSURE_UI_THREAD_0_ARGS;
+	
+	if (controller == nil || [controller navigationController] == nil) {
+		return; // No need to refresh
+	}
+	
 	NSArray * controllerArray = [[controller navigationController] viewControllers];
 	int controllerPosition = [controllerArray indexOfObject:controller];
 	if ((controllerPosition == 0) || (controllerPosition == NSNotFound))
@@ -397,6 +502,11 @@
 -(void)updateTitleView
 {
 	UIView * newTitleView = nil;
+	
+	if (controller == nil || [controller navigationController] == nil) {
+		return; // No need to update the title if not in a nav controller
+	}
+	
 	UINavigationItem * ourNavItem = [controller navigationItem];
 
 	TiViewProxy * titleControl = [self valueForKey:@"titleControl"];
@@ -457,7 +567,7 @@
 	ENSURE_UI_THREAD(setTitle,title_);
 	NSString *title = [TiUtils stringValue:title_];
 	[self replaceValue:title forKey:@"title" notification:NO];
-	if (controller!=nil)
+	if (controller!=nil && [controller navigationController] != nil)
 	{
 		controller.navigationItem.title = title;
 	}
@@ -468,7 +578,7 @@
 	ENSURE_UI_THREAD(setTitlePrompt,title_);
 	NSString *title = [TiUtils stringValue:title_];
 	[self replaceValue:title forKey:@"titlePrompt" notification:NO];
-	if (controller!=nil)
+	if (controller!=nil && [controller navigationController] != nil)
 	{
 		controller.navigationItem.prompt = title;
 	}
@@ -585,7 +695,7 @@ else{\
 }
 
 -(void)setupWindowDecorations
-{
+{	
 	if (controller!=nil)
 	{
 		[[controller navigationController] setToolbarHidden:!hasToolbar animated:YES];

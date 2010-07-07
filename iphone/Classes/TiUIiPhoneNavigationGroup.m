@@ -12,9 +12,27 @@
 
 @implementation TiUIiPhoneNavigationGroup
 
+-(void)setVisibleProxy:(TiWindowProxy *) newVisibleProxy
+{
+	if (newVisibleProxy == visibleProxy)
+	{
+		return;
+	}
+	[visibleProxy _tabBeforeBlur];
+	[visibleProxy _tabBlur];
+	[visibleProxy autorelease];
+
+	visibleProxy = [newVisibleProxy retain];
+	[newVisibleProxy _tabBeforeFocus];
+	[newVisibleProxy _tabFocus];
+}
+
 -(void)dealloc
 {
 	RELEASE_TO_NIL(controller);
+	
+	[self setVisibleProxy:nil];
+	//This is done this way so that proper methods are called as well.
 	[super dealloc];
 }
 
@@ -30,10 +48,10 @@
 		UIViewController *rootController = [windowProxy controller];	
 		controller = [[UINavigationController alloc] initWithRootViewController:rootController];
 		[controller setDelegate:self];
-		windowProxy.navController = controller;
 		[self addSubview:controller.view];
-       [controller.view addSubview:[windowProxy view]];
-		[windowProxy setupWindowDecorations];
+		[controller.view addSubview:[windowProxy view]];
+		[windowProxy prepareForNavView:controller];
+		
 		current = windowProxy;
 		root = windowProxy;
 	}
@@ -53,6 +71,28 @@
 -(void)setWindow_:(id)window
 {
 	[self controller];
+}
+
+-(void)close
+{
+	if (controller!=nil)
+	{
+		for (UIViewController *viewController in controller.viewControllers)
+		{
+			UIView *view = viewController.view;
+			if ([view isKindOfClass:[TiUIWindow class]])
+			{
+				TiWindowProxy *win =(TiWindowProxy*) ((TiUIWindow*)view).proxy;
+				[win retain];
+				[[win view] removeFromSuperview];
+				[win close:nil];
+				[win autorelease];
+			}
+		}
+		[controller.view removeFromSuperview];
+		[controller resignFirstResponder];
+		RELEASE_TO_NIL(controller);
+	}
 }
 
 -(void)open:(TiWindowProxy*)window withObject:(NSDictionary*)properties
@@ -90,11 +130,14 @@
     TiWindowProxy *newWindow = [(TiWindowViewController*)viewController proxy];
 	[newWindow prepareForNavView:controller];
 	[newWindow setupWindowDecorations];
+	
+	[newWindow windowWillOpen];
 }
 - (void)navigationController:(UINavigationController *)navigationController didShowViewController:(UIViewController *)viewController animated:(BOOL)animated
 {
 	TiWindowViewController *wincontroller = (TiWindowViewController*)viewController;
 	TiWindowProxy *newWindow = [wincontroller proxy];
+	[self setVisibleProxy:newWindow];
 	if (newWindow==current || newWindow==root)
 	{
 		return;
@@ -109,6 +152,7 @@
 		current = newWindow;
 	}
 	opening = NO;
+	[newWindow windowDidOpen];
 }
 
 

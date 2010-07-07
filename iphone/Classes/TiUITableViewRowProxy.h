@@ -17,7 +17,8 @@ typedef enum
 {
     TiCellBackgroundViewPositionTop, 
     TiCellBackgroundViewPositionMiddle, 
-    TiCellBackgroundViewPositionBottom
+    TiCellBackgroundViewPositionBottom,
+	TiCellBackgroundViewPositionSingleLine
 } TiCellBackgroundViewPosition;
 
 @interface TiUITableViewRowProxy : TiViewProxy <TiProxyDelegate>
@@ -27,11 +28,12 @@ typedef enum
 	TiUITableView *table;
 	TiUITableViewSectionProxy *section;
 	TiDimension height;
+	BOOL configuredChildren;
 	
 	UIView * rowContainerView;
 	BOOL modifyingRow;
+	BOOL attaching;
 	NSInteger row;
-	
 	TiUITableViewCell* callbackCell;
 }
 
@@ -41,17 +43,18 @@ typedef enum
 
 #pragma mark Framework
 
-@property(nonatomic,readwrite,assign) TiUITableView *table;
+@property(nonatomic,readwrite,retain) TiUITableView *table;
 @property(nonatomic,readwrite,assign) TiUITableViewSectionProxy *section;
 @property(nonatomic,readwrite,assign) NSInteger row;
 @property(nonatomic,readwrite,assign) TiUITableViewCell* callbackCell;
 
 -(void)initializeTableViewCell:(UITableViewCell*)cell;
 -(void)renderTableViewCell:(UITableViewCell*)cell;
--(CGFloat)rowHeight:(CGRect)bounds;
+-(CGFloat)sizeWidthForDecorations:(CGFloat)oldWidth forceResizing:(BOOL)force;
+-(CGFloat)rowHeight:(CGFloat)width;
 -(TiProxy *)touchedViewProxyInCell:(UITableViewCell *)targetCell;
 -(id)createEventObject:(id)initialObject;
-
+-(void)triggerAttach;
 -(void)updateRow:(NSDictionary*)data withObject:(NSDictionary*)properties;
 
 @end

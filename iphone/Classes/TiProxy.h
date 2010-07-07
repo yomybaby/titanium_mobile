@@ -35,7 +35,7 @@ typedef enum {
 } TiProxyBridgeType;
 
 
-@protocol TiProxyDelegate
+@protocol TiProxyDelegate<NSObject>
 
 @required
 
@@ -47,6 +47,8 @@ typedef enum {
 
 -(void)listenerAdded:(NSString*)type count:(int)count;
 -(void)listenerRemoved:(NSString*)type count:(int)count;
+
+-(void)detachProxy;
 
 @end
 
@@ -103,10 +105,13 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 -(void)didReceiveMemoryWarning:(NSNotification*)notification;
 -(TiProxy*)currentWindow;
 -(void)contextShutdown:(id)sender;
+-(id)toString:(id)args;
+-(BOOL)destroyed;
 
 #pragma mark Public 
 -(id<NSFastEnumeration>)allKeys;
--(void)setValuesForKeysWithDictionary:(NSDictionary *)keyedValues usingKeys:(id<NSFastEnumeration>)keys;
+-(NSArray *)keySequence;
+
 +(void)throwException:(NSString *) reason subreason:(NSString*)subreason location:(NSString *)location;
 -(void)throwException:(NSString *) reason subreason:(NSString*)subreason location:(NSString *)location;
 -(void)addEventListener:(NSArray*)args;

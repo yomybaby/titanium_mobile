@@ -1,6 +1,16 @@
 var win = Titanium.UI.currentWindow;
 win.backgroundColor = '#fff';
 
+Ti.include("version.js");
+
+if (isIPhone3_2_Plus())
+{
+	//NOTE: starting in 3.2+, you'll need to set the applications
+	//purpose property for using Location services on iPhone
+	Ti.Geolocation.purpose = "GPS demo";
+}
+
+
 var currentHeadingLabel = Titanium.UI.createLabel({
 	text:'Current Heading (One Shot)',
 	font:{fontSize:12, fontWeight:'bold'},
@@ -289,6 +299,7 @@ else
 		if (e.error)
 		{
 			currentLocation.text = 'error: ' + JSON.stringify(e.error);
+			alert('error ' + JSON.stringify(e.error))
 			return;
 		}
 
@@ -363,17 +374,19 @@ else
 
 	
 }
-var addr = "444 Castro Street, Mountain View, CA 94041";
+var addr = "2065 Hamilton Avenue San Jose California 95125";
 
 Titanium.Geolocation.forwardGeocoder(addr,function(evt)
 {
+	Ti.API.info('in forward ')
 	forwardGeo.text = "lat:"+evt.latitude+", long:"+evt.longitude;
 	Titanium.Geolocation.reverseGeocoder(evt.latitude,evt.longitude,function(evt)
 	{
 		var text = "";
 		for (var i = 0; i < evt.places.length; i++) {
-			text += "" + i + ") " + evt.places[i].displayAddress + "\n"; 
+			text += "" + i + ") " + evt.places[i].address + "\n"; 
 		}
+		Ti.API.info('Reversed forward: '+text);
 	});
 });
 

@@ -20,30 +20,29 @@
 #import "TiViewProxy.h"
 #import "TiComplexValue.h"
 
+
+NSArray * tableKeySequence;
+
 @implementation TiUITableViewProxy
 
-#pragma mark Internal 
+#pragma mark Internal
 
--(id<NSFastEnumeration>)allKeys
+
+-(NSArray *)keySequence
 {
-	NSArray * result = (NSArray *)[super allKeys];
-	if (![result containsObject:@"data"])
+	if (tableKeySequence == nil)
 	{
-		return result;
+		tableKeySequence = [[NSArray arrayWithObjects:@"style",@"search",@"data",nil] retain];
 	}
-	result = [NSMutableArray arrayWithArray:result];
-	[(NSMutableArray *)result removeObject:@"data"];
-	[(NSMutableArray *)result insertObject:@"data" atIndex:0];
-	return result;
+	return tableKeySequence;
 }
-
 
 -(TiUITableView*)tableView
 {
 	return (TiUITableView*)[self view];
 }
 
--(TiUITableViewRowProxy*)newTableViewRowFromDict:(NSDictionary*)data
+-(TiUITableViewRowProxy*)makeTableViewRowFromDict:(NSDictionary*)data
 {
 	TiUITableViewRowProxy *proxy = [[[TiUITableViewRowProxy alloc] _initWithPageContext:[self executionContext]] autorelease];
 	[proxy _initWithProperties:data];
@@ -56,7 +55,7 @@
 	
 	if ([data isKindOfClass:[NSDictionary class]])
 	{
-		row = [self newTableViewRowFromDict:data];
+		row = [self makeTableViewRowFromDict:data];
 	}
 	else if ([data isKindOfClass:[TiUITableViewRowProxy class]])
 	{
@@ -72,11 +71,16 @@
 
 -(NSMutableArray*)sections
 {
-	NSMutableArray *sections = [self valueForKey:@"data"];;
-	if (sections == nil)
+	NSMutableArray *sections;
+	@synchronized(self)
 	{
-		sections = [NSMutableArray array];
-		[self replaceValue:sections forKey:@"data" notification:YES];
+		sections = [self valueForKey:@"data"];
+		if (sections == nil)
+		{
+			sections = [NSMutableArray array];
+			[self replaceValue:sections forKey:@"data" notification:YES];
+		}
+		[[sections retain] autorelease];
 	}
 	return sections;
 }
@@ -248,7 +252,7 @@
 	
 	if ([sections count]==0)
 	{
-		[self throwException:@"no rows found" subreason:nil location:CODELOCATION];
+		NSLog(@"[WARN] no rows found in table, ignoring delete");
 		return;
 	}
 	
@@ -257,7 +261,7 @@
 	
 	if (section==nil || row == nil)
 	{
-		[self throwException:@"no row found for index" subreason:nil location:CODELOCATION];
+		NSLog(@"[WARN] no row found for index: %d",index);
 		return;
 	}
 	
@@ -358,7 +362,8 @@
         TiUITableViewActionType actionType = TiUITableViewActionAppendRow;
         if (header != nil) {
             TiUITableViewSectionProxy *newSection = [[[TiUITableViewSectionProxy alloc] _initWithPageContext:[self executionContext] args:nil] autorelease];
-            
+			[newSection replaceValue:header forKey:@"headerTitle" notification:NO];
+			
             newSection.section = [sections count];
             newSection.table = table;
 			newSection.parent = [table proxy];
@@ -376,7 +381,7 @@
         
         // Have to do this after the action or else there's an update of a nonexistant section
         if (header != nil) {
-            [section setValue:header forUndefinedKey:@"headerTitle"];
+			[section replaceValue:header forKey:@"headerTitle" notification:NO];
         }
 	}	
 }
@@ -384,7 +389,6 @@
 -(void)setData:(id)args withObject:(id)properties
 {
 	ENSURE_TYPE_OR_NIL(args,NSArray);
-	ENSURE_UI_THREAD_WITH_OBJ(setData,args,properties);
 	
 	// this is on the non-UI thread. let's do the work here before we pass
 	// it over to the view which will be on the UI thread
@@ -392,9 +396,7 @@
 	Class dictionaryClass = [NSDictionary class];
 	Class sectionClass = [TiUITableViewSectionProxy class];
 	Class rowClass = [TiUITableViewRowProxy class];
-	
-	TiUITableView *table = [self tableView];
-	
+		
 	NSMutableArray *data = [NSMutableArray array];
 	
 	TiUITableViewSectionProxy *section = nil;
@@ -404,7 +406,7 @@
 		if ([row isKindOfClass:dictionaryClass])
 		{
 			NSDictionary *dict = (NSDictionary*)row;
-			TiUITableViewRowProxy *rowProxy = [self newTableViewRowFromDict:dict];
+			TiUITableViewRowProxy *rowProxy = [self makeTableViewRowFromDict:dict];
 			NSString *header = [dict objectForKey:@"header"];
 			if (section == nil || header!=nil)
 			{
@@ -415,12 +417,12 @@
 			}
 			if (header!=nil)
 			{
-				[section setValue:header forUndefinedKey:@"headerTitle"];
+				[section replaceValue:header forKey:@"headerTitle" notification:NO];
 			}
 			NSString *footer = [dict objectForKey:@"footer"];
 			if (footer!=nil)
 			{
-				[section setValue:footer forUndefinedKey:@"footerTitle"];
+				[section replaceValue:footer forKey:@"footerTitle" notification:NO];
 			}
 			[section add:rowProxy];
 		}
@@ -438,21 +440,26 @@
 				section = [[[TiUITableViewSectionProxy alloc] _initWithPageContext:[self executionContext] args:nil] autorelease];
 				if (rowHeader!=nil)
 				{
-					[section setValue:rowHeader forUndefinedKey:@"headerTitle"];
+					[section replaceValue:rowHeader forKey:@"headerTitle" notification:NO];
 				}
+				section.section = [data count];
+				TiUITableView *table = [self tableView];
+				section.table = table;
+				section.parent = [table proxy];
 				[data addObject:section];
 			}
 			if (rowFooter!=nil)
 			{
-				[section setValue:rowFooter forUndefinedKey:@"footerTitle"];
+				[section replaceValue:rowFooter forKey:@"footerTitle" notification:NO];
 			}
 			[section add:row];
 		}
 	}
 	
 	[self replaceValue:data forKey:@"data" notification:NO];
-
+	
 	TiUITableViewAction *action = [[[TiUITableViewAction alloc] initWithRow:nil animation:properties section:0 type:TiUITableViewActionSetData] autorelease];
+	TiUITableView *table = [self tableView];
 	[table dispatchAction:action];
 }
 
@@ -479,6 +486,7 @@
 	}
 	[[self view] performSelector:@selector(setContentInsets_:withObject:) withObject:arg1 withObject:arg2];
 }
+
 
 @end 
 

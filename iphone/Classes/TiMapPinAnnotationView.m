@@ -36,9 +36,16 @@
 	return self;
 }
 
+-(void)dealloc
+{
+	RELEASE_TO_NIL(lastHitName);
+	[super dealloc];
+}
+
 -(NSString *)lastHitName
 {
 	NSString * result = lastHitName;
+	[lastHitName autorelease];
 	lastHitName = nil;
 	return result;
 }
@@ -47,7 +54,7 @@
 - (UIView *)hitTest:(CGPoint) point withEvent:(UIEvent *)event 
 {
     UIView * result = [super hitTest:point withEvent:event];
-
+	
 	if (result==nil)
 	{
 		for (UIView * ourSubView in [self subviews])
@@ -56,34 +63,32 @@
 			for (UIView * ourSubSubView in [ourSubView subviews])
 			{
 				if (CGRectContainsPoint([ourSubSubView frame], subPoint) &&
-						[ourSubSubView isKindOfClass:[UILabel class]])
+					[ourSubSubView isKindOfClass:[UILabel class]])
 				{
 					NSString * labelText = [(UILabel *)ourSubSubView text];
 					TiMapAnnotationProxy * ourProxy = (TiMapAnnotationProxy *)[self annotation];
+					RELEASE_TO_NIL(lastHitName);
 					if ([labelText isEqualToString:[ourProxy title]])
 					{
-						lastHitName = @"title";
+						lastHitName = [@"title" retain];
 					}
 					else if ([labelText isEqualToString:[ourProxy subtitle]])
 					{
-						lastHitName = @"subtitle";
+						lastHitName = [@"subtitle" retain];
 					}
-					else
-					{
-						lastHitName = nil;
-					}
+
 					return nil;
 				}
 			}
 			if (CGRectContainsPoint([ourSubView bounds], subPoint))
 			{
-				lastHitName = @"annotation";
+				RELEASE_TO_NIL(lastHitName);
+				lastHitName = [@"annotation" retain];
 				return nil;
 			}
-	
 		}
 	}
-	lastHitName = nil;
+	RELEASE_TO_NIL(lastHitName);
 	return result;
 }
 

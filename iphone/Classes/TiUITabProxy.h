@@ -20,6 +20,7 @@
 	
 	TiUITabGroupProxy *tabGroup;
 	TiUITabController *current;
+	TiWindowProxy *closingWindow;
 	BOOL opening;
 	BOOL systemTab;
 }
@@ -32,8 +33,8 @@
 #pragma mark Public APIs
 
 -(TiProxy*)tabGroup;
--(void)open:(NSArray*)args;
--(void)close:(NSArray*)args;
+-(void)open:(id)args;
+-(void)close:(id)args;
 -(void)setTitle:(id)title;
 -(void)setIcon:(id)title;
 -(void)setBadge:(id)title;

@@ -35,6 +35,7 @@
 @private
 	BOOL opening;
 	BOOL attached;
+	BOOL closing;
 	BOOL splashTransitionAnimation;
 	int transitionAnimation;
 	NSMutableArray *reattachWindows;
@@ -48,6 +49,7 @@
 
 @property(nonatomic,readonly)	NSNumber *opened;
 @property(nonatomic,readonly)	NSNumber *focused;
+@property(nonatomic,readonly)	BOOL closing;
 
 -(void)open:(id)args;
 -(void)close:(id)args;
@@ -65,6 +67,7 @@
 @property(nonatomic,readwrite,retain)	UIViewController *controller;
 @property(nonatomic,readwrite,retain)	UINavigationController *navController;
 
+-(void)replaceController;
 -(UIWindow*)_window;
 -(BOOL)_handleOpen:(id)args;
 -(BOOL)_handleClose:(id)args;

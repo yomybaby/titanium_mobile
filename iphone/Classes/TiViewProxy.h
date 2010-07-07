@@ -23,6 +23,7 @@
 
 	LayoutConstraint layoutProperties;
 
+	BOOL windowOpened;
 	int dirtyflags;	//For atomic actions, best to be explicit about the 32 bitness.
 
 //From TiUIWidgetProxy
@@ -31,21 +32,17 @@
 
 @private
 	//Cocoa doesn't have a readwrite lock, so we use pthreads.
-	pthread_rwlock_t rwChildrenLock;
+	NSRecursiveLock *childrenLock;
 	NSMutableArray *children;
 	TiUIView *view;
 	TiViewProxy *parent;
 	BOOL viewInitialized;
+	NSMutableArray *pendingAdds;
+	
 #if USE_VISIBLE_BOOL
 	BOOL visible;
 #endif
 }
-
-//ALWAYS use these when accessing children. For best results, treat this as brackets in a block (IE, indent code inside)
--(void)lockChildrenForReading;
--(void)lockChildrenForWriting;
--(void)unlockChildren;
-
 
 @property(nonatomic,readwrite,assign) LayoutConstraint * layoutProperties;
 
@@ -73,12 +70,19 @@
 
 -(BOOL)viewAttached;
 -(BOOL)viewInitialized;
--(void)layoutChildren;
+-(void)layoutChildren:(BOOL)optimize;
 -(void)layoutChildrenIfNeeded;
--(void)layoutChild:(TiViewProxy*)child;
+-(void)layoutChild:(TiViewProxy*)child optimize:(BOOL)optimize;
+-(void)windowWillOpen;
+-(void)windowDidOpen;
+-(BOOL)windowOpened;
+
+-(void)setWidth:(id)value;
+-(void)setHeight:(id)value;
 
 -(void)animationCompleted:(TiAnimation*)animation;
 -(void)detachView;
+-(BOOL)shouldDetachViewOnUnload;
 -(void)destroy;
 -(void)setParent:(TiProxy*)parent;
 
@@ -111,7 +115,7 @@
 
 -(BOOL)willBeRelaying;
 -(void)childWillResize:(TiViewProxy *)child;
-
+-(BOOL)isAutoHeightOrWidth;
 -(BOOL)canHaveControllerParent;
 
 @end

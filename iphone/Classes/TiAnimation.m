@@ -25,6 +25,7 @@
 @synthesize zIndex, left, right, top, bottom, width, height;
 @synthesize duration, color, backgroundColor, opacity, opaque, view;
 @synthesize visible, curve, repeat, autoreverse, delay, transform, transition;
+@synthesize animatedView, autoreverseView, autoreverseLayout, transformMatrix, callback;
 
 -(id)initWithDictionary:(NSDictionary*)properties context:(id<TiEvaluator>)context_ callback:(KrollCallback*)callback_
 {
@@ -152,6 +153,7 @@ self.p = v;\
 	RELEASE_TO_NIL(view);
 	RELEASE_TO_NIL(autoreverseView);
 	RELEASE_TO_NIL(transformMatrix);
+	RELEASE_TO_NIL(animatedView);
 	[super dealloc];
 }
 
@@ -234,15 +236,16 @@ self.p = v;\
 	NSLog(@"ANIMATION: STARTING %@, %@",self,(id)context);
 #endif
 	
-	if (delegate!=nil && [delegate respondsToSelector:@selector(animationDidStart:)])
+	TiAnimation* animation = (TiAnimation*)context;
+	if (animation.delegate!=nil && [animation.delegate respondsToSelector:@selector(animationDidStart:)])
 	{
-		[delegate performSelector:@selector(animationDidStart:) withObject:self];
+		[animation.delegate performSelector:@selector(animationDidStart:) withObject:animation];
 	}
 	
 	// fire the event to any listeners on the animation object
-	if ([self _hasListeners:@"start"])
+	if ([animation _hasListeners:@"start"])
 	{
-		[self fireEvent:@"start" withObject:nil];
+		[animation fireEvent:@"start" withObject:nil];
 	}
 }
 
@@ -252,47 +255,63 @@ self.p = v;\
 	NSLog(@"ANIMATION: COMPLETED %@, %@",self,(id)context);
 #endif
 	
-	if (autoreverseView!=nil)
+	TiAnimation* animation = (TiAnimation*)context;
+	if (animation.autoreverseView!=nil)
 	{
-		if (transformMatrix==nil)
+#define REVERSE_LAYOUT_CHANGE(a) \
+{\
+if (!TiDimensionIsUndefined(autoreverseLayout.a)) {\
+		newLayout->a = animation.autoreverseLayout.a;\
+}\
+}
+		if (animation.transformMatrix==nil)
 		{
-			transformMatrix = [[Ti2DMatrix alloc] init];
+			animation.transformMatrix = [[Ti2DMatrix alloc] init];
 		}
-		[autoreverseView performSelector:@selector(setTransform_:) withObject:transformMatrix];
-		RELEASE_TO_NIL(transformMatrix);
-		RELEASE_TO_NIL(autoreverseView);
+		[animation.autoreverseView performSelector:@selector(setTransform_:) withObject:animation.transformMatrix];
+		LayoutConstraint* newLayout = [(TiViewProxy *)[(TiUIView*)animation.autoreverseView proxy] layoutProperties];
+		REVERSE_LAYOUT_CHANGE(left);
+		REVERSE_LAYOUT_CHANGE(right);
+		REVERSE_LAYOUT_CHANGE(width);
+		REVERSE_LAYOUT_CHANGE(height);
+		REVERSE_LAYOUT_CHANGE(top);
+		REVERSE_LAYOUT_CHANGE(bottom);
+		[(TiViewProxy*)[(TiUIView*)animation.autoreverseView proxy] reposition];
+		
+		RELEASE_TO_NIL(animation.transformMatrix);
+		RELEASE_TO_NIL(animation.autoreverseView);
 	}
 	
-	if (delegate!=nil && [delegate respondsToSelector:@selector(animationWillComplete:)])
+	if (animation.delegate!=nil && [animation.delegate respondsToSelector:@selector(animationWillComplete:)])
 	{
-		[delegate animationWillComplete:self];
+		[animation.delegate animationWillComplete:self];
 	}	
 	
 	// fire the event and call the callback
-	if ([self _hasListeners:@"complete"])
+	if ([animation _hasListeners:@"complete"])
 	{
-		[self fireEvent:@"complete" withObject:nil];
+		[animation fireEvent:@"complete" withObject:nil];
 	}
 	
-	if (callback!=nil && [callback context]!=nil)
+	if (animation.callback!=nil && [animation.callback context]!=nil)
 	{
-		[self _fireEventToListener:@"animated" withObject:self listener:[callback listener] thisObject:nil];
+		[animation _fireEventToListener:@"animated" withObject:animation listener:[animation.callback listener] thisObject:nil];
 	}
 	
 	// tell our view that we're done
-	if ([(id)context isKindOfClass:[TiUIView class]])
+	if ([(id)animation.animatedView isKindOfClass:[TiUIView class]])
 	{
-		TiUIView *v = (TiUIView*)context;
-		[(TiViewProxy*)v.proxy animationCompleted:self];
+		TiUIView *v = (TiUIView*)animation.animatedView;
+		[(TiViewProxy*)v.proxy animationCompleted:animation];
 	}
 	
-	if (delegate!=nil && [delegate respondsToSelector:@selector(animationDidComplete:)])
+	if (animation.delegate!=nil && [animation.delegate respondsToSelector:@selector(animationDidComplete:)])
 	{
-		[delegate animationDidComplete:self];
+		[animation.delegate animationDidComplete:animation];
 	}	
 	
-	[self release];
-	[(id)context release];
+	RELEASE_TO_NIL(animation.animatedView);
+	[animation release];
 }
 
 -(BOOL)isTransitionAnimation
@@ -360,7 +379,7 @@ self.p = v;\
 		TiViewProxy * ourProxy = (TiViewProxy*)[view_ proxy];
 		LayoutConstraint *contraints = [ourProxy layoutProperties];
 		ApplyConstraintToViewWithinViewWithBounds(contraints, view_, transitionView, transitionView.bounds, NO);
-		[ourProxy layoutChildren];
+		[ourProxy layoutChildren:NO];
 	}
 	else
 	{
@@ -378,7 +397,10 @@ self.p = v;\
 	[self retain];
 	[theview retain];
 	
-	[UIView beginAnimations:[NSString stringWithFormat:@"%X",(void *)theview] context:(void*)theview];
+	animatedView = theview;
+	// Have to pass self as context because if there are two or more animations going on, the wrong
+	// autoreverse cleanup/view release may be applied to the animation.
+	[UIView beginAnimations:[NSString stringWithFormat:@"%X",(void *)theview] context:(void*)self];
 	[UIView setAnimationDelegate:self];
 	[UIView setAnimationWillStartSelector:@selector(animationStarted:context:)];
 	[UIView setAnimationDidStopSelector:@selector(animationCompleted:finished:context:)];
@@ -409,6 +431,10 @@ self.p = v;\
 	if (autoreverse!=nil)
 	{	
 		autoreverses = [autoreverse boolValue];
+		if (autoreverseView==nil)
+		{
+			autoreverseView = [view_ retain];
+		}
 		[UIView setAnimationRepeatAutoreverses:autoreverses];
 	}
 	
@@ -428,10 +454,6 @@ self.p = v;\
 	{
 		if (autoreverses)
 		{
-			if (autoreverseView==nil)
-			{
-				autoreverseView = [view_ retain];
-			}
 			transformMatrix = [[(TiUIView*)view_ transformMatrix] retain];
 		}
 		
@@ -442,15 +464,21 @@ self.p = v;\
 	{
 		TiUIView *uiview = (TiUIView*)view_;
 		LayoutConstraint *layout = [(TiViewProxy *)[uiview proxy] layoutProperties];
+		
+
 		BOOL doReposition = NO;
 		
 #define CHECK_LAYOUT_CHANGE(a) \
 if (a!=nil && layout!=NULL) \
 {\
+		autoreverseLayout.a = layout->a; \
 		layout->a = TiDimensionFromObject(a); \
 		doReposition = YES;\
 }\
-	
+else \
+{\
+		autoreverseLayout.a = TiDimensionUndefined; \
+}
 		CHECK_LAYOUT_CHANGE(left);
 		CHECK_LAYOUT_CHANGE(right);
 		CHECK_LAYOUT_CHANGE(width);

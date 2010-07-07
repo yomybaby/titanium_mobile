@@ -3,7 +3,7 @@
 #
 # Titanium SDK script
 #
-import os, sys, subprocess, types
+import os, sys, subprocess, types, re, uuid
 from tiapp import *
 
 template_dir = os.path.abspath(os.path.dirname(sys._getframe(0).f_code.co_filename))
@@ -12,14 +12,18 @@ def die(msg):
 	print msg
 	sys.exit(1)
 	
+def validate_project_name(name):
+	if re.match("^[A-Za-z]+[A-Za-z0-9_-]*",name)==None:
+		die("Invalid project name: %s" % name)
+		
 def fork(args,quiet=False):
+#	print args
 	proc = subprocess.Popen(args, stderr=subprocess.STDOUT, stdout=subprocess.PIPE)
 	while proc.poll()==None:
 		line = proc.stdout.readline()
 		if line and not quiet:
 			print line.strip()
 			sys.stdout.flush()
-#	print proc.exitCode		
 
 def is_module_project(dir):
 	if os.path.exists(os.path.join(dir,'manifest')) and os.path.exists(os.path.join(dir,'titanium.xcconfig')):
@@ -41,8 +45,10 @@ def detect_platforms(dir):
 		platforms.append('android')
 	return platforms
 	
-def check_valid_project(dir):
+def check_valid_project(dir,cwd):
 	if not is_valid_project(dir):
+		if is_valid_project(cwd):
+			return cwd
 		die("%s does not contain a valid project" % dir)
 	return dir
 		
@@ -90,50 +96,59 @@ def is_ios(osname):
 def create_iphone_project(project_dir,osname,args):
 	script = os.path.join(template_dir,'project.py')
 	name = get_required(args,'name')
+	validate_project_name(name)
 	appid = get_required(args,'id')
 	args = [script,name,appid,project_dir,osname]
 	fork(args,True)
 	print "Created %s application project" % osname
+	return os.path.join(project_dir,name)
 	
 def create_iphone_module(project_dir,osname,args):
 	script = os.path.join(template_dir,'module','module.py')
 	name = get_required(args,'name')
+	validate_project_name(name)
 	appid = get_required(args,'id')
 	args = [script,'--name',name,'--id',appid,'--directory',project_dir,'--platform',osname]
 	fork(args,False)
 	print "Created %s module project" % osname
+	return os.path.join(project_dir,name)
 
 def create_android_project(project_dir,osname,args):
 	script = os.path.join(template_dir,'project.py')
 	name = get_required(args,'name')
+	validate_project_name(name)
 	appid = get_required(args,'id')
 	android_sdk = get_required_dir(args,'android')
 	args = [script,name,appid,project_dir,osname,android_sdk]
 	fork(args,True)
 	print "Created %s application project" % osname
+	return os.path.join(project_dir,name)
 
 def create_android_module(project_dir,osname,args):
+	die("android modules aren't supported in this release")
 	script = os.path.join(template_dir,'module','module.py')
 	name = get_required(args,'name')
+	validate_project_name(name)
 	appid = get_required(args,'id')
 	android_sdk = get_required_dir(args,'android')
 	args = [script,'--name',name,appid,'--directory',project_dir,'--platform',osname,'--sdk',android_sdk]
 	fork(args,True)
 	print "Created %s module project" % osname
+	return os.path.join(project_dir,name)
 
 def create_mobile_project(osname,project_dir,args):
 	if is_ios(osname):
-		create_iphone_project(project_dir,osname,args)
+		return create_iphone_project(project_dir,osname,args)
 	elif osname == 'android':
-		create_android_project(project_dir,osname,args)
+		return create_android_project(project_dir,osname,args)
 	else:
 		die("Unknown platform: %s" % osname)
 
 def create_module_project(osname,project_dir,args):
 	if is_ios(osname):
-		create_iphone_module(project_dir,osname,args)
+		return create_iphone_module(project_dir,osname,args)
 	elif osname == 'android':
-		create_android_module(project_dir,osname,args)
+		return create_android_module(project_dir,osname,args)
 	else:
 		die("Unknown platform: %s" % osname)
 	
@@ -146,21 +161,33 @@ def create(args):
 	project_dir = get_required(args,'dir')
 	platform = get_required(args,'platform')
 	atype = get_optional(args,'type','project')
+	dir = None
 	if type(platform)==types.ListType:
 		for osname in platform:
 			if atype == 'project':
-				create_mobile_project(osname,project_dir,args)
+				dir = create_mobile_project(osname,project_dir,args)
 			elif atype == 'module':
-				create_module_project(osname,project_dir,args)
+				dir = create_module_project(osname,project_dir,args)
 			else:
 				die("Unknown type: %s" % atype)
 	else:
 		if atype == 'project':
-			create_mobile_project(platform,project_dir,args)
+			dir = create_mobile_project(platform,project_dir,args)
 		elif atype == 'module':
-			create_module_project(platform,project_dir,args)
+			dir = create_module_project(platform,project_dir,args)
 		else:
 			die("Unknown type: %s" % atype)
+		
+		# we need to generate a GUID since Ti Developer does this currently
+		tiapp = os.path.join(dir,'tiapp.xml')
+		if os.path.exists(tiapp):
+			guid = str(uuid.uuid4())
+			xml = open(tiapp).read()
+			xml = xml.replace('<guid></guid>','<guid>%s</guid>' % guid)
+			fout = open(tiapp,'w')
+			fout.write(xml)
+			fout.close()
+			
 		
 def build(args):
 	print args
@@ -173,38 +200,44 @@ def run_module_args(args,script,project_dir,platform):
 	return [script,"run",platform,project_dir]
 		
 def dyn_run(args,project_cb,module_cb):
-	project_dir = check_valid_project(args['dir'])
-	platform = None
-	atype = get_optional(args,'type',None)
-	is_module = is_module_project(project_dir) 
-	if is_module:
-		manifest = read_manifest(project_dir)
-		platform = manifest['platform']
-		atype = 'module'
-	if atype == None:
-		atype = 'project'
-	if platform == None:
-		if not has_config(args,'platform'):
-			platforms = detect_platforms(project_dir)
-			if len(platforms)==0 or len(platforms)>1:
-				get_required(args,'platform')
+	cwd = os.getcwd()
+	project_dir = check_valid_project(args['dir'],cwd)
+	try:
+		os.chdir(project_dir)
+		platform = None
+		atype = get_optional(args,'type',None)
+		is_module = is_module_project(project_dir) 
+		if is_module:
+			manifest = read_manifest(project_dir)
+			platform = manifest['platform']
+			atype = 'module'
+		if atype == None:
+			atype = 'project'
+		if platform == None:
+			if not has_config(args,'platform'):
+				platforms = detect_platforms(project_dir)
+				if len(platforms)==0 or len(platforms)>1:
+					get_required(args,'platform')
+				else:
+					platform = platforms[0]
 			else:
-				platform = platforms[0]
+				platform = get_required(args,'platform')
+		if atype == 'project':
+			script = os.path.join(template_dir,platform,'builder.py')
+			cmdline = project_cb(args,script,project_dir,platform)
+		elif atype == 'module':
+			script = os.path.join(template_dir,'module','builder.py')
+			cmdline = module_cb(args,script,project_dir,platform)
 		else:
-			platform = get_required(args,'platform')
-	if atype == 'project':
-		script = os.path.join(template_dir,platform,'builder.py')
-		cmdline = project_cb(args,script,project_dir,platform)
-	elif atype == 'module':
-		script = os.path.join(template_dir,'module','builder.py')
-		cmdline = module_cb(args,script,project_dir,platform)
-	else:
-		die("Unknown type: %s" % atype)
+			die("Unknown type: %s" % atype)
 		
-	if not os.path.exists(script):
-		die("Invalid platform type: %s" % platform)
+		if not os.path.exists(script):
+			die("Invalid platform type: %s" % platform)
 		
-	fork(cmdline,get_optional(args,'quiet',False))
+		fork(cmdline,get_optional(args,'quiet',False))
+		
+	finally:
+		os.chdir(cwd)
 			
 def run(args):
 	dyn_run(args,run_project_args,run_module_args)
@@ -214,7 +247,7 @@ def install_project_args(args,script,project_dir,platform):
 	ti = TiAppXML(tiapp_xml)
 	appid = ti.properties['id']
 	name = ti.properties['name']
-	version = get_optional(args,'ver','3.1')
+	version = get_optional(args,'ver','4.0')
 	return [script,"install",version,project_dir,appid,name]
 	
 def install_module_args(args,script,project_dir,platform):
@@ -228,7 +261,7 @@ def package_project_args(args,script,project_dir,platform):
 	ti = TiAppXML(tiapp_xml)
 	appid = ti.properties['id']
 	name = ti.properties['name']
-	version = get_optional(args,'ver','3.1')
+	version = get_optional(args,'ver','4.0')
 	return [script,"distribute",version,project_dir,appid,name]
 
 def package_module_args(args,script,project_dir,platform):
@@ -258,7 +291,7 @@ def help(args=[],suppress_banner=False):
 			print "Usage: %s create [--platform=p] [--type=t] [--dir=d] [--name=n] [--id=i] [--ver=v]" % os.path.basename(sys.argv[0])
 			print 
 			print "  --platform=p1,p2    platform: iphone, ipad, android, blackberry, etc."
-			print "  --type=t            type of project: mobile, module, template"
+			print "  --type=t            type of project: project, module, template"
 			print "  --dir=d             directory to create the new project"
 			print "  --name=n            project name"
 			print "  --id=i              project id"
@@ -320,12 +353,10 @@ def main(args):
 		
 		# some config can be checked before hand
 		if not config.has_key('dir') or config['dir']==None:
-			print "Missing required --dir argument"
-			print
-			help([command],True)
-		
-		# expand the path
-		config['dir']=os.path.expanduser(config['dir'])
+			config['dir']=os.getcwd()
+		else:	
+			# expand the path
+			config['dir']=os.path.expanduser(config['dir'])
 		
 		# invoke the command
 		c(config)

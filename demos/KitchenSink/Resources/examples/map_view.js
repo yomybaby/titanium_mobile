@@ -36,7 +36,7 @@ var atlantaParams = {
 		latitude:33.74511,
 		longitude:-84.38993,
 		title:"Atlanta, GA",
-		subtitle:'Atlanta Braves Stadium',
+		subtitle:'Atlanta Braves Stadium\nfoo',
 		animate:true,
 		leftButton:'../images/atlanta.jpg',
 		rightButton: Titanium.UI.iPhone.SystemButton.DISCLOSURE,
@@ -65,7 +65,7 @@ var mapview = Titanium.Map.createView({
 	animate:true,
 	regionFit:true,
 	userLocation:true,
-	annotations:[apple]
+	annotations:[atlanta,apple]
 });
 
 mapview.addAnnotation(atlanta);
@@ -107,6 +107,8 @@ if (!isAndroid) {
 } else {
 	atl = Titanium.UI.Android.OptionMenu.createMenuItem({title : 'ATL'});
 }
+// activate annotation
+mapview.selectAnnotation(mapview.annotations[0].title,true);
 
 atl.addEventListener('click', function()
 {
@@ -114,7 +116,7 @@ atl.addEventListener('click', function()
 	mapview.setLocation(regionAtlanta);
 
 	// activate annotation
-	mapview.selectAnnotation(mapview.annotations[1].title,true);
+	mapview.selectAnnotation(mapview.annotations[0].title,true);
 });
 
 // button to change to SV
@@ -135,7 +137,7 @@ sv.addEventListener('click', function()
 	mapview.setLocation(regionSV);
 
 	// activate annotation
-	mapview.selectAnnotation(mapview.annotations[0].title,true);
+	mapview.selectAnnotation(mapview.annotations[1].title,true);
 });
 mapview.addEventListener('complete', function()
 {
@@ -276,15 +278,18 @@ mapview.addEventListener('click',function(evt)
 		evt.annotation.leftButton = 'images/appcelerator_small.png';
 
 	}
-	if (myid == 2 && annotationAdded==false)
+	if (myid == 2)
 	{
-		mapview.addAnnotation(mountainView);
-		annotationAdded=true;
-	}
-	else
-	{
-		mapview.removeAnnotation(mountainView);
-		annotationAdded=false;
+		if(annotationAdded==false)
+		{
+			mapview.addAnnotation(mountainView);
+			annotationAdded=true;
+		}
+		else
+		{
+			mapview.removeAnnotation(mountainView);
+			annotationAdded=false;
+		}
 	}
 });
 
@@ -303,7 +308,7 @@ apple.addEventListener('click', function(evt)
 	// get event properties
 	var annotation = evt.source;
 	var clicksource = evt.clicksource;
-	Ti.API.info('atlanta annotation click clicksource = ' + clicksource)
+	Ti.API.info('apple annotation click clicksource = ' + clicksource)
 
 
 });

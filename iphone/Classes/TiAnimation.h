@@ -8,6 +8,7 @@
 #import "TiPoint.h"
 #import "TiColor.h"
 #import "ListenerEntry.h"
+#import "LayoutConstraint.h"
 #import <QuartzCore/QuartzCore.h>
 
 @class TiViewProxy;
@@ -53,13 +54,23 @@
 	ListenerEntry *callback;
 	
 	NSObject<TiAnimationDelegate> *delegate;
-	
+
+	// for animation delegate
+	UIView* animatedView;
+		
 	// for autoreverse
+	LayoutConstraint autoreverseLayout;
 	UIView *autoreverseView;
 	id transformMatrix;
 }
 
 @property(nonatomic,assign,readwrite) NSObject<TiAnimationDelegate> *delegate;
+
+@property(nonatomic,readwrite,assign) UIView* animatedView;
+@property(nonatomic,readwrite,assign) UIView* autoreverseView;
+@property(nonatomic,readwrite,assign) id transformMatrix;
+@property(nonatomic,readonly) LayoutConstraint autoreverseLayout;
+@property(nonatomic,readonly) ListenerEntry* callback;
 
 // animatable properties against what is being animated
 @property(nonatomic,retain,readwrite) NSNumber	*zIndex;

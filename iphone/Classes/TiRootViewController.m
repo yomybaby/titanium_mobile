@@ -10,6 +10,7 @@
 #import "TiViewProxy.h"
 #import "TiWindowProxy.h"
 #import "TiTab.h"
+#import "TiApp.h"
 #import <MessageUI/MessageUI.h>
 
 @interface TiRootView : UIView
@@ -107,6 +108,10 @@
 	if (lastOrientation == 0)
 	{ //This is when the application first starts. statusBarOrientation lies at the beginning,
 	//And device orientation is 0 until this notification.
+		// FIRST!  We know the orientation now, so attach the splash!
+		if (![[TiApp app] isSplashVisible]) {
+			[[TiApp app] loadSplash];
+		}
 		[self willAnimateRotationToInterfaceOrientation:newOrientation duration:0];
 		return;
 	}
@@ -131,7 +136,8 @@
 	self.view = rootView;
 	[self updateBackground];
 	[self resizeView];
-	for (TiWindowViewController * thisWindowController in windowViewControllers)
+	// we have to make a copy since this code can cause a mutation
+	for (TiWindowViewController * thisWindowController in [[windowViewControllers mutableCopy] autorelease])
 	{
 		if ([thisWindowController isKindOfClass:[TiWindowViewController class]])
 		{
@@ -168,9 +174,10 @@
 
 -(void)repositionSubviews
 {
+	SEL sel = @selector(proxy);
 	for (UIView * subView in [[self view] subviews])
 	{
-		if ([subView respondsToSelector:@selector(proxy)])
+		if ([subView respondsToSelector:sel])
 		{
 			[(TiViewProxy *)[(TiUIView *)subView proxy] reposition];
 		}
@@ -455,5 +462,18 @@
 	
 }
 
+-(UIViewController *)focusedViewController
+{
+	return [windowViewControllers lastObject];
+}
+
+#pragma mark Remote Control Notifications
+
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
+- (void)remoteControlReceivedWithEvent:(UIEvent *)event 
+{ 
+	[[NSNotificationCenter defaultCenter] postNotificationName:kTiRemoteControlNotification object:self userInfo:[NSDictionary dictionaryWithObject:event forKey:@"event"]];
+}
+#endif
 
 @end

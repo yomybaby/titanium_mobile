@@ -182,9 +182,17 @@ DEFINE_EXCEPTIONS
 
 -(void)dealloc
 {
+	if (proxy!=nil && proxy.modelDelegate==self)
+	{
+		proxy.modelDelegate = nil;
+	}
 	RELEASE_TO_NIL(transformMatrix);
 	RELEASE_TO_NIL(animation);
     RELEASE_TO_NIL(backgroundImage);
+	RELEASE_TO_NIL(gradientLayer);
+	proxy = nil;
+	parent = nil;
+	touchDelegate = nil;
 	[super dealloc];
 }
 
@@ -223,19 +231,25 @@ DEFINE_EXCEPTIONS
 			[proxy _hasListeners:@"dblclick"];
 } 
 
+-(void)updateTouchHandling
+{
+	BOOL touchEventsSupported = [self viewSupportsBaseTouchEvents];
+	handlesTaps = touchEventsSupported && [self proxyHasTapListener];
+	handlesTouches = touchEventsSupported && [self proxyHasTouchListener];
+	handlesSwipes = touchEventsSupported && [proxy _hasListeners:@"swipe"];
+	
+	self.multipleTouchEnabled = handlesTaps;
+}
+
 -(void)initializeState
 {
 	virtualParentTransform = CGAffineTransformIdentity;
 	multipleTouches = NO;
 	twoFingerTapIsPossible = NO;
 	touchEnabled = YES;
-	BOOL touchEventsSupported = [self viewSupportsBaseTouchEvents];
-	handlesTaps = touchEventsSupported && [self proxyHasTapListener];
-	handlesTouches = touchEventsSupported && [self proxyHasTouchListener];
-	handlesSwipes = touchEventsSupported && [proxy _hasListeners:@"swipe"];
-	
 	self.userInteractionEnabled = YES;
-	self.multipleTouchEnabled = handlesTaps;	
+	
+	[self updateTouchHandling];
 	 
 	self.backgroundColor = [UIColor clearColor]; 
 	self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
@@ -356,7 +370,7 @@ DEFINE_EXCEPTIONS
 		repositioning = YES;
 		if ([self superview] == nil)
 		{
-			[[(TiViewProxy *)proxy parent] layoutChild:(TiViewProxy *)proxy];
+			[[(TiViewProxy *)proxy parent] layoutChild:(TiViewProxy *)proxy optimize:NO];
 		}
 		ApplyConstraintToViewWithinViewWithBounds([(TiViewProxy *)proxy layoutProperties], self, [self superview], bounds, YES);
 		[(TiViewProxy *)[self proxy] clearNeedsReposition];
@@ -414,7 +428,7 @@ DEFINE_EXCEPTIONS
 	if (parent!=nil && [parent viewAttached])
 	{
 		[self removeFromSuperview];
-		[parent layoutChild:(TiViewProxy *)[self proxy]];
+		[parent layoutChild:(TiViewProxy *)[self proxy] optimize:NO];
 	}
 }
 
@@ -444,7 +458,7 @@ DEFINE_EXCEPTIONS
 		[self.proxy isKindOfClass:[TiViewProxy class]])
 	{
 		childrenInitialized=YES;
-		[(TiViewProxy*)self.proxy layoutChildren];
+		[(TiViewProxy*)self.proxy layoutChildren:NO];
 	}
 }
 
@@ -697,11 +711,35 @@ DEFINE_EXCEPTIONS
 	DoProxyDelegateChangedValuesWithProxy(self, key, oldValue, newValue, proxy_);
 }
 
+
+//Todo: Generalize.
+-(void)setKrollValue:(id)value forKey:(NSString *)key withObject:(id)props
+{
+	if(value == [NSNull null])
+	{
+		value = nil;
+	}
+
+	SEL method = SetterWithObjectForKrollProperty(key);
+	if([self respondsToSelector:method])
+	{
+		[self performSelector:method withObject:value withObject:props];
+		return;
+	}		
+
+	method = SetterForKrollProperty(key);
+	if([self respondsToSelector:method])
+	{
+		[self performSelector:method withObject:value];
+	}	
+}
+
 -(void)transferProxy:(TiViewProxy*)newProxy
 {
 	TiViewProxy * oldProxy = (TiViewProxy *)[self proxy];
 	NSArray * oldProperties = (NSArray *)[oldProxy allKeys];
 	NSArray * newProperties = (NSArray *)[newProxy allKeys];
+	NSArray * keySequence = [newProxy keySequence];
 	[oldProxy retain];
 	[self retain];
 
@@ -709,28 +747,29 @@ DEFINE_EXCEPTIONS
 	[newProxy setView:self];
 	[self setProxy:[newProxy retain]];
 
+	//The important sequence first:
+	for (NSString * thisKey in keySequence)
+	{
+		id newValue = [newProxy valueForKey:thisKey];
+		[self setKrollValue:newValue forKey:thisKey withObject:nil];
+	}
+
 	for (NSString * thisKey in oldProperties)
 	{
-		if([newProperties containsObject:thisKey])
+		if([newProperties containsObject:thisKey] || [keySequence containsObject:thisKey])
 		{
 			continue;
 		}
-		SEL method = SetterForKrollProperty(thisKey);
-		if([self respondsToSelector:method])
-		{
-			[self performSelector:method withObject:nil];
-			continue;
-		}
-		
-		method = SetterWithObjectForKrollProperty(thisKey);
-		if([self respondsToSelector:method])
-		{
-			[self performSelector:method withObject:nil withObject:nil];
-		}		
+		[self setKrollValue:nil forKey:thisKey withObject:nil];
 	}
 
 	for (NSString * thisKey in newProperties)
 	{
+		if ([keySequence containsObject:thisKey])
+		{
+			continue;
+		}
+	
 		id newValue = [newProxy valueForKey:thisKey];
 		id oldValue = [oldProxy valueForKey:thisKey];
 		if([newValue isEqual:oldValue])
@@ -738,18 +777,7 @@ DEFINE_EXCEPTIONS
 			continue;
 		}
 		
-		SEL method = SetterForKrollProperty(thisKey);
-		if([self respondsToSelector:method])
-		{
-			[self performSelector:method withObject:newValue];
-			continue;
-		}
-		
-		method = SetterWithObjectForKrollProperty(thisKey);
-		if([self respondsToSelector:method])
-		{
-			[self performSelector:method withObject:newValue withObject:nil];
-		}		
+		[self setKrollValue:newValue forKey:thisKey withObject:nil];
 	}
 
 	[oldProxy release];
@@ -999,7 +1027,8 @@ DEFINE_EXCEPTIONS
 			if ([touches count] == 2 && allTouchesEnded) 
 			{
 				int i = 0; 
-				int tapCounts[2]; CGPoint tapLocations[2];
+				int tapCounts[2] = {0,0}; 
+				CGPoint tapLocations[2];
 				for (UITouch *touch in touches) {
 					tapCounts[i]    = [touch tapCount];
 					tapLocations[i] = [touch locationInView:self];

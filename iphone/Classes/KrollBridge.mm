@@ -404,7 +404,7 @@ extern BOOL const TI_APPLICATION_ANALYTICS;
 	[js release];
 }
 
--(void)shutdown
+-(void)shutdown:(NSCondition*)condition
 {
 #if KROLLBRIDGE_MEMORY_DEBUG==1
 	NSLog(@"DESTROY: %@",self);
@@ -412,12 +412,19 @@ extern BOOL const TI_APPLICATION_ANALYTICS;
 	
 	if (shutdown==NO)
 	{
+		shutdownCondition = [condition retain];
 		shutdown = YES;
 		// fire a notification event to our listeners
 		NSNotification *notification = [NSNotification notificationWithName:kKrollShutdownNotification object:self];
 		[[NSNotificationCenter defaultCenter] postNotification:notification];
 		
 		[context stop];
+	}
+	else
+	{
+		[condition lock];
+		[condition signal];
+		[condition unlock];
 	}
 }
 
@@ -485,6 +492,14 @@ extern BOOL const TI_APPLICATION_ANALYTICS;
 		[[NSNotificationCenter defaultCenter] postNotification:notification];
 	}
 	[titanium gc];
+	
+	if (shutdownCondition)
+	{
+		[shutdownCondition lock];
+		[shutdownCondition signal];
+		[shutdownCondition unlock];
+		RELEASE_TO_NIL(shutdownCondition);
+	}
 }
 
 -(void)didStopNewContext:(KrollContext*)kroll
@@ -593,7 +608,7 @@ extern BOOL const TI_APPLICATION_ANALYTICS;
 			// register it
 			[modules setObject:module forKey:path];
 		}
-		[module release];
+		[module autorelease];
 	}
 	
 	if (data==nil)
@@ -606,12 +621,12 @@ extern BOOL const TI_APPLICATION_ANALYTICS;
 			data = [NSData dataWithContentsOfURL:url_];
 		}
 	}
-	
+
 	// we found data, now create the common js module proxy
 	if (data!=nil)
 	{
 		module = [self loadCommonJSModule:[[[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] autorelease] withPath:path];
-		if (filepath!=nil)
+		if (filepath!=nil && module!=nil)
 		{
 			// uri is optional but we point it to where we loaded it
 			[module replaceValue:[NSString stringWithFormat:@"app://%@",filepath] forKey:@"uri" notification:NO];

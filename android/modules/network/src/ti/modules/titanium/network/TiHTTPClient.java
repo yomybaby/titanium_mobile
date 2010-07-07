@@ -37,7 +37,12 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.HttpResponseException;
 import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
-import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.conn.scheme.PlainSocketFactory;
+import org.apache.http.conn.scheme.Scheme;
+import org.apache.http.conn.scheme.SchemeRegistry;
+import org.apache.http.conn.scheme.SocketFactory;
+import org.apache.http.conn.ssl.SSLSocketFactory;
+import org.apache.http.entity.AbstractHttpEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.entity.mime.MultipartEntity;
 import org.apache.http.entity.mime.content.ContentBody;
@@ -45,11 +50,15 @@ import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.impl.DefaultHttpRequestFactory;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.message.BasicHttpEntityEnclosingRequest;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpParams;
 import org.apache.http.params.HttpProtocolParams;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
+import org.appcelerator.titanium.TiApplication;
 import org.appcelerator.titanium.TiBlob;
 import org.appcelerator.titanium.TiDict;
 import org.appcelerator.titanium.TiProxy;
@@ -106,7 +115,8 @@ public class TiHTTPClient
 	private ArrayList<NameValuePair> nvPairs;
 	private HashMap<String, ContentBody> parts;
 	private String data;
-
+	private boolean needMultipart;
+	
 	Thread clientThread;
 	private boolean aborted;
 
@@ -124,7 +134,7 @@ public class TiHTTPClient
 				throws HttpResponseException, IOException
 		{
 			connected = true;
-	        String clientResponse = null;
+			String clientResponse = null;
 
 			if (client != null) {
 				TiHTTPClient c = client.get();
@@ -148,7 +158,7 @@ public class TiHTTPClient
 				}
 
 				StatusLine statusLine = response.getStatusLine();
-		        if (statusLine.getStatusCode() >= 300) {
+				if (statusLine.getStatusCode() >= 300) {
 					setResponseText(response.getEntity());
 					throw new HttpResponseException(statusLine.getStatusCode(), statusLine.getReasonPhrase());
 				}
@@ -377,6 +387,18 @@ public class TiHTTPClient
 		}
 	}
 
+	public boolean validatesSecureCertificate() {
+		if (proxy.hasDynamicValue("validatesSecureCertificate")) {
+			return TiConvert.toBoolean(proxy.getDynamicValue("validatesSecureCertificate"));
+		} else {
+			if (proxy.getTiContext().getTiApp().getDeployType().equals(
+					TiApplication.DEPLOY_TYPE_PRODUCTION)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
 	public void setReadyState(int readyState) {
 		Log.d(LCAT, "Setting ready state to " + readyState);
 		this.readyState = readyState;
@@ -589,9 +611,13 @@ public class TiHTTPClient
 			value = "";
 		}
 		try {
-			parts.put(name, new StringBody(value));
+			if (needMultipart) {
+				parts.put(name, new StringBody(value));
+			} else {
+				nvPairs.add(new BasicNameValuePair(name, value.toString()));
+			}
 		} catch (UnsupportedEncodingException e) {
-			nvPairs.add(new BasicNameValuePair(name,value.toString()));
+			nvPairs.add(new BasicNameValuePair(name, value.toString()));
 		}
 	}
 
@@ -632,11 +658,21 @@ public class TiHTTPClient
 		// TODO consider using task manager
 		final TiHTTPClient me = this;
 		double totalLength = 0;
+		needMultipart = false;
+		
 		if (userData != null)
 		{
 			if (userData instanceof TiDict) {
 				TiDict data = (TiDict)userData;
-
+				
+				// first time through check if we need multipart for POST
+				for (String key : data.keySet()) {
+					Object value = data.get(key);
+					if (value instanceof TiBaseFile || value instanceof TiBlob) {
+						needMultipart = true;
+					}
+				}
+				
 				for (String key : data.keySet()) {
 					Object value = data.get(key);
 
@@ -663,133 +699,152 @@ public class TiHTTPClient
 			request.setHeader(header, headers.get(header));
 		}
 
-		final double fTotalLength = totalLength;
-		clientThread = new Thread(new Runnable(){
-			public void run() {
-				try {
-
-					Thread.sleep(10);
-					if (DBG) {
-						Log.d(LCAT, "send()");
-					}
-					/*
-					Header[] h = request.getAllHeaders();
-					for(int i=0; i < h.length; i++) {
-						Header hdr = h[i];
-						//Log.e(LCAT, "HEADER: " + hdr.toString());
-					}
-					 */
-					handler = new LocalResponseHandler(me);
-					client = new DefaultHttpClient();
-
-					if (credentials != null) {
-						client.getCredentialsProvider().setCredentials(
-								new AuthScope(null, -1), credentials);
-						credentials = null;
-					}
-
-					HttpProtocolParams.setUseExpectContinue(client.getParams(), false);
-					HttpProtocolParams.setVersion(client.getParams(), HttpVersion.HTTP_1_1);
-
-					if(request instanceof BasicHttpEntityEnclosingRequest) {
-
-						UrlEncodedFormEntity form = null;
-						MultipartEntity mpe = null;
-
-						if (nvPairs.size() > 0) {
-							try {
-								form = new UrlEncodedFormEntity(nvPairs, "UTF-8");
-							} catch (UnsupportedEncodingException e) {
-								Log.e(LCAT, "Unsupported encoding: ", e);
-							}
-						}
-
-						if(parts.size() > 0) {
-							mpe = new MultipartEntity();
-							for(String name : parts.keySet()) {
-								Log.d(LCAT, "adding part " + name + ", part type: " + parts.get(name).getMimeType() + ", len: " + parts.get(name).getContentLength());
-								mpe.addPart(name, parts.get(name));
-							}
-							if (form != null) {
-								try {
-									ByteArrayOutputStream bos = new ByteArrayOutputStream((int) form.getContentLength());
-									form.writeTo(bos);
-									mpe.addPart("form", new StringBody(bos.toString(), "application/x-www-form-urlencoded", Charset.forName("UTF-8")));
-								} catch (UnsupportedEncodingException e) {
-									Log.e(LCAT, "Unsupported encoding: ", e);
-								} catch (IOException e) {
-									Log.e(LCAT, "Error converting form to string: ", e);
-								}
-							}
-
-							HttpEntityEnclosingRequest e = (HttpEntityEnclosingRequest) request;
-							Log.d(LCAT, "totalLength="+fTotalLength);
-
-							/*ProgressEntity progressEntity = new ProgressEntity(mpe, new ProgressListener() {
-								public void progress(int progress) {
-									KrollCallback cb = getCallback(ON_SEND_STREAM);
-									if (cb != null) {
-										TiDict data = new TiDict();
-										data.put("progress", ((double)progress)/fTotalLength);
-										data.put("source", proxy);
-										cb.callWithProperties(data);
-									}
-								}
-							});*/
-							//e.setEntity(progressEntity);
-
-							e.setEntity(mpe);
-							e.addHeader("Length", fTotalLength+"");
-						} else {
-							if (data!=null)
-							{
-								try
-								{
-									StringEntity requestEntity = new StringEntity(data, "UTF-8");
-									Header header = request.getFirstHeader("Content-Type");
-									if(header == null) {
-										requestEntity.setContentType("application/x-www-form-urlencoded");
-									} else {
-										requestEntity.setContentType(header.getValue());
-									}
-									HttpEntityEnclosingRequest e = (HttpEntityEnclosingRequest)request;
-									e.setEntity(requestEntity);
-								}
-								catch(Exception ex)
-								{
-									//FIXME
-									Log.e(LCAT, "Exception, implement recovery: ", ex);
-								}
-							} else {
-								HttpEntityEnclosingRequest e = (HttpEntityEnclosingRequest) request;
-								e.setEntity(form);
-							}
-						}
-					}
-					if (DBG) {
-						Log.d(LCAT, "Preparing to execute request");
-					}
-					String result = client.execute(me.host, me.request, handler);
-					if(result != null) {
-						Log.d(LCAT, "Have result back from request len=" + result.length());
-					}
-					connected = false;
-					me.setResponseText(result);
-					me.setReadyState(READY_STATE_DONE);
-				} catch(Exception e) {
-					Log.e(LCAT, "HTTP Error: " + e.getMessage(), e);
-					me.sendError(e.getMessage());
-				}
-			}}, "TiHttpClient-" + httpClientThreadCounter.incrementAndGet());
+		clientThread = new Thread(new ClientRunnable(totalLength), "TiHttpClient-" + httpClientThreadCounter.incrementAndGet());
 		clientThread.setPriority(Thread.MIN_PRIORITY);
-
 		clientThread.start();
-
 		if (DBG) {
 			Log.d(LCAT, "Leaving send()");
 		}
 	}
+	
+	private class ClientRunnable implements Runnable {
+		private double totalLength;
+		public ClientRunnable(double totalLength) {
+			this.totalLength = totalLength;
+		}
+		public void run() {
+			try {
+				Thread.sleep(10);
+				if (DBG) {
+					Log.d(LCAT, "send()");
+				}
+				/*
+				Header[] h = request.getAllHeaders();
+				for(int i=0; i < h.length; i++) {
+					Header hdr = h[i];
+					//Log.e(LCAT, "HEADER: " + hdr.toString());
+				}
+				 */
+				handler = new LocalResponseHandler(TiHTTPClient.this);
+				SchemeRegistry registry = new SchemeRegistry();
+				registry.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
+				SocketFactory sslFactory;
+				if (validatesSecureCertificate()) {
+					sslFactory = SSLSocketFactory.getSocketFactory();
+				} else {
+					sslFactory = new NonValidatingSSLSocketFactory();
+				}
+				registry.register(new Scheme("https", sslFactory, 443));
+				HttpParams params = new BasicHttpParams();
+				
+				ThreadSafeClientConnManager manager = new ThreadSafeClientConnManager(params, registry);
+				client = new DefaultHttpClient(manager, params);
 
+				if (credentials != null) {
+					client.getCredentialsProvider().setCredentials(
+							new AuthScope(null, -1), credentials);
+					credentials = null;
+				}
+				HttpProtocolParams.setUseExpectContinue(client.getParams(), false);
+				HttpProtocolParams.setVersion(client.getParams(), HttpVersion.HTTP_1_1);
+
+				if(request instanceof BasicHttpEntityEnclosingRequest) {
+
+					UrlEncodedFormEntity form = null;
+					MultipartEntity mpe = null;
+
+					if (nvPairs.size() > 0) {
+						try {
+							form = new UrlEncodedFormEntity(nvPairs, "UTF-8");
+						} catch (UnsupportedEncodingException e) {
+							Log.e(LCAT, "Unsupported encoding: ", e);
+						}
+					}
+
+					if(parts.size() > 0 && needMultipart) {
+						mpe = new MultipartEntity();
+						for(String name : parts.keySet()) {
+							Log.d(LCAT, "adding part " + name + ", part type: " + parts.get(name).getMimeType() + ", len: " + parts.get(name).getContentLength());
+							mpe.addPart(name, parts.get(name));
+						}
+						if (form != null) {
+							try {
+								ByteArrayOutputStream bos = new ByteArrayOutputStream((int) form.getContentLength());
+								form.writeTo(bos);
+								mpe.addPart("form", new StringBody(bos.toString(), "application/x-www-form-urlencoded", Charset.forName("UTF-8")));
+							} catch (UnsupportedEncodingException e) {
+								Log.e(LCAT, "Unsupported encoding: ", e);
+							} catch (IOException e) {
+								Log.e(LCAT, "Error converting form to string: ", e);
+							}
+						}
+
+						HttpEntityEnclosingRequest e = (HttpEntityEnclosingRequest) request;
+						Log.d(LCAT, "totalLength="+totalLength);
+
+						/*ProgressEntity progressEntity = new ProgressEntity(mpe, new ProgressListener() {
+							public void progress(int progress) {
+								KrollCallback cb = getCallback(ON_SEND_STREAM);
+								if (cb != null) {
+									TiDict data = new TiDict();
+									data.put("progress", ((double)progress)/fTotalLength);
+									data.put("source", proxy);
+									cb.callWithProperties(data);
+								}
+							}
+						});*/
+						//e.setEntity(progressEntity);
+
+						e.setEntity(mpe);
+						e.addHeader("Length", totalLength+"");
+					} else {
+						handleURLEncodedData(form);
+					}
+				}
+				if (DBG) {
+					Log.d(LCAT, "Preparing to execute request");
+				}
+				String result = client.execute(host, request, handler);
+				if(result != null) {
+					Log.d(LCAT, "Have result back from request len=" + result.length());
+				}
+				connected = false;
+				setResponseText(result);
+				setReadyState(READY_STATE_DONE);
+			} catch(Exception e) {
+				Log.e(LCAT, "HTTP Error: " + e.getMessage(), e);
+				sendError(e.getMessage());
+			}
+		}
+	}
+	
+	private void handleURLEncodedData(UrlEncodedFormEntity form) {
+		AbstractHttpEntity entity = null;
+		if (data != null) {
+			try
+			{
+				entity = new StringEntity(data, "UTF-8");
+			}
+			catch(Exception ex)
+			{
+				//FIXME
+				Log.e(LCAT, "Exception, implement recovery: ", ex);
+			}
+		} else {
+			entity = form;
+		}
+		
+		Header header = request.getFirstHeader("Content-Type");
+		if(header == null) {
+			entity.setContentType("application/x-www-form-urlencoded");
+		} else {
+			entity.setContentType(header.getValue());
+		}
+		
+		HttpEntityEnclosingRequest e = (HttpEntityEnclosingRequest)request;
+		e.setEntity(entity);
+	}
+	
 	public String getLocation() {
 		if (uri != null) {
 			return uri.toString();

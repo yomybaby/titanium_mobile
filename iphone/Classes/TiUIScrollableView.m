@@ -110,15 +110,15 @@
 		return;
 	}
 
-	UIView *wrapper = [[sv subviews] objectAtIndex:index];
+	UIView *wrapper = [svSubviews objectAtIndex:index];
 	if ([[wrapper subviews] count]==0)
 	{
 		// we need to realize this view
 		TiViewProxy *viewproxy = [views objectAtIndex:index];
+		[viewproxy windowWillOpen];
 		TiUIView *uiview = [viewproxy view];
 		[wrapper addSubview:uiview];
 		[viewproxy reposition];
-		[viewproxy layoutChildren];
 	}
 }
 
@@ -130,6 +130,16 @@
 	[self renderViewForIndex:currentPage];
 	[self renderViewForIndex:currentPage+1];
 	[self renderViewForIndex:currentPage+(forward?2:-2)];
+}
+
+-(void)listenerAdded:(NSString*)event count:(int)count
+{
+	[super listenerAdded:event count:count];
+	for (TiViewProxy* viewProxy in views) {
+		if ([viewProxy viewAttached]) {
+			[[viewProxy view] updateTouchHandling];
+		}
+	}
 }
 
 -(void)refreshScrollView:(CGRect)visibleBounds readd:(BOOL)readd
@@ -164,7 +174,7 @@
 			[view setShowsVerticalScrollIndicator:NO];
 			[view setShowsHorizontalScrollIndicator:NO];
 			[view setDelegate:view];
-			[view setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
+//			[view setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
 			[view setPagingEnabled:NO];
 			[view setBackgroundColor:[UIColor clearColor]];
 			[view setDelaysContentTouches:NO];
@@ -216,7 +226,7 @@
 
 -(void)setViews_:(id)args
 {
-	BOOL refresh = views!=nil;
+	BOOL refresh = (views!=nil);
 	if (views!=nil)
 	{
 		for (TiViewProxy *proxy in views)
@@ -226,7 +236,12 @@
 	}
 	RELEASE_TO_NIL(views);
 	views = [args retain];
-
+	
+	// Reparent views
+	for (TiViewProxy* proxy in views) {
+		[proxy setParent:[self proxy]];
+	}
+	
 	if (refresh)
 	{
 		[self refreshScrollView:[self bounds] readd:YES];
@@ -325,7 +340,15 @@
 {
 	ENSURE_SINGLE_ARG(viewproxy,TiProxy);
 	[viewproxy setParent:(TiViewProxy *)self.proxy];
-	[views addObject:viewproxy];
+	if (views != nil)
+	{
+		[views addObject:viewproxy];
+	}
+	else
+	{
+		views = [[NSMutableArray alloc] initWithObjects:viewproxy,nil];
+	}
+
 	[self refreshScrollView:[self bounds] readd:YES];
 }
 

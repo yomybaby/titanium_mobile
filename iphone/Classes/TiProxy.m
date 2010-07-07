@@ -118,11 +118,49 @@ void DoProxyDispatchToSecondaryArg(UIView<TiProxyDelegate> * target, SEL sel, NS
 	}
 }
 
+void DoProxyDelegateReadKeyFromProxy(UIView<TiProxyDelegate> * target, NSString *key, TiProxy * proxy, NSNull * nullValue, BOOL useThisThread)
+{
+	// use valueForUndefined since this should really come from dynprops
+	// not against the real implementation
+	id value = [proxy valueForUndefinedKey:key];
+	if (value == nil)
+	{
+		return;
+	}
+	if (value == nullValue)
+	{
+		value = nil;
+	}
+
+	SEL sel = SetterWithObjectForKrollProperty(key);
+	if ([target respondsToSelector:sel])
+	{
+		DoProxyDispatchToSecondaryArg(target,sel,key,value,proxy);
+		return;
+	}
+	sel = SetterForKrollProperty(key);
+	if (![target respondsToSelector:sel])
+	{
+		return;
+	}
+	if (useThisThread)
+	{
+		[target performSelector:sel withObject:value];
+	}
+	else
+	{
+		[target performSelectorOnMainThread:sel withObject:value
+				waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
+	}
+}
+
 void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target, id<NSFastEnumeration> keys, TiProxy * proxy)
 {
 	BOOL isMainThread = [NSThread isMainThread];
 	NSNull * nullObject = [NSNull null];
 	BOOL viewAttached = YES;
+		
+	NSArray * keySequence = [proxy keySequence];
 	
 	// assume if we don't have a view that we can send on the 
 	// main thread to the proxy
@@ -131,38 +169,21 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 		viewAttached = [(TiViewProxy*)target viewAttached];
 	}
 	
+	BOOL useThisThread = isMainThread==YES || viewAttached==NO;
+
+	for (NSString * thisKey in keySequence)
+	{
+		DoProxyDelegateReadKeyFromProxy(target, thisKey, proxy, nullObject, useThisThread);
+	}
+
+	
 	for (NSString * thisKey in keys)
 	{
-		// use valueForUndefined since this should really come from dynprops
-		// not against the real implementation
-		id newValue = [proxy valueForUndefinedKey:thisKey];
-		if (newValue == nil)
+		if ([keySequence containsObject:thisKey])
 		{
 			continue;
 		}
-		if (newValue == nullObject)
-		{
-			newValue = nil;
-		}
-		SEL sel = SetterWithObjectForKrollProperty(thisKey);
-		if ([target respondsToSelector:sel])
-		{
-			DoProxyDispatchToSecondaryArg(target,sel,thisKey,newValue,proxy);
-			continue;
-		}
-		sel = SetterForKrollProperty(thisKey);
-		if (![target respondsToSelector:sel])
-		{
-			continue;
-		}
-		if (isMainThread==YES || viewAttached==NO)
-		{
-			[target performSelector:sel withObject:newValue];
-		}
-		else
-		{
-			[target performSelectorOnMainThread:sel withObject:newValue waitUntilDone:NO modes:[NSArray arrayWithObject:NSRunLoopCommonModes]];
-		}
+		DoProxyDelegateReadKeyFromProxy(target, thisKey, proxy, nullObject, useThisThread);
 	}
 }
 
@@ -373,6 +394,7 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 		[dynPropsLock unlock];
 #endif
 	}
+	
 	RELEASE_TO_NIL(listeners);
 	RELEASE_TO_NIL(baseURL);
 	RELEASE_TO_NIL(krollDescription);
@@ -381,6 +403,15 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 	pageContext=nil;
 	modelDelegate=nil;
 	[destroyLock unlock];
+}
+
+-(BOOL)destroyed
+{
+	BOOL value;
+	[destroyLock lock];
+	value = destroyed;
+	[destroyLock unlock];
+	return value;
 }
 
 -(void)dealloc
@@ -481,8 +512,12 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 	[eventObject setObject:type forKey:@"type"];
 	[eventObject setObject:self forKey:@"source"];
 	
-	id<TiEvaluator> evaluator = (id<TiEvaluator>)[listener context].delegate;
-	[host fireEvent:listener withObject:eventObject remove:NO context:evaluator thisObject:thisObject_];
+	KrollContext* context = [listener context];
+	if (context!=nil)
+	{
+		id<TiEvaluator> evaluator = (id<TiEvaluator>)context.delegate;
+		[host fireEvent:listener withObject:eventObject remove:NO context:evaluator thisObject:thisObject_];
+	}
 	
 	[destroyLock unlock];
 }
@@ -513,6 +548,15 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 -(id<NSFastEnumeration>)allKeys
 {
 	return [dynprops allKeys];
+}
+
+/*
+ *	In views where the order in which keys are applied matter (I'm looking at you, TableView), this should be
+ *  an array of which keys go first, and in what order. Otherwise, this is nil.
+ */
+-(NSArray *)keySequence
+{
+	return nil;
 }
 
 -(void)addEventListener:(NSArray*)args
@@ -674,10 +718,30 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 	[destroyLock unlock];
 }
 
-- (void)setValuesForKeysWithDictionary:(NSDictionary *)keyedValues usingKeys:(id<NSFastEnumeration>)keys;
+- (void)setValuesForKeysWithDictionary:(NSDictionary *)keyedValues
 {
-	for (NSString * thisKey in keys)
+	NSArray * keySequence = [self keySequence];
+
+	for (NSString * thisKey in keySequence)
 	{
+		id thisValue = [keyedValues objectForKey:thisKey];
+		if (thisValue == nil) //Dictionary doesn't have this key. Skip.
+		{
+			continue;
+		}
+		if (thisValue == [NSNull null]) 
+		{ 
+			//When a null, we want to write a nil.
+			thisValue = nil;
+		}
+		[self setValue:thisValue forKey:thisKey];
+	}
+
+	for (NSString * thisKey in keyedValues)
+	{
+		// don't set if already set above
+		if ([keySequence containsObject:thisKey]) continue;
+		
 		id thisValue = [keyedValues objectForKey:thisKey];
 		if (thisValue == nil) //Dictionary doesn't have this key. Skip.
 		{
@@ -889,7 +953,7 @@ DEFINE_EXCEPTIONS
 
 #pragma mark Description for nice toString in JS
  
--(id)toString
+-(id)toString:(id)args
 {
 	if (krollDescription==nil) 
 	{ 
@@ -907,7 +971,7 @@ DEFINE_EXCEPTIONS
 
 -(id)description
 {
-	return [self toString];
+	return [self toString:nil];
 }
 
 -(id)toJSON

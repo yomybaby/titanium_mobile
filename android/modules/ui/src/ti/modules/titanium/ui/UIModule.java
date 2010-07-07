@@ -14,9 +14,9 @@ import org.appcelerator.titanium.util.TiConvert;
 
 import android.app.Activity;
 import android.content.pm.ActivityInfo;
-import android.content.res.Configuration;
 import android.graphics.drawable.ColorDrawable;
 import android.view.Window;
+import android.widget.Toast;
 
 public class UIModule extends TiModule
 {
@@ -94,6 +94,9 @@ public class UIModule extends TiModule
 			constants.put("FACE_UP", FACE_UP);
 			constants.put("FACE_DOWN", FACE_DOWN);
 			constants.put("UNKNOWN", UNKNOWN);
+			
+			constants.put("NOTIFICATION_DURATION_LONG", Toast.LENGTH_LONG);
+			constants.put("NOTIFICATION_DURATION_SHORT", Toast.LENGTH_SHORT);
 		}
 
 		return constants;
@@ -110,18 +113,24 @@ public class UIModule extends TiModule
 		} else if ("orientation".equals(key)) {
 			int requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
 
-			switch (TiConvert.toInt(newValue)) {
-				case LANDSCAPE_LEFT :
-				case LANDSCAPE_RIGHT :
-					requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
-					break;
-				case PORTRAIT :
-				case UPSIDE_PORTRAIT :
-					requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
-					break;
+			if (newValue != null) {
+				switch (TiConvert.toInt(newValue)) {
+					case LANDSCAPE_LEFT :
+					case LANDSCAPE_RIGHT :
+						requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
+						break;
+					case PORTRAIT :
+					case UPSIDE_PORTRAIT :
+						requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
+						break;
+				}
 			}
-
-			getTiContext().getActivity().setRequestedOrientation(requestedOrientation);
+			Activity activity = proxy.getTiContext().getTiApp().getCurrentActivity();
+			if (activity != null) {
+				activity.setRequestedOrientation(requestedOrientation);
+			}
+			// null out the value so a call to set will result in the orientation being set.
+			internalSetDynamicValue("orientation", null, false);
 		} else {
 			super.propertyChanged(key, oldValue, newValue, proxy);
 		}

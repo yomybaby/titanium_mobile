@@ -20,7 +20,6 @@
 	NSMutableArray *views;
 	TiFile *tempFile;
 	KrollCallback *thumbnailCallback;
-	UIView *oldparent;
 	
 	NSMutableDictionary* loadProperties; // Used to set properties when the player is created
 }
@@ -31,6 +30,8 @@
 
 -(void)add:(id)proxy;
 -(void)remove:(id)proxy;
+-(void)deliverEventOnBackgroundThread:(NSString*)event withObject:(id)object;
+
 
 @end
 

@@ -36,13 +36,13 @@ NSString * const TI_DB_VERSION = @"1";
 
 @implementation AnalyticsModule
 
--(void)_destroy
+-(void)dealloc
 {
 	RELEASE_TO_NIL(database);
 	RELEASE_TO_NIL(retryTimer);
 	RELEASE_TO_NIL(flushTimer);
 	RELEASE_TO_NIL(url);
-	[super _destroy];
+	[super dealloc];
 }
 
 -(id)platform
@@ -156,7 +156,9 @@ NSString * const TI_DB_VERSION = @"1";
 	//TODO: need to update backend to accept compressed bodies. When done, use [request setShouldCompressRequestBody:YES]
 	[request setTimeOutSeconds:5];
 	[request setShouldPresentAuthenticationDialog:NO];
-	[request setUseSessionPersistance:NO];
+	[request setUseSessionPersistence:NO];
+	[request setUseCookiePersistence:YES];
+	[request setShouldRedirect:YES];
 	NSString * stringifiedData = [SBJSON stringify:data];
 	[request appendPostData:[stringifiedData dataUsingEncoding:NSUTF8StringEncoding]];
 	[request setDelegate:self];
@@ -303,7 +305,8 @@ NSString * const TI_DB_VERSION = @"1";
 
 	NSString *currentVersion = nil;
 	PLSqliteResultSet *rs = (PLSqliteResultSet*)[database executeQuery:@"SELECT version from version"];
-	currentVersion = [rs objectForColumn:@"version"];
+	[rs next];
+	currentVersion = [TiUtils stringValue:[rs objectForColumn:@"version"]];
 	[rs close];
 	
 	BOOL migrate = NO;
@@ -313,7 +316,7 @@ NSString * const TI_DB_VERSION = @"1";
 		migrate = YES;
 		[database executeUpdate:[NSString stringWithFormat:@"INSERT INTO version VALUES('%@')",TI_DB_VERSION]];
 	}
-	else if (currentVersion!=TI_DB_VERSION)
+	else if (![currentVersion isEqualToString:TI_DB_VERSION])
 	{
 		migrate = YES;
 	}
