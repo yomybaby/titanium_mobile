@@ -25,6 +25,8 @@
 
 -(UITabBar*)tabbar;
 
+-(UITabBarController*)tabController;
+
 -(void)focusVisibleWindow;
 -(void)blurVisibleWindow;
 - (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)toInterfaceOrientation duration:(NSTimeInterval)duration;

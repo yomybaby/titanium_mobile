@@ -35,6 +35,13 @@ DEFINE_EXCEPTIONS
 	return controller;
 }
 
+-(void)frameSizeChanged:(CGRect)frame bounds:(CGRect)bounds;
+{	
+	UIView *view = [[self tabController] view];
+	[view setFrame:bounds];
+	[self addSubview:view];
+}
+
 -(UITabBar*)tabbar
 {
 	return [self tabController].tabBar;
@@ -383,9 +390,9 @@ DEFINE_EXCEPTIONS
 
 -(void)open:(id)args
 {
-	UIView *view = [self tabController].view;
-	[TiUtils setView:view positionRect:[self bounds]];
-	[self addSubview:view];
+//	UIView *view = [self tabController].view;
+//	[TiUtils setView:view positionRect:[self bounds]];
+//	[self addSubview:view];
 
 	// on an open, make sure we send the focus event to initial tab
 	NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:focused,@"tab",NUMINT(0),@"index",NUMINT(-1),@"previousIndex",[NSNull null],@"previousTab",nil];

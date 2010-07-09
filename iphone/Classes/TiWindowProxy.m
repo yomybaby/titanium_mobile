@@ -53,19 +53,35 @@
 
 - (void)viewWillAppear:(BOOL)animated;    // Called when the view is about to made visible. Default does nothing
 {
-	NSLog(@"%@%@",self,CODELOCATION);
+	if ([proxy respondsToSelector:@selector(viewWillAppear:)])
+	{
+		[proxy viewWillAppear:animated];
+	}
+	NSLog(@"%@:%@%@",self,proxy,CODELOCATION);
 }
 - (void)viewDidAppear:(BOOL)animated;     // Called when the view has been fully transitioned onto the screen. Default does nothing
 {
-	NSLog(@"%@%@",self,CODELOCATION);
+	if ([proxy respondsToSelector:@selector(viewDidAppear:)])
+	{
+		[proxy viewDidAppear:animated];
+	}
+	NSLog(@"%@:%@%@",self,proxy,CODELOCATION);
 }
 - (void)viewWillDisappear:(BOOL)animated; // Called when the view is dismissed, covered or otherwise hidden. Default does nothing
 {
-	NSLog(@"%@%@",self,CODELOCATION);
+	if ([proxy respondsToSelector:@selector(viewWillDisappear:)])
+	{
+		[proxy viewWillDisappear:animated];
+	}
+	NSLog(@"%@:%@%@",self,proxy,CODELOCATION);
 }
 - (void)viewDidDisappear:(BOOL)animated;  // Called after the view was dismissed, covered or otherwise hidden. Default does nothing
 {
-	NSLog(@"%@%@",self,CODELOCATION);
+	if ([proxy respondsToSelector:@selector(viewDidDisappear:)])
+	{
+		[proxy viewDidDisappear:animated];
+	}
+	NSLog(@"%@:%@%@",self,proxy,CODELOCATION);
 }
 
 -(UINavigationItem*)navigationItem
@@ -218,6 +234,9 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 	{
 		return;
 	}
+	NSLog(@"%@ (modal:%d)%@",self,modalFlag,CODELOCATION);
+	[[[TiApp app] controller] didHideViewController:controller animated:YES];
+
 	opened = NO;
 	attached = NO;
 	opening = NO;
@@ -380,7 +399,9 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 		{
 			if (rootViewAttached)
 			{
+				[[[TiApp app] controller] willShowViewController:[self controller] animated:(animation != nil)];
 				[self attachViewToTopLevelWindow];
+				[[[TiApp app] controller] didShowViewController:[self controller] animated:animation!=nil];
 			}
 			if ([animation isTransitionAnimation])
 			{
@@ -515,6 +536,7 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 	}
 
 	closing=YES;
+	NSLog(@"%@ (modal:%d)%@",self,modalFlag,CODELOCATION);
 
 	//TEMP hack until we can figure out split view issue
 	if (tempController!=nil)
@@ -571,6 +593,8 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 	{
 		[child windowWillClose];
 	}
+	[[[TiApp app] controller] willHideViewController:controller animated:YES];
+	NSLog(@"%@ (modal:%d)%@",self,modalFlag,CODELOCATION);
 
 	if ([self _handleClose:args])
 	{
@@ -641,14 +665,18 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 		
 	if (![self _isChildOfTab])
 	{
-		//TEMP hack for splitview until we can get things worked out
-		if (rootView.superview==nil && tempController==nil)
+		if (!modalFlag)
 		{
-			tempController = [[UIViewController alloc] init];
-			tempController.view = rootView;
-			[[self _window] addSubview:rootView];
+			NSLog(@"We're attaching %@ to the root view",self);
+			//TEMP hack for splitview until we can get things worked out
+			if (rootView.superview==nil && tempController==nil)
+			{
+				tempController = [[UIViewController alloc] init];
+				tempController.view = rootView;
+				[[self _window] addSubview:rootView];
+			}
+			[rootView addSubview:view];
 		}
-		[rootView addSubview:view];
 		[[[TiApp app] controller] windowFocused:[self controller]];
 	}
 

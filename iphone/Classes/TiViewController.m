@@ -53,19 +53,19 @@
 
 - (void)viewWillAppear:(BOOL)animated;    // Called when the view is about to made visible. Default does nothing
 {
-	NSLog(@"%@%@",self,CODELOCATION);
+	NSLog(@"%@:%@%@",self,proxy,CODELOCATION);
 }
 - (void)viewDidAppear:(BOOL)animated;     // Called when the view has been fully transitioned onto the screen. Default does nothing
 {
-	NSLog(@"%@%@",self,CODELOCATION);
+	NSLog(@"%@:%@%@",self,proxy,CODELOCATION);
 }
 - (void)viewWillDisappear:(BOOL)animated; // Called when the view is dismissed, covered or otherwise hidden. Default does nothing
 {
-	NSLog(@"%@%@",self,CODELOCATION);
+	NSLog(@"%@:%@%@",self,proxy,CODELOCATION);
 }
 - (void)viewDidDisappear:(BOOL)animated;  // Called after the view was dismissed, covered or otherwise hidden. Default does nothing
 {
-	NSLog(@"%@%@",self,CODELOCATION);
+	NSLog(@"%@:%@%@",self,proxy,CODELOCATION);
 }
 
 
