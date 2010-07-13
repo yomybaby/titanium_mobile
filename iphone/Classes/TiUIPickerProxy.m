@@ -32,6 +32,20 @@ NSArray* pickerKeySequence;
 	[super _configure];
 }
 
+-(void)_destroy
+{
+	RELEASE_TO_NIL(selectOnLoad);
+	[super _destroy];
+}
+
+-(void)viewDidAttach
+{
+	if (selectOnLoad != nil) {
+		[self setSelectedRow:selectOnLoad];
+		RELEASE_TO_NIL(selectOnLoad);
+	}
+}
+
 -(BOOL)supportsNavBarPositioning
 {
 	return NO;
@@ -161,15 +175,22 @@ NSArray* pickerKeySequence;
 			for (id rowdata in data)
 			{
 				TiUIPickerRowProxy *row = [[TiUIPickerRowProxy alloc] _initWithPageContext:[self executionContext] args:[NSArray arrayWithObject:rowdata]];
+								
+				TiUIPickerColumnProxy *column = [self columnAt:0];
+				NSNumber* rowIndex = [column addRow:row];
 				
 				if (windowOpened) {
 					[row windowWillOpen];
 					[row windowDidOpen];
 				}
 				
-				TiUIPickerColumnProxy *column = [self columnAt:0];
-				NSNumber* rowIndex = [column addRow:row];
 				[row release];
+				
+				if ([self viewAttached])
+				{
+					TiUIPicker *picker = [self picker];
+					[picker performSelectorOnMainThread:@selector(reloadColumn:) withObject:column waitUntilDone:NO];
+				}
 				if ([TiUtils boolValue:[row valueForUndefinedKey:@"selected"] def:NO])
 				{
 					[[self view] performSelectorOnMainThread:@selector(selectRow:) withObject:[NSArray arrayWithObjects:NUMINT(0),rowIndex,nil] waitUntilDone:NO];
@@ -224,6 +245,12 @@ NSArray* pickerKeySequence;
 		NSInteger row = [TiUtils intValue:[args objectAtIndex:1]];
 		BOOL animated = [args count]>2 ? [TiUtils boolValue:[args objectAtIndex:2]] : YES;
 		[(TiUIPicker*)[self view] selectRowForColumn:column row:row animated:animated];
+	}
+	else {
+		if (selectOnLoad != args) {
+			RELEASE_TO_NIL(selectOnLoad);
+			selectOnLoad = [args retain];
+		}
 	}
 }
 
