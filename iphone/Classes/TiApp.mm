@@ -240,6 +240,17 @@ void MyUncaughtExceptionHandler(NSException *exception)
 	}
 }
 
+-(void)attachXHRBridgeIfRequired
+{
+#ifdef USE_TI_UIWEBVIEW
+	if (xhrBridge==nil)
+	{
+		xhrBridge = [[XHRBridge alloc] initWithHost:self];
+		[xhrBridge boot:self url:nil preload:nil];
+	}
+#endif
+}
+
 - (void)boot
 {
 	NSLog(@"[INFO] %@/%@ (%s.__GITHASH__)",TI_APPLICATION_NAME,TI_APPLICATION_VERSION,TI_VERSION_STR);
@@ -251,14 +262,8 @@ void MyUncaughtExceptionHandler(NSException *exception)
 #endif
 	
 	kjsBridge = [[KrollBridge alloc] initWithHost:self];
-#ifdef USE_TI_UIWEBVIEW
-	xhrBridge = [[XHRBridge alloc] initWithHost:self];
-#endif
 	
 	[kjsBridge boot:self url:nil preload:nil];
-#ifdef USE_TI_UIWEBVIEW
-	[xhrBridge boot:self url:nil preload:nil];
-#endif
 
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardDidHide:) name:UIKeyboardDidHideNotification object:nil];
 	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(keyboardDidShow:) name:UIKeyboardDidShowNotification object:nil];
@@ -379,7 +384,7 @@ void MyUncaughtExceptionHandler(NSException *exception)
 - (void)applicationDidReceiveMemoryWarning:(UIApplication *)application
 {
 	[Webcolor flushCache];
-	[kjsBridge gc];
+	// don't worry about KrollBridge since he's already listening
 #ifdef USE_TI_UIWEBVIEW
 	[xhrBridge gc];
 #endif 
@@ -389,8 +394,8 @@ void MyUncaughtExceptionHandler(NSException *exception)
 {
 	[[NSNotificationCenter defaultCenter] postNotificationName:kTiSuspendNotification object:self];
 	
-	// cancel any pending requests
-	[[ImageLoader sharedLoader] cancel];
+	// suspend any image loading
+	[[ImageLoader sharedLoader] suspend];
 	
 	[kjsBridge gc];
 	
@@ -405,15 +410,20 @@ void MyUncaughtExceptionHandler(NSException *exception)
 	// an incoming call, for example, and then you'll get this message afterwards
 	// this is slightly different than enter foreground
 	[[NSNotificationCenter defaultCenter] postNotificationName:kTiResumeNotification object:self];
+	
+	// resume any image loading
+	[[ImageLoader sharedLoader] resume];
 }
 
 -(void)applicationDidEnterBackground:(UIApplication *)application
 {
+	[TiUtils queueAnalytics:@"ti.background" name:@"ti.background" data:nil];
 }
 
 -(void)applicationWillEnterForeground:(UIApplication *)application
 {
 	[[NSNotificationCenter defaultCenter] postNotificationName:kTiResumeNotification object:self];
+	[TiUtils queueAnalytics:@"ti.foreground" name:@"ti.foreground" data:nil];
 }
 
 -(id)remoteNotification

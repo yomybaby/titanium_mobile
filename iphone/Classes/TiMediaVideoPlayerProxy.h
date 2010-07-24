@@ -22,6 +22,9 @@
 	KrollCallback *thumbnailCallback;
 	
 	NSMutableDictionary* loadProperties; // Used to set properties when the player is created
+	NSMutableDictionary* returnCache; // Return values from UI thread functions
+	
+	NSRecursiveLock* playerLock;
 }
 
 @property(nonatomic,readwrite,assign) id url;

@@ -538,7 +538,11 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 			 [args count] > 0 && 
 			 ![TiUtils boolValue:@"closeByTab" properties:[args objectAtIndex:0] def:NO]))
 		{
-			[[self tab] close:[NSArray arrayWithObject:self]];
+			NSMutableArray* closeArgs = [NSMutableArray arrayWithObject:self];
+			if (args != nil) {
+				[closeArgs addObject:[args objectAtIndex:0]];
+			}
+			[[self tab] close:closeArgs];
 			return;
 		}
 	}
@@ -677,8 +681,8 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 				tempController.view = rootView;
 				[[self _window] addSubview:rootView];
 			}
-			[rootView addSubview:view];
 		}
+		[rootView addSubview:view];
 		[[[TiApp app] controller] windowFocused:[self controller]];
 	}
 

@@ -25,15 +25,6 @@
 @synthesize barButtonItem;
 
 #pragma mark Internal
-- (id) init
-{
-	self = [super init];
-	if (self != nil)
-	{
-		childrenLock = [[NSRecursiveLock alloc] init];
-	}
-	return self;
-}
 
 -(NSArray*)children
 {
@@ -45,23 +36,13 @@
 		return [copy autorelease];
 	}
 	[childrenLock unlock];
-	return children;	
+	return children;
 }
-
-- (void) _initWithProperties:(NSDictionary *)properties
-{
-#if USE_VISIBLE_BOOL
-	visible = YES;
-#endif
-	[super _initWithProperties:properties];
-}
-
 
 -(void)dealloc
 {
 	[self _destroy];
 	
-	RELEASE_TO_NIL(barButtonItem);
 	RELEASE_TO_NIL(pendingAdds);
 	
 	//Dealing with children is in _destroy, which is called by super dealloc.
@@ -69,7 +50,7 @@
 	[super dealloc];
 }
 
--(BOOL)windowOpened
+-(BOOL)windowHasOpened
 {
 	return windowOpened;
 }
@@ -146,6 +127,11 @@
 
 -(void)add:(id)arg
 {
+	if (childrenLock==nil)
+	{
+		childrenLock = [[NSRecursiveLock alloc] init];
+	}
+
 	// allow either an array of arrays or an array of single proxy
 	if ([arg isKindOfClass:[NSArray class]])
 	{
@@ -341,11 +327,15 @@
 
 -(id)width
 {
+	CGFloat value = [TiUtils floatValue:[self valueForUndefinedKey:@"width"] def:0];
+	if (value!=0) return NUMFLOAT(value);
 	return [self size].width;
 }
 
 -(id)height
 {
+	CGFloat value = [TiUtils floatValue:[self valueForUndefinedKey:@"height"] def:0];
+	if (value!=0) return NUMFLOAT(value);
 	return [self size].height;
 }
 
@@ -358,7 +348,7 @@
 		[view setParent:parent_];
 	}
 	
-	if (parent_!=nil && [parent windowOpened])
+	if (parent_!=nil && [parent windowHasOpened])
 	{
 		[self windowWillOpen];
 	}
@@ -414,6 +404,7 @@
 
 -(void)detachView
 {
+	[destroyLock lock];
 	if (view!=nil)
 	{
 		[self viewWillDetach];
@@ -429,6 +420,7 @@
 		RELEASE_TO_NIL(view);
 		[self viewDidDetach];
 	}
+	[destroyLock unlock];
 }
 
 -(void)windowWillOpen
@@ -446,6 +438,7 @@
 	}
 	
 	windowOpened = YES;
+	windowOpening = YES;
 	
 	// If the window was previously opened, it may need to have
 	// its existing children redrawn
@@ -469,6 +462,7 @@
 
 -(void)windowDidOpen
 {
+	windowOpening = NO;
 }
 
 -(void)windowDidClose
@@ -529,6 +523,11 @@
 	{
 		[view performSelector:@selector(didFirePropertyChanges)];
 	}
+}
+
+-(BOOL)windowIsOpening
+{
+	return windowOpening;
 }
 
 -(BOOL)viewReady
@@ -605,9 +604,7 @@
 		[childrenLock unlock];
 
 		// make sure we do a layout of ourselves
-
 		[view updateLayout:NULL withBounds:view.bounds];
-		
 		viewInitialized = YES;
 	}
 
@@ -815,15 +812,35 @@
 		// not safe to do multiple times given rwlock
 		return;
 	}
-	[childrenLock lock];
-	
 	// _destroy is called during a JS context shutdown, to inform the object to 
 	// release all its memory and references.  this will then cause dealloc 
 	// on objects that it contains (assuming we don't have circular references)
 	// since some of these objects are registered in the context and thus still
 	// reachable, we need _destroy to help us start the unreferencing part
+
+
+	[childrenLock lock];
+	RELEASE_TO_NIL(children);
+	[childrenLock unlock];
+	[super _destroy];
+
+	//Part of super's _destroy is to release the modelDelegate, which in our case is ALSO the view.
+	//As such, we need to have the super happen before we release the view, so that we can insure that the
+	//release that triggers the dealloc happens on the main thread.
 	
-	RELEASE_TO_NIL(barButtonItem);
+	if (barButtonItem != nil)
+	{
+		if ([NSThread isMainThread])
+		{
+			RELEASE_TO_NIL(barButtonItem);
+		}
+		else
+		{
+			[barButtonItem performSelectorOnMainThread:@selector(release) withObject:nil waitUntilDone:NO];
+			barButtonItem = nil;
+		}
+	}
+
 	if (view!=nil)
 	{
 		if ([NSThread isMainThread])
@@ -832,13 +849,11 @@
 		}
 		else
 		{
-			RELEASE_TO_NIL(view);
+			view.proxy = nil;
+			[view performSelectorOnMainThread:@selector(release) withObject:nil waitUntilDone:NO];
+			view = nil;
 		}
 	}
-	
-	RELEASE_TO_NIL(children);
-	[childrenLock unlock];
-	[super _destroy];
 }
 
 -(void)destroy
@@ -1150,14 +1165,15 @@
 {
 	IGNORE_IF_NOT_OPENED
 	
-	if (![self viewAttached] || view.hidden)
+	UIView* superview = [[self view] superview];
+	if (![self viewAttached] || view.hidden || superview == nil)
 	{
 		return;
 	}
 	if ([NSThread isMainThread])
 	{	//NOTE: This will cause problems with ScrollableView, or is a new wrapper needed?
 		[parent childWillResize:self];
-		[self repositionWithBounds:[[self view] superview].bounds];
+		[self repositionWithBounds:superview.bounds];
 	}
 	else 
 	{

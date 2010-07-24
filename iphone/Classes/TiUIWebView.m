@@ -8,7 +8,7 @@
 
 #import "TiUIWebView.h"
 #import "TiUIWebViewProxy.h"
-
+#import "TiApp.h"
 #import "TiUtils.h" 
 #import "TiProxy.h"
 #import "SBJSON.h"
@@ -37,15 +37,6 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
  
 @implementation TiUIWebView
 
--(void)unregister
-{
-	if (pageToken!=nil)
-	{
-		[[self.proxy _host] unregisterContext:self forToken:pageToken];
-		RELEASE_TO_NIL(pageToken);
-	}
-}
-
 -(void)dealloc
 {
 	if (webview!=nil)
@@ -62,11 +53,11 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 	{
 		RELEASE_TO_NIL(listeners);
 	}
+	RELEASE_TO_NIL(pageToken);
 	RELEASE_TO_NIL(webview);
 	RELEASE_TO_NIL(url);
 	RELEASE_TO_NIL(spinner);
 	RELEASE_TO_NIL(basicCredentials);
-	[self unregister];
 	[super dealloc];
 }
 
@@ -104,6 +95,9 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 {
 	if (webview==nil)
 	{
+		// we attach the XHR bridge the first time we need a webview
+		[[TiApp app] attachXHRBridgeIfRequired];
+		
 		webview = [[UIWebView alloc] initWithFrame:CGRectMake(0, 0, 10, 1)];
 		webview.delegate = self;
 		webview.opaque = NO;
@@ -114,7 +108,18 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 		// only show the loading indicator if it's a remote URL
 		if ([self isURLRemote])
 		{
-			spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+			TiColor *bgcolor = [TiUtils colorValue:[self.proxy valueForKey:@"backgroundColor"]];
+			UIActivityIndicatorViewStyle style = UIActivityIndicatorViewStyleGray;
+			if (bgcolor!=nil)
+			{
+				// check to see if the background is a dark color and if so, we want to 
+				// show the white indicator instead
+				if ([Webcolor isDarkColor:[bgcolor _color]])
+				{
+					style = UIActivityIndicatorViewStyleWhite;
+				} 
+			}
+			spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:style];
 			[spinner setHidesWhenStopped:YES];
 			spinner.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
 			[self addSubview:spinner];
@@ -174,10 +179,11 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 
 -(void)prepareInjection
 {
-	RELEASE_TO_NIL(pageToken);
-	[self unregister];
-	pageToken = [[NSString stringWithFormat:@"%d",[self hash]] retain];
-	[[self.proxy _host] registerContext:self forToken:pageToken];
+	if (pageToken==nil)
+	{
+		pageToken = [[NSString stringWithFormat:@"%d",[self hash]] retain];
+		[(TiUIWebViewProxy*)self.proxy setPageToken:pageToken];
+	}
 }
 
 -(void)loadHTML:(NSString*)content 
@@ -315,7 +321,6 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 -(void)setData_:(id)args
 {
 	RELEASE_TO_NIL(url);
-	[self unregister];
 	ENSURE_SINGLE_ARG(args,NSObject);
 	if ([args isKindOfClass:[TiBlob class]])
 	{
@@ -384,8 +389,6 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 	{
 		[self stopLoading:nil];
 	}
-	
-	[self unregister];
 	
 	if ([self isURLRemote])
 	{
@@ -662,18 +665,13 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 
 #pragma mark TiEvaluator
 
-- (TiHost*)host
-{
-	return [self.proxy _host];
-}
-
 - (void)evalFile:(NSString*)path
 {
 	NSURL *url_ = [path hasPrefix:@"file:"] ? [NSURL URLWithString:path] : [NSURL fileURLWithPath:path];
 	
 	if (![path hasPrefix:@"/"] && ![path hasPrefix:@"file:"])
 	{
-		NSURL *root = [[self host] baseURL];
+		NSURL *root = [[[self proxy] _host] baseURL];
 		url_ = [NSURL fileURLWithPath:[NSString stringWithFormat:@"%@/%@",root,path]];
 	}
 	
@@ -684,28 +682,14 @@ NSString * const kTitaniumJavascript = @"Ti.App={};Ti.API={};Ti.App._listeners={
 
 - (void)fireEvent:(id)listener withObject:(id)obj remove:(BOOL)yn thisObject:(id)thisObject_
 {
-	NSDictionary *event = (NSDictionary*)obj;
-	NSString *name = [event objectForKey:@"type"];
-	NSString *js = [NSString stringWithFormat:@"Ti.App._dispatchEvent('%@',%@,%@);",name,listener,[SBJSON stringify:event]];
-	[[self webview] performSelectorOnMainThread:@selector(stringByEvaluatingJavaScriptFromString:) withObject:js waitUntilDone:NO];
-}
-
-- (id)preloadForKey:(id)key
-{
-	return nil;
-}
-
-- (KrollContext*)krollContext
-{
-	return nil;
-}
-
-- (void)registerProxy:(id)proxy
-{
-}
-
-- (void)unregisterProxy:(id)proxy
-{
+	// don't bother firing an app event to the webview if we don't have a webview yet created
+	if (webview!=nil)
+	{
+		NSDictionary *event = (NSDictionary*)obj;
+		NSString *name = [event objectForKey:@"type"];
+		NSString *js = [NSString stringWithFormat:@"Ti.App._dispatchEvent('%@',%@,%@);",name,listener,[SBJSON stringify:event]];
+		[webview performSelectorOnMainThread:@selector(stringByEvaluatingJavaScriptFromString:) withObject:js waitUntilDone:NO];
+	}
 }
 
 @end

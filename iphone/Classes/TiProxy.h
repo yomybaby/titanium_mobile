@@ -67,9 +67,8 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 	id<TiProxyDelegate> modelDelegate;
 	NSURL *baseURL;
 	NSString *krollDescription;
-	NSMutableDictionary *contextListeners;
-	NSRecursiveLock *destroyLock;
 @protected
+	NSRecursiveLock *destroyLock;
 	BOOL	ignoreValueChanged;	//This is done only at initialization where we know the dynprops were properly set by _initWithProperties.
 	NSMutableDictionary *dynprops;
 	NSRecursiveLock *dynPropsLock;
