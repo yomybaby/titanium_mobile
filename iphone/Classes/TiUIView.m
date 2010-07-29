@@ -254,13 +254,17 @@ DEFINE_EXCEPTIONS
 	virtualParentTransform = CGAffineTransformIdentity;
 	multipleTouches = NO;
 	twoFingerTapIsPossible = NO;
-	touchEnabled = YES;
-	self.userInteractionEnabled = YES;
 	
 	[self updateTouchHandling];
 	 
 	self.backgroundColor = [UIColor clearColor]; 
 	self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    
+    // If a user has not explicitly set whether or not the view interacts, base it on whether or
+    // not it handles events, and if not, set it to the interaction default.
+    if (!changedInteraction) {
+        self.userInteractionEnabled = (handlesTouches || handlesTaps || handlesSwipes) || [self interactionDefault];
+    }
 }
 
 -(void)willSendConfiguration
@@ -380,15 +384,26 @@ DEFINE_EXCEPTIONS
 		{
 			[[(TiViewProxy *)proxy parent] layoutChild:(TiViewProxy *)proxy optimize:NO];
 		}
+		oldSize = CGSizeZero;
 		ApplyConstraintToViewWithinViewWithBounds([(TiViewProxy *)proxy layoutProperties], self, [self superview], bounds, YES);
 		[(TiViewProxy *)[self proxy] clearNeedsReposition];
 		repositioning = NO;
 	}
 }
 
+-(void)relayoutOnUIThread:(NSValue*)value
+{
+	CGRect bounds = [value CGRectValue];
+	[self relayout:bounds];
+}
 
 -(void)updateLayout:(LayoutConstraint*)layout_ withBounds:(CGRect)bounds
 {
+	if ([NSThread isMainThread]==NO)
+	{
+		[self performSelectorOnMainThread:@selector(relayoutOnUIThread:) withObject:[NSValue valueWithCGRect:bounds] waitUntilDone:NO];
+		return;
+	}
 	if (animating)
 	{
 #ifdef DEBUG		
@@ -422,6 +437,10 @@ DEFINE_EXCEPTIONS
 		[child retain];
 		[child removeFromSuperview];
 		[self addSubview:child];
+		if ([child isKindOfClass:[TiUIView class]])
+		{
+			[child repositionZIndexIfNeeded];
+		}
 		[child release];
 	}
 }
@@ -431,13 +450,17 @@ DEFINE_EXCEPTIONS
 	return zIndex;
 }
 
+-(void)repositionZIndexIfNeeded
+{
+	if ([(TiViewProxy*)proxy needsZIndexRepositioning])
+	{
+		[self repositionZIndex];
+	}
+}
+
 -(void)repositionZIndex
 {
-	if (parent!=nil && [parent viewAttached])
-	{
-		[self removeFromSuperview];
-		[parent layoutChild:(TiViewProxy *)[self proxy] optimize:NO];
-	}
+	[(TiViewProxy*)self.proxy setNeedsZIndexRepositioning];
 }
 
 -(BOOL)animationFromArgument:(id)args
@@ -639,7 +662,8 @@ DEFINE_EXCEPTIONS
 
 -(void)setTouchEnabled_:(id)arg
 {
-	touchEnabled = [TiUtils boolValue:arg];
+	self.userInteractionEnabled = [TiUtils boolValue:arg];
+    changedInteraction = YES;
 }
 
 -(void)setBackgroundGradient_:(id)arg
@@ -756,6 +780,8 @@ DEFINE_EXCEPTIONS
 	NSArray * keySequence = [newProxy keySequence];
 	[oldProxy retain];
 	[self retain];
+	
+	[newProxy setReproxying:YES];
 
 	[oldProxy setView:nil];
 	[newProxy setView:self];
@@ -795,6 +821,8 @@ DEFINE_EXCEPTIONS
 	}
 
 	[oldProxy release];
+
+	[newProxy setReproxying:NO];
 	[self release];
 }
 
@@ -868,14 +896,7 @@ DEFINE_EXCEPTIONS
 
 - (BOOL)interactionEnabled
 {
-	if (touchEnabled)
-	{
-		// we allow the developer to turn off touch with this property but make the default the
-		// result of the internal method interactionDefault. some components (like labels) by default
-		// don't want or need interaction if not explicitly enabled through an addEventListener
-		return [self interactionDefault];
-	}
-	return NO;
+	return self.userInteractionEnabled;
 }
 
 - (BOOL)hasTouchableListener
