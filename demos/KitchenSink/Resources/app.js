@@ -306,4 +306,11 @@ Ti.API.debug("user agent set to "+Titanium.userAgent);
 
 
 
+Ti.App.registerBackgroundService({url:'bg.js'});
+
+
+Ti.App.addEventListener('notification',function(e)
+{
+	Ti.API.info("local notification received: "+JSON.stringify(e));
+});
 

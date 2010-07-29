@@ -11,6 +11,14 @@
 #ifndef TI_BASE_H
 #define TI_BASE_H
 
+#ifndef __IPHONE_3_2
+#define __IPHONE_3_2 30200
+#endif
+
+#ifndef __IPHONE_4_0
+#define __IPHONE_4_0 40000
+#endif
+
 #define MEMORY_DEBUG 0
 
 #ifdef DEBUG
@@ -435,12 +443,8 @@ extern NSString * const kTiRemoteDeviceUUIDNotification;
 extern NSString * const kTiGestureShakeNotification;
 extern NSString * const kTiRemoteControlNotification;
 
-#ifndef __IPHONE_3_2
-#define __IPHONE_3_2 30200
-#endif
-
-#ifndef __IPHONE_4_0
-#define __IPHONE_4_0 40000
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
+extern NSString * const kTiLocalNotification;
 #endif
 
 

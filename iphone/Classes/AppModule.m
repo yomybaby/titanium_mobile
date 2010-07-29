@@ -12,6 +12,10 @@
 #import "ListenerEntry.h"
 #import "TiApp.h"
 
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
+#import "TiAppBackgroundServiceProxy.h"
+#endif
+
 extern NSString * const TI_APPLICATION_DEPLOYTYPE;
 extern NSString * const TI_APPLICATION_ID;
 extern NSString * const TI_APPLICATION_PUBLISHER;
@@ -29,6 +33,7 @@ extern NSString * const TI_APPLICATION_GUID;
 	[appListeners removeAllObjects];
 	RELEASE_TO_NIL(appListeners);
 	RELEASE_TO_NIL(properties);
+	[[NSNotificationCenter defaultCenter] removeObserver:self];
 	[super dealloc];
 }
 
@@ -263,8 +268,12 @@ extern NSString * const TI_APPLICATION_GUID;
 
 -(void)startup
 {
-	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(willShutdown:) name:kTiWillShutdownNotification object:nil];
-	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(willShutdownContext:) name:kTiContextShutdownNotification object:nil];
+	NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
+	[nc addObserver:self selector:@selector(willShutdown:) name:kTiWillShutdownNotification object:nil];
+	[nc addObserver:self selector:@selector(willShutdownContext:) name:kTiContextShutdownNotification object:nil];
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
+	[nc addObserver:self selector:@selector(didReceiveLocalNotification:) name:kTiLocalNotification object:nil];
+#endif
 	[super startup];
 }
 
@@ -377,6 +386,119 @@ extern NSString * const TI_APPLICATION_GUID;
 {
 	return TI_APPLICATION_GUID;
 }
+
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
+
+-(void)registerBackgroundService:(id)args
+{
+	TiAppBackgroundServiceProxy *proxy = [[TiAppBackgroundServiceProxy alloc] _initWithPageContext:[self executionContext] args:args];
+	[[TiApp app] registerBackgroundService:proxy];
+	[proxy release];
+}
+
+-(void)scheduleLocalNotification:(id)args
+{
+	ENSURE_SINGLE_ARG(args,NSDictionary);
+	ENSURE_UI_THREAD(scheduleLocalNotification,args);
+	
+	UILocalNotification *localNotif = [[UILocalNotification alloc] init];
+	
+	id date = [args objectForKey:@"date"];
+	
+	if (date!=nil)
+	{
+		localNotif.fireDate = date;
+		localNotif.timeZone = [NSTimeZone defaultTimeZone];
+	}
+	
+	id repeat = [args objectForKey:@"repeat"];
+	if (repeat!=nil)
+	{
+		if ([repeat isEqual:@"weekly"])
+		{
+			localNotif.repeatInterval = NSWeekCalendarUnit;
+		}
+		else if ([repeat isEqual:@"daily"])
+		{
+			localNotif.repeatInterval = NSDayCalendarUnit;
+		}
+		else if ([repeat isEqual:@"yearly"])
+		{
+			localNotif.repeatInterval = NSYearCalendarUnit;
+		}
+		else if ([repeat isEqual:@"monthly"])
+		{
+			localNotif.repeatInterval = NSMonthCalendarUnit;
+		}
+	}
+	
+	id alertBody = [args objectForKey:@"alertBody"];
+	if (alertBody!=nil)
+	{
+		localNotif.alertBody = alertBody;
+	}
+	id alertAction = [args objectForKey:@"alertAction"];
+	if (alertAction!=nil)
+	{
+		localNotif.alertAction = alertAction;
+	}
+	id alertLaunchImage = [args objectForKey:@"alertLaunchImage"];
+	if (alertLaunchImage!=nil)
+	{
+		localNotif.alertLaunchImage = alertLaunchImage;
+	}
+	
+	id badge = [args objectForKey:@"badge"];
+	if (badge!=nil)
+	{
+		localNotif.applicationIconBadgeNumber = [TiUtils intValue:badge];
+	}
+	
+	id sound = [args objectForKey:@"sound"];
+	if (sound!=nil)
+	{
+		if ([sound isEqual:@"default"])
+		{
+			localNotif.soundName = UILocalNotificationDefaultSoundName;
+		}
+		else
+		{
+			localNotif.soundName = sound;
+		}
+	}
+	
+	id userInfo = [args objectForKey:@"userInfo"];
+	if (userInfo!=nil)
+	{
+		localNotif.userInfo = userInfo;
+	}
+	
+	if (date!=nil)
+	{
+		[[UIApplication sharedApplication] scheduleLocalNotification:localNotif];
+	}
+	else
+	{
+		[[UIApplication sharedApplication] presentLocalNotificationNow:localNotif];
+	}
+	
+	[localNotif release];
+}
+
+-(void)cancelAllLocalNotifications:(id)args
+{
+	ENSURE_UI_THREAD(cancelAllLocalNotifications,args);
+	[[UIApplication sharedApplication] cancelAllLocalNotifications];
+}
+
+-(void)didReceiveLocalNotification:(NSNotification*)note
+{
+	UILocalNotification *local = [note object];
+	NSDictionary *event = [NSDictionary dictionaryWithObjectsAndKeys:[local userInfo],@"data",nil];
+	[self fireEvent:@"notification" withObject:event];
+}
+
+#endif
 
 @end
 

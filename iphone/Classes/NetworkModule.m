@@ -297,6 +297,8 @@ MAKE_SYSTEM_PROP(NOTIFICATION_TYPE_SOUND,3);
 
 - (void)application:(UIApplication *)application didReceiveRemoteNotification:(NSDictionary *)userInfo
 {
+	//TODO: refactor into a NSNotification
+	
 	// called by TiApp
 	if (pushNotificationCallback!=nil)
 	{

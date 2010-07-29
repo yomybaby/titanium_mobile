@@ -467,6 +467,8 @@ NSString * const TI_DB_VERSION = @"1";
 {
 	if (TI_APPLICATION_ANALYTICS)
 	{
+		//TODO: setup beginBackgroundTaskWithExpirationHandler:
+		
 		[self queueEvent:@"ti.end" name:@"ti.end" data:nil immediate:YES];
 		[[NSNotificationCenter defaultCenter] removeObserver:self name:kTiAnalyticsNotification object:nil];
 		[[NSNotificationCenter defaultCenter] removeObserver:self name:kTiRemoteDeviceUUIDNotification object:nil];

@@ -23,6 +23,8 @@
 		242E989A11BAF7DB0046A0D0 /* TiDebuggerCallFrame.mm in Sources */ = {isa = PBXBuildFile; fileRef = 242E989911BAF7DB0046A0D0 /* TiDebuggerCallFrame.mm */; };
 		242E989B11BAF7DB0046A0D0 /* TiDebuggerCallFrame.mm in Sources */ = {isa = PBXBuildFile; fileRef = 242E989911BAF7DB0046A0D0 /* TiDebuggerCallFrame.mm */; };
 		242EA11611BD956F0046A0D0 /* ExternalAccessory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 242EA11511BD956F0046A0D0 /* ExternalAccessory.framework */; };
+		243943CD1201451000E92D5A /* TiAppBackgroundServiceProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = 243943CC1201451000E92D5A /* TiAppBackgroundServiceProxy.m */; };
+		243943CE1201451000E92D5A /* TiAppBackgroundServiceProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = 243943CC1201451000E92D5A /* TiAppBackgroundServiceProxy.m */; };
 		243AAFB511FCE62600E37D8B /* TiUIDashboardItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 243AAFB411FCE62600E37D8B /* TiUIDashboardItem.m */; };
 		243AAFB611FCE62600E37D8B /* TiUIDashboardItem.m in Sources */ = {isa = PBXBuildFile; fileRef = 243AAFB411FCE62600E37D8B /* TiUIDashboardItem.m */; };
 		243ECCAA1126981C00639DF4 /* TiUITableViewSectionProxy.m in Sources */ = {isa = PBXBuildFile; fileRef = 243EC5EA112617F900639DF4 /* TiUITableViewSectionProxy.m */; };
@@ -554,6 +556,8 @@
 		242E989811BAF7DB0046A0D0 /* TiDebuggerCallFrame.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = TiDebuggerCallFrame.h; path = ../Classes/TiDebuggerCallFrame.h; sourceTree = SOURCE_ROOT; };
 		242E989911BAF7DB0046A0D0 /* TiDebuggerCallFrame.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = TiDebuggerCallFrame.mm; path = ../Classes/TiDebuggerCallFrame.mm; sourceTree = SOURCE_ROOT; };
 		242EA11511BD956F0046A0D0 /* ExternalAccessory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ExternalAccessory.framework; path = System/Library/Frameworks/ExternalAccessory.framework; sourceTree = SDKROOT; };
+		243943CB1201451000E92D5A /* TiAppBackgroundServiceProxy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TiAppBackgroundServiceProxy.h; sourceTree = "<group>"; };
+		243943CC1201451000E92D5A /* TiAppBackgroundServiceProxy.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TiAppBackgroundServiceProxy.m; sourceTree = "<group>"; };
 		243AAFB311FCE62500E37D8B /* TiUIDashboardItem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TiUIDashboardItem.h; sourceTree = "<group>"; };
 		243AAFB411FCE62600E37D8B /* TiUIDashboardItem.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = TiUIDashboardItem.m; sourceTree = "<group>"; };
 		243EC5E9112617F900639DF4 /* TiUITableViewSectionProxy.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TiUITableViewSectionProxy.h; sourceTree = "<group>"; };
@@ -1541,6 +1545,8 @@
 				24CA8B57111161FE0084E2DE /* AppModule.h */,
 				24CA8AE4111161FE0084E2DE /* TiAppPropertiesProxy.m */,
 				24CA8AE5111161FE0084E2DE /* TiAppPropertiesProxy.h */,
+				243943CB1201451000E92D5A /* TiAppBackgroundServiceProxy.h */,
+				243943CC1201451000E92D5A /* TiAppBackgroundServiceProxy.m */,
 			);
 			name = App;
 			sourceTree = "<group>";
@@ -2680,6 +2686,7 @@
 				2467310811E2549300D39AF7 /* Webcolor.m in Sources */,
 				2465592411E5862F0059BBF4 /* TiFilesystemBlobProxy.m in Sources */,
 				243AAFB511FCE62600E37D8B /* TiUIDashboardItem.m in Sources */,
+				243943CE1201451000E92D5A /* TiAppBackgroundServiceProxy.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2925,6 +2932,7 @@
 				2467310711E2549300D39AF7 /* Webcolor.m in Sources */,
 				2465592511E5862F0059BBF4 /* TiFilesystemBlobProxy.m in Sources */,
 				243AAFB611FCE62600E37D8B /* TiUIDashboardItem.m in Sources */,
+				243943CD1201451000E92D5A /* TiAppBackgroundServiceProxy.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

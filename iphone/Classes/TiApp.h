@@ -16,6 +16,13 @@
 
 @interface TiApp : TiHost <UIApplicationDelegate> 
 {
+@private
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
+	UIBackgroundTaskIdentifier bgTask;
+	NSMutableArray *backgroundServices;
+	NSMutableArray *runningServices;
+	UILocalNotification *localNotification;
+#endif	
 	UIWindow *window;
 	UIImageView *loadView;
 	BOOL splashAttached;
@@ -76,6 +83,13 @@
 -(BOOL)isKeyboardShowing;
 
 -(KrollBridge*)krollBridge;
+
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
+-(void)registerBackgroundService:(TiProxy*)proxy;
+-(void)unregisterBackgroundService:(TiProxy*)proxy;
+-(void)stopBackgroundService:(TiProxy*)proxy;
+-(UILocalNotification*)localNotification;
+#endif
 
 @end
 
