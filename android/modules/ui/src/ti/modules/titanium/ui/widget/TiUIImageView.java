@@ -16,8 +16,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.appcelerator.titanium.TiBlob;
 import org.appcelerator.titanium.TiContext;
 import org.appcelerator.titanium.TiDict;
+import org.appcelerator.titanium.TiDimension;
 import org.appcelerator.titanium.TiProxy;
 import org.appcelerator.titanium.TiContext.OnLifecycleEvent;
+import org.appcelerator.titanium.cache.TiCacheManager;
 import org.appcelerator.titanium.io.TiBaseFile;
 import org.appcelerator.titanium.io.TiFileFactory;
 import org.appcelerator.titanium.proxy.TiViewProxy;
@@ -33,7 +35,6 @@ import ti.modules.titanium.filesystem.FileProxy;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
-import android.net.Uri;
 import android.os.Handler;
 import android.os.Message;
 import android.webkit.URLUtil;
@@ -60,12 +61,15 @@ public class TiUIImageView extends TiUIView
 	private boolean paused = false;
 	private int token;
 	private boolean firedLoad;
+	private TiCacheManager remoteImageCache;
+	private TiDimension requestedWidth;
+	private TiDimension requestedHeight;
 
 	private class BgImageLoader extends TiBackgroundImageLoadTask
 	{
 		private int token;
 
-		public BgImageLoader(TiContext tiContext, Integer imageWidth, Integer imageHeight, int token) {
+		public BgImageLoader(TiContext tiContext, TiDimension imageWidth, TiDimension imageHeight, int token) {
 			super(tiContext, imageWidth, imageHeight);
 			this.token = token;
 		}
@@ -97,12 +101,18 @@ public class TiUIImageView extends TiUIView
 		if (DBG) {
 			Log.d(LCAT, "Creating an ImageView");
 		}
-
 		TiImageView view = new TiImageView(proxy.getContext());
 		setNativeView(view);
 		proxy.getTiContext().addOnLifecycleEventListener(this);
 	}
 
+	private TiCacheManager getCache() {
+		if (remoteImageCache == null) {
+			remoteImageCache = proxy.getTiContext().getTiApp().getRemoteImageCache();
+		}
+		return remoteImageCache;
+	}
+	
 	private TiImageView getView() {
 		return (TiImageView) nativeView;
 	}
@@ -439,6 +449,13 @@ public class TiUIImageView extends TiUIView
 	{
 		TiImageView view = getView();
 
+		if (d.containsKey("width")) {
+			requestedWidth = TiConvert.toTiDimension(d, "width");
+		}
+		if (d.containsKey("height")) {
+			requestedWidth = TiConvert.toTiDimension(d, "height");
+		}
+
 		if (d.containsKey("images")) {
 			Object o = d.get("images");
 			if (o instanceof Object[]) {
@@ -465,7 +482,7 @@ public class TiUIImageView extends TiUIView
 					synchronized(imageTokenGenerator) {
 						token = imageTokenGenerator.incrementAndGet();
 						getView().setImageDrawable(null);
-						new BgImageLoader(getProxy().getTiContext(), null, null, token).load(imageURL);
+						new BgImageLoader(getProxy().getTiContext(), requestedWidth, requestedHeight, token).load(imageURL);
 					}
 				} else {
 					setImage(createBitmap(imageURL));
@@ -476,8 +493,7 @@ public class TiUIImageView extends TiUIView
 			
 		} else {
 			getProxy().internalSetDynamicValue("image", null, false);
-		}
-
+		}		
 		super.processProperties(d);
 	}
 
@@ -495,7 +511,7 @@ public class TiUIImageView extends TiUIView
 			synchronized(imageTokenGenerator) {
 				token = imageTokenGenerator.incrementAndGet();
 				getView().setImageDrawable(null);
-				new BgImageLoader(getProxy().getTiContext(), null, null, token).load(TiConvert.toString(newValue));
+				new BgImageLoader(getProxy().getTiContext(), requestedWidth, requestedHeight, token).load(TiConvert.toString(newValue));
 			}
 		} else if (key.equals("image")) {
 			Object image = newValue;
@@ -505,7 +521,7 @@ public class TiUIImageView extends TiUIView
 					synchronized(imageTokenGenerator) {
 						token = imageTokenGenerator.incrementAndGet();
 						getView().setImageDrawable(null);
-						new BgImageLoader(getProxy().getTiContext(), null, null, token).load(imageURL);
+						new BgImageLoader(getProxy().getTiContext(), requestedWidth, requestedHeight, token).load(imageURL);
 					}
 				} else {
 					setImage(createBitmap(imageURL));

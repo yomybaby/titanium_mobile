@@ -77,6 +77,11 @@ public class TiDimension
 		return value;
 	}
 
+	public int getAsPixels() {
+		//TODO real conversion based on display.
+		return getIntValue();
+	}
+	
 	public int getIntValue() {
 		return Double.valueOf(value).intValue();
 	}

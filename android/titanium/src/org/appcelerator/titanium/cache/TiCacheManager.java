@@ -3,22 +3,16 @@
  */
 package org.appcelerator.titanium.cache;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileFilter;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 
+import org.appcelerator.titanium.util.Log;
 import org.appcelerator.titanium.util.TiConfig;
-
-import android.util.Log;
 
 /**
  * @author dthorp
@@ -38,6 +32,8 @@ public class TiCacheManager
 	private int maxEntries;
 	
 	private HashMap<String, TiCacheEntry> cacheMap;
+	private HashMap<String, ArrayList<TiCacheCallback>> completionListeners;
+	private ThreadPoolExecutor executor;
 	
 	public interface TiCacheCallback 
 	{
@@ -52,6 +48,8 @@ public class TiCacheManager
 		//TODO initialize from properties
 		
 		cacheMap = new HashMap<String, TiCacheEntry>(maxEntries);
+		completionListeners = new HashMap<String, ArrayList<TiCacheCallback>>(100);
+		executor = (ThreadPoolExecutor) Executors.newCachedThreadPool();
 	}
 	
 	public void init()
@@ -107,6 +105,9 @@ public class TiCacheManager
 				try {
 					TiCacheEntry ce = TiCacheEntry.load(this, cacheKey);
 					if (ce != null) {
+						if (cacheMap.containsKey(ce.key)) {
+							Log.e(LCAT, "Duplicate Cache Entry for key: " + ce.key);
+						}
 						cacheMap.put(ce.key, ce);
 						if (DBG) {
 							Log.d(LCAT, "Added entry " + ce);
@@ -144,9 +145,11 @@ public class TiCacheManager
 		synchronized(cacheMap) {
 			TiCacheEntry ce = cacheMap.get(key);
 			if (ce != null && ce.valid()) {
+				Log.e(LCAT, "CACHE HIT: " + key);
 				//TODO async?
 				ce.accessed();
 				callback.fileReady(getDataFile(ce.cacheKey));
+				Log.w(LCAT, "Notified for : " + key);
 			} else {
 				// Cleanup invalid entry
 				if (ce != null) {
@@ -160,66 +163,24 @@ public class TiCacheManager
 				
 				final TiCacheManager fmgr = this;
 				
-				//TODO use bounded queue
-				Thread t = new Thread(new Runnable()
-				{
-					@Override
-					public void run() {
-						InputStream is = null;
-						OutputStream os = null;
-						try {
-							URL url = new URL(key);
-							HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-							connection.setDoInput(true);
-							connection.setDoOutput(false);
-							connection.connect();
-							is = connection.getInputStream(); // We want to cache here.
-							String cacheKey = "K" + System.currentTimeMillis();
-							File f = getDataFile(cacheKey);
-							f.createNewFile();
-							os = new BufferedOutputStream(new FileOutputStream(f), 8096);
-							byte[] buf = new byte[8096];
-							int len = -1;
-							while((len = is.read(buf)) > 0) {
-								os.write(buf,0,len);
-							}
-							os.close();
-							os = null;
-							
-							TiCacheEntry ce = TiCacheEntry.create(fmgr, key, cacheKey);
-							if (ce != null) {
-								synchronized(cacheMap) {
-									cacheMap.put(key, ce);
-									callback.fileReady(getDataFile(ce.cacheKey));
-								}
-							} else {
-								callback.error(null);
-							}
-					} catch (MalformedURLException e) {
-						callback.error(e);
-					} catch (IOException e) {
-						callback.error(e);
-					} catch (Throwable t) {
-						callback.error(t);
-					} finally {
-						if (is != null) {
-							try {
-								is.close();
-							} catch (IOException ignore) {
-								
-							}
-						}
-						if (os != null) {
-							try {
-								os.close();
-							} catch (IOException ignore) {
-								
-							}
-						}
-					}
-					}
-				});
-				t.start();
+				// What we need here is to separate out the download as a specific task keyed
+				// by Key. Then have the ability to set multiple listeners on the download request.
+				
+				ArrayList<TiCacheCallback> callbacks;
+				boolean requiresTask = false;
+				if (completionListeners.containsKey(key)) {
+					callbacks = completionListeners.get(key);
+				} else {
+					callbacks = new ArrayList<TiCacheCallback>();
+					completionListeners.put(key, callbacks);
+					requiresTask = true;
+				}
+				callbacks.add(callback);
+				
+				if (requiresTask) {
+					DownloadTask<Void> task = new DownloadTask<Void>(this, key);
+					executor.execute(task);
+				}
 			}
 		}
 	}
@@ -239,6 +200,51 @@ public class TiCacheManager
 		return new File(cachePath, cacheKey + ENTRY_DATA_SUFFIX);
 	}
 	
+	void fileReady(String key, String cacheKey) 
+	{
+		synchronized(cacheMap) {
+			TiCacheEntry ce = TiCacheEntry.create(this, key, cacheKey);
+			if (ce != null) {
+				if (cacheMap.containsKey(key)) {
+					Log.e(LCAT, "DUPLICATE DOWNLOAD FOR " + key);
+				}
+				cacheMap.put(key, ce);
+				ArrayList<TiCacheCallback> callbacks = completionListeners.get(key);
+				if (callbacks != null) {
+					completionListeners.remove(key);
+					File dataFile = getDataFile(ce.cacheKey);
+					for (TiCacheCallback callback : callbacks) {
+						try {
+							callback.fileReady(dataFile);
+						} catch (Throwable t) {
+							Log.e(LCAT, "Error notifying read for " + key, t);
+						}
+					}
+					callbacks.clear();
+				}
+			} else {
+				error(key, null);
+			}
+		}
+	}
+	
+	void error(String key, Throwable t) 
+	{
+		synchronized(cacheMap) {
+			ArrayList<TiCacheCallback> callbacks = completionListeners.get(key);
+			if (callbacks != null) {
+				completionListeners.remove(key);
+				for (TiCacheCallback callback : callbacks) {
+					try {
+						callback.error(t);
+					} catch (Throwable t1) {
+						Log.e(LCAT, "Error notifying error for " + key, t1);
+					}
+				}
+				callbacks.clear();
+			}			
+		}
+	}
 	
 	void removeFileCacheEntry(String cacheKey)
 	{

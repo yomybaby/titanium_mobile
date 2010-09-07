@@ -20,12 +20,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
 
+import javax.media.jai.RemoteImage;
+
 import org.appcelerator.titanium.analytics.TiAnalyticsEvent;
 import org.appcelerator.titanium.analytics.TiAnalyticsEventFactory;
 import org.appcelerator.titanium.analytics.TiAnalyticsModel;
 import org.appcelerator.titanium.analytics.TiAnalyticsService;
+import org.appcelerator.titanium.cache.TiCacheManager;
+import org.appcelerator.titanium.cache.TiCacheManagerException;
 import org.appcelerator.titanium.util.Log;
 import org.appcelerator.titanium.util.TiConfig;
+import org.appcelerator.titanium.util.TiFileHelper;
 import org.appcelerator.titanium.util.TiPlatformHelper;
 import org.appcelerator.titanium.view.ITiWindowHandler;
 
@@ -55,6 +60,8 @@ public class TiApplication extends Application
 	private ITiWindowHandler windowHandler;
 	private Activity currentActivity;
 	protected ITiAppInfo appInfo;
+	
+	protected TiCacheManager remoteImageCache;
 
 	private boolean needsStartEvent;
 	private boolean needsEnrollEvent;
@@ -120,6 +127,19 @@ public class TiApplication extends Application
 		appProperties = new TiProperties(getApplicationContext(), "titanium", false);
 		systemProperties = new TiProperties(getApplicationContext(), "system", true);
 		systemProperties.setString("ti.version", buildVersion);
+		
+		TiFileHelper tfh = new TiFileHelper(this);
+		File f = new File(tfh.getDataDirectory(false), "remote-image-cache");
+		tfh = null;
+		Log.i(LCAT, "Remote Image Caching Directory: " + f.getAbsolutePath());
+		remoteImageCache = new TiCacheManager(f.getAbsolutePath());
+		try {
+			remoteImageCache.init();
+		} catch (TiCacheManagerException e) {
+			Log.e(LCAT, "Unable to initialize remote image cache: " + e.getMessage());
+		}
+		
+		// TODO configure cache from systemProperties
 	}
 
 	public void setRootActivity(TiRootActivity rootActivity)
@@ -197,6 +217,10 @@ public class TiApplication extends Application
 		return defaultStartFile;
 	}
 
+	public TiCacheManager getRemoteImageCache() {
+		return remoteImageCache;
+	}
+	
 	public synchronized Method methodFor(Class<?> source, String name)
 	{
 		HashMap<String, Method> classMethods = methodMap.get(source);
