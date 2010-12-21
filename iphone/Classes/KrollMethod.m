@@ -104,7 +104,7 @@ TiValueRef KrollCallAsFunction(TiContextRef jsContext, TiObjectRef func, TiObjec
 -(id)call:(NSArray*)args
 {
 	// special property setter delegator against the target
-	if (type == KrollMethodPropertySetter && [args count]==1)
+	if (([args count]==1) && ((type == KrollMethodPropertySetter) || (type == KrollMethodSetter)))
 	{
 		[target setValue:[KrollObject nonNull:[args objectAtIndex:0]] forKey:name];
 		return self;

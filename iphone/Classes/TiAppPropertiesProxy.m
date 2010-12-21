@@ -65,16 +65,57 @@ if (![self propertyExists:key]) return defaultValue; \
 	return [defaultsObject arrayForKey:key];
 }
 
-#define SETPROP \
-ENSURE_TYPE(args,NSArray);\
-NSString *key = [args objectAtIndex:0];\
-id value = [args count] > 1 ? [args objectAtIndex:1] : nil;\
+#define CLEAR_PROP_IF_NIL_OR_NULL	\
 if (value==nil || value==[NSNull null]) {\
     [defaultsObject removeObjectForKey:key];\
 	[defaultsObject synchronize]; \
 	return;\
 }\
 
+#define SETPROP \
+ENSURE_TYPE(args,NSArray);\
+NSString *key = [args objectAtIndex:0];\
+id value = [args count] > 1 ? [args objectAtIndex:1] : nil;\
+CLEAR_PROP_IF_NIL_OR_NULL
+
+#if 0
+
+-(void)setBool:(NSString *)key withObject:(id)value
+{
+	CLEAR_PROP_IF_NIL_OR_NULL
+	[defaultsObject setBool:[TiUtils boolValue:value] forKey:key];
+	[defaultsObject synchronize];
+}
+
+-(void)setDouble:(NSString *)key withObject:(id)value
+{
+	CLEAR_PROP_IF_NIL_OR_NULL
+	[defaultsObject setDouble:[TiUtils doubleValue:value] forKey:key];
+	[defaultsObject synchronize];
+}
+
+-(void)setInt:(NSString *)key withObject:(id)value
+{
+	CLEAR_PROP_IF_NIL_OR_NULL
+	[defaultsObject setInteger:[TiUtils intValue:value] forKey:key];
+	[defaultsObject synchronize];
+}
+
+-(void)setString:(NSString *)key withObject:(id)value
+{
+	CLEAR_PROP_IF_NIL_OR_NULL
+	[defaultsObject setObject:[TiUtils stringValue:value] forKey:key];
+	[defaultsObject synchronize];
+}
+
+-(void)setList:(NSString *)key withObject:(id)value
+{
+	CLEAR_PROP_IF_NIL_OR_NULL
+	[defaultsObject setObject:value forKey:key];
+	[defaultsObject synchronize];
+}
+
+#else
 
 -(void)setBool:(id)args
 {
@@ -89,6 +130,7 @@ if (value==nil || value==[NSNull null]) {\
 	[defaultsObject setDouble:[TiUtils doubleValue:value] forKey:key];
 	[defaultsObject synchronize];	
 }
+
 
 -(void)setInt:(id)args
 {
@@ -110,6 +152,8 @@ if (value==nil || value==[NSNull null]) {\
 	[defaultsObject setObject:value forKey:key];
 	[defaultsObject synchronize];
 }
+
+#endif
 
 -(void)removeProperty:(id)args
 {

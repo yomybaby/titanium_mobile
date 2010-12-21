@@ -573,18 +573,19 @@ bool KrollSetProperty(TiContextRef jsContext, TiObjectRef object, TiStringRef pr
 		// setter can also have a special 2nd parameter, let's check that
 		// right now we only support 2 but easy to add more
 		// form is foo.setFoo('bar','foo')
+		NSString * keyName = [self _propertyGetterSetterKey:key];
 		selector = NSSelectorFromString([NSString stringWithFormat:@"%@:withObject:",key]);
 		if ([target respondsToSelector:selector])
 		{
-			return [[[KrollMethod alloc] initWithTarget:target selector:selector argcount:2 type:KrollMethodSetter name:nil context:[self context]] autorelease];
+			return [[[KrollMethod alloc] initWithTarget:target selector:selector argcount:2 type:KrollMethodSetter name:keyName context:[self context]] autorelease];
 		}
 		selector = NSSelectorFromString([NSString stringWithFormat:@"%@:",key]);
 		if ([target respondsToSelector:selector])
 		{
-			return [[[KrollMethod alloc] initWithTarget:target selector:selector argcount:1 type:KrollMethodSetter name:nil context:[self context]] autorelease];
+			return [[[KrollMethod alloc] initWithTarget:target selector:selector argcount:1 type:KrollMethodSetter name:keyName context:[self context]] autorelease];
 		}
 		// we simply return a method delegator against the target to set the property directly on the target
-		return [[[KrollMethod alloc] initWithTarget:target selector:selector argcount:1 type:KrollMethodPropertySetter name:[self _propertyGetterSetterKey:key] context:[self context]] autorelease];
+		return [[[KrollMethod alloc] initWithTarget:target selector:selector argcount:1 type:KrollMethodPropertySetter name:keyName context:[self context]] autorelease];
 	}
 	else if ([key hasPrefix:@"get"])
 	{
