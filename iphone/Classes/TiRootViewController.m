@@ -547,12 +547,12 @@ What this does mean is that any
 		[windowProxies removeObject:window];
 	}
 
-	[window setParentOrientationController:self];
+	[window setParentWindow:self];
 	[windowProxies addObject:window];
 	[window parentWillShow];
 	//Todo: Move all the root-attaching logic here.
 
-	[self childOrientationControllerChangedFlags:window];
+	[self childWindowChangedOrientationFlags:window];
 }
 
 - (void)closeWindow:(TiWindowProxy *)window withObject:(id)args
@@ -566,17 +566,31 @@ What this does mean is that any
 
 	//Todo: Move all the root-detaching logic here.
 
-	[window setParentOrientationController:nil];
+	[window setParentWindow:nil];
 	[window parentWillHide];
 	[windowProxies removeObject:window];
 
 	if(wasTopWindow)
 	{
-		[self childOrientationControllerChangedFlags:[windowProxies lastObject]];
+		[self childWindowChangedOrientationFlags:[windowProxies lastObject]];
 	}
 }
 
--(void)childOrientationControllerChangedFlags:(id<TiOrientationController>) orientationController;
+-(TiOrientationFlags) orientationFlags
+{
+	for (TiWindowProxy * thisWindow in [windowProxies reverseObjectEnumerator])
+	{
+		TiOrientationFlags result = [thisWindow orientationFlags];
+		if (result != TiOrientationNone)
+		{
+			return result;
+		}
+	}
+	
+	return [self getDefaultOrientations];
+}
+
+-(void)childWindowChangedOrientationFlags:(id<TiChildWindow>) childWindow;
 {
 	WARN_IF_BACKGROUND_THREAD_OBJ;
 	//Because a modal window might not introduce new 
@@ -599,29 +613,15 @@ What this does mean is that any
 	[self manuallyRotateToOrientation:[self mostRecentlyAllowedOrientation]];
 }
 
--(void)setParentOrientationController:(id <TiOrientationController>)newParent
+-(void)setParentWindow:(id <TiParentWindow>)newParent
 {
 	//Blank method since we never have a parent.
 }
 
--(id)parentOrientationController
+-(id)parentWindow
 {
 	//Blank method since we never have a parent.
 	return nil;
-}
-
--(TiOrientationFlags) orientationFlags
-{
-	for (TiWindowProxy * thisWindow in [windowProxies reverseObjectEnumerator])
-	{
-		TiOrientationFlags result = [thisWindow orientationFlags];
-		if (result != TiOrientationNone)
-		{
-			return result;
-		}
-	}
-	
-	return [self getDefaultOrientations];
 }
 
 #pragma mark Keyboard handling

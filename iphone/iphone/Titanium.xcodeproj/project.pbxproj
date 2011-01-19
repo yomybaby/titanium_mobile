@@ -3230,6 +3230,7 @@
 				OTHER_CFLAGS = (
 					"-DDEBUG",
 					"-DTI_POST_1_2",
+					"-DVERBOSE",
 				);
 				OTHER_LDFLAGS = "-ObjC";
 				PREBINDING = NO;

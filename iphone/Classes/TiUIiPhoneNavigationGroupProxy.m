@@ -72,7 +72,7 @@
 }
 
 
-@synthesize parentOrientationController;
+@synthesize parentWindow;
 
 -(TiOrientationFlags) orientationFlags
 {
@@ -84,7 +84,7 @@
 			continue;
 		}
 		TiWindowProxy * thisProxy = (TiWindowProxy *)[(TiViewController *)thisVC proxy];
-		if ([thisProxy conformsToProtocol:@protocol(TiOrientationController)])
+		if ([thisProxy conformsToProtocol:@protocol(TiChildWindow)])
 		{
 			TiOrientationFlags result = [thisProxy orientationFlags];
 			if (result != TiOrientationNone)
@@ -96,10 +96,10 @@
 	return TiOrientationNone;
 }
 
--(void)childOrientationControllerChangedFlags:(id <TiOrientationController>)orientationController
+-(void)childWindowChangedOrientationFlags:(id <TiChildWindow>)childWindow
 {
 	WARN_IF_BACKGROUND_THREAD;
-	[parentOrientationController childOrientationControllerChangedFlags:self];
+	[parentWindow childWindowChangedOrientationFlags:self];
 }
 
 

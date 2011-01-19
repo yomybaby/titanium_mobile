@@ -10,7 +10,7 @@
 
 #define MAX_ORIENTATIONS	7
 
-@interface TiRootViewController : UIViewController<UIApplicationDelegate,TiRootController,TiOrientationController> {
+@interface TiRootViewController : UIViewController<UIApplicationDelegate,TiRootController,TiParentWindow> {
 @private
 	NSMutableArray *windowViewControllers;	
 	
@@ -26,7 +26,7 @@
 	NSMutableArray * viewControllerStack;
 	BOOL isCurrentlyVisible;
 	
-	//TiOrientationController variables.
+	//TiWindowController variables.
 	NSMutableArray * windowProxies;
 
 //Keyboard handling -- This can probably be done in a better way.

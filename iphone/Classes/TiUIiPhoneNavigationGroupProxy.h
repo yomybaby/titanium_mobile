@@ -9,7 +9,7 @@
 #import "TiViewProxy.h"
 #import "TiWindowProxy.h"
 
-@interface TiUIiPhoneNavigationGroupProxy : TiViewProxy<TiOrientationController> {
+@interface TiUIiPhoneNavigationGroupProxy : TiViewProxy<TiParentWindow,TiChildWindow> {
 @private
 }
 

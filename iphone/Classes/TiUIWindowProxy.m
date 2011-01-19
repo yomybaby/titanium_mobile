@@ -202,6 +202,12 @@
 	return YES;
 }
 
+-(void)willShow
+{
+	[self updateTitleView];
+	[super willShow];
+}
+
 -(void)windowDidClose
 {
     // Because other windows or proxies we have open and wish to continue functioning might be relying

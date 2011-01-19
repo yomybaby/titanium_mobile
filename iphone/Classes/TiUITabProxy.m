@@ -52,7 +52,7 @@
 	if (rootController == nil)
 	{
 		TiWindowProxy *window = [self valueForKey:@"window"];
-		[window setParentOrientationController:self];
+		[window setParentWindow:self];
 		rootController = [[TiUITabController alloc] initWithProxy:window tab:self];
 	}
 	return rootController;
@@ -121,7 +121,7 @@
 	
 	[newWindow _tabFocus];
 	WARN_IF_BACKGROUND_THREAD_OBJ;
-	[self childOrientationControllerChangedFlags:newWindow];
+	[self childWindowChangedOrientationFlags:newWindow];
 
 	opening = NO; 
 }
@@ -199,7 +199,7 @@
 	// since the didShow notification above happens on both a push and pop, i need to keep a flag
 	// to let me know which state i'm in so i only close the current window on a pop
 	opening = YES;
-	[window setParentOrientationController:self];
+	[window setParentWindow:self];
 	// TODO: Slap patch.  Views, when opening/added, should check parent visibility (and parent/parent visibility, if possible)
 	[window parentWillShow];
 
@@ -255,7 +255,7 @@
 	
 	[window retain];
 	[window _tabBlur];
-	[window setParentOrientationController:nil];
+	[window setParentWindow:nil];
 	
 	// for this to work right, we need to sure that we always have the tab close the window
 	// and not let the window simply close by itself. this will ensure that we tell the 
@@ -460,14 +460,14 @@
 }
 
 
-@synthesize parentOrientationController;
+@synthesize parentWindow;
 
 -(TiOrientationFlags)orientationFlags
 {
 	UIViewController * modalController = [controller modalViewController];
-	if ([modalController conformsToProtocol:@protocol(TiOrientationController)])
+	if ([modalController conformsToProtocol:@protocol(TiChildWindow)])
 	{
-		return [(id<TiOrientationController>)modalController orientationFlags];
+		return [(id<TiChildWindow>)modalController orientationFlags];
 	}
 	
 	for (id thisController in [[controller viewControllers] reverseObjectEnumerator])
@@ -477,7 +477,7 @@
 			continue;
 		}
 		TiWindowProxy * thisProxy = (TiWindowProxy *)[(TiViewController *)thisController proxy];
-		if ([thisProxy conformsToProtocol:@protocol(TiOrientationController)])
+		if ([thisProxy conformsToProtocol:@protocol(TiChildWindow)])
 		{
 			TiOrientationFlags result = [thisProxy orientationFlags];
 			if (result != TiOrientationNone)
@@ -489,10 +489,33 @@
 	return TiOrientationNone;
 }
 
--(void)childOrientationControllerChangedFlags:(id<TiOrientationController>) orientationController
+-(void)childWindowChangedOrientationFlags:(id<TiChildWindow>) childWindow
 {
 	WARN_IF_BACKGROUND_THREAD_OBJ;
-	[parentOrientationController childOrientationControllerChangedFlags:self];
+	[parentWindow childWindowChangedOrientationFlags:self];
+}
+
+-(TiWindowState) windowState
+{
+	if (tabGroup == nil)
+	{
+		return TiWindowClosed;
+	}
+
+	for (id thisController in [[controller viewControllers] reverseObjectEnumerator])
+	{
+		if (![thisController isKindOfClass:[TiViewController class]])
+		{
+			continue;
+		}
+		TiWindowProxy * thisProxy = (TiWindowProxy *)[(TiViewController *)thisController proxy];
+		if ([thisProxy conformsToProtocol:@protocol(TiChildWindow)])
+		{
+			return [thisProxy windowState];
+		}
+	}
+
+	return TiWindowClosable;
 }
 
 @end

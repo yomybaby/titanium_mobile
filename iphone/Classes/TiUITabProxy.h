@@ -14,7 +14,7 @@
 @class TiUITabController;
 @class TiWindowProxy;
 
-@interface TiUITabProxy : TiViewProxy<TiTab,UINavigationControllerDelegate,TiOrientationController> {
+@interface TiUITabProxy : TiViewProxy<TiTab,UINavigationControllerDelegate,TiChildWindow,TiParentWindow> {
 @private
 	UINavigationController *controller;
 	TiUITabController *rootController;
@@ -25,11 +25,11 @@
 	BOOL opening;
 	BOOL systemTab;
 	
-	id<TiOrientationController> parentOrientationController;
+	id<TiParentWindow> parentWindow;
 }
 
-@property(nonatomic,readwrite,assign)	id<TiOrientationController> parentOrientationController;
--(void)childOrientationControllerChangedFlags:(id<TiOrientationController>) orientationController;
+@property(nonatomic,readwrite,assign)	id<TiParentWindow> parentWindow;
+-(void)childWindowChangedOrientationFlags:(id<TiChildWindow>) childWindow;
 
 -(UINavigationController*)controller;
 -(void)setTabGroup:(TiUITabGroupProxy*)proxy;

@@ -44,15 +44,15 @@
 }
 
 
--(void)setDetailView:(id<NSObject,TiOrientationController>)newDetailView
+-(void)setDetailView:(id<NSObject,TiChildWindow>)newDetailView
 {
 	ENSURE_UI_THREAD_1_ARG(newDetailView);
 	if (newDetailView == detailView)
 	{
 		return;
 	}
-	[detailView setParentOrientationController:nil];
-	[newDetailView setParentOrientationController:self];
+	[detailView setParentWindow:nil];
+	[newDetailView setParentWindow:self];
 	RELEASE_AND_REPLACE(detailView,newDetailView);
 	[self replaceValue:newDetailView forKey:@"detailView" notification:YES];
 }

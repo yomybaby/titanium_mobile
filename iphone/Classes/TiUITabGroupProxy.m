@@ -26,7 +26,7 @@
 {
 	for (id thisTab in tabs)
 	{
-		[thisTab setParentOrientationController:nil];
+		[thisTab setParentWindow:nil];
 	}
 	RELEASE_TO_NIL(tabs);
 	[super dealloc];
@@ -64,7 +64,7 @@
 	{
 		tabs = [[NSMutableArray alloc] initWithCapacity:4];
 	}
-	[tabProxy setParentOrientationController:self];
+	[tabProxy setParentWindow:self];
 	[tabs addObject:tabProxy];
 	[tabProxy setTabGroup:self];
 	[self replaceValue:tabs forKey:@"tabs" notification:YES];
@@ -87,7 +87,7 @@
 		
 		//TODO: close all the tabs and fire events
 		
-		[tabProxy setParentOrientationController:nil];
+		[tabProxy setParentWindow:nil];
 		[tabProxy setTabGroup:nil];
 		[tabs removeObject:tabProxy];
 		[self replaceValue:tabs forKey:@"tabs" notification:YES];
@@ -110,12 +110,12 @@
 	[tabs release];
 	for (id thisTab in tabs)
 	{
-		[thisTab setParentOrientationController:nil];
+		[thisTab setParentWindow:nil];
 	}
 	tabs = [newTabs mutableCopy];
 	for (id thisTab in tabs)
 	{
-		[thisTab setParentOrientationController:self];
+		[thisTab setParentWindow:self];
 	}
 
 	[self replaceValue:tabs forKey:@"tabs" notification:YES];

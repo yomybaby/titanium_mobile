@@ -9,7 +9,7 @@
 #import "TiWindowProxy.h"
 #import "TiTabGroup.h"
 
-@interface TiUITabGroupProxy : TiWindowProxy<TiTabGroup>
+@interface TiUITabGroupProxy : TiWindowProxy<TiTabGroup,TiParentWindow>
 {
 @private
 	NSMutableArray *tabs;

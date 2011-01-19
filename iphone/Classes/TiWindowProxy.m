@@ -681,8 +681,8 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 
 - (void)viewDidAppear:(BOOL)animated;    // Called when the view is about to made visible. Default does nothing
 {
-	[[self parentOrientationController]
-			childOrientationControllerChangedFlags:self];
+	[[self parentWindow]
+			childWindowChangedOrientationFlags:self];
 }
 
 
@@ -789,15 +789,25 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 		return;
 	}
 	orientationFlags = newFlags;
-	[parentOrientationController performSelectorOnMainThread:@selector(childOrientationControllerChangedFlags:) withObject:self waitUntilDone:NO];
+	[parentWindow performSelectorOnMainThread:@selector(childWindowChangedOrientationFlags:) withObject:self waitUntilDone:NO];
 }
 
 
-@synthesize parentOrientationController, orientationFlags;
--(void)childOrientationControllerChangedFlags:(id <TiOrientationController>)orientationController
+@synthesize parentWindow, orientationFlags, windowState;
+-(void)childWindowChangedOrientationFlags:(id <TiChildWindow>)childWindow
 {
 	WARN_IF_BACKGROUND_THREAD;
-	[parentOrientationController childOrientationControllerChangedFlags:self];
+	[parentWindow childWindowChangedOrientationFlags:self];
+}
+
+-(void)setWindowState:(TiWindowState) newState
+{
+	if (newState == windowState)
+	{
+		return;
+	}
+	windowState = newState;
+	[parentWindow childWindowChangedState:self];
 }
 
 @end

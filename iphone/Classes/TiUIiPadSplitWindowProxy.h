@@ -10,10 +10,10 @@
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_3_2
 #import "TiWindowProxy.h"
 
-@interface TiUIiPadSplitWindowProxy : TiWindowProxy {
+@interface TiUIiPadSplitWindowProxy : TiWindowProxy<TiParentWindow> {
 
 @private
-	id<NSObject,TiOrientationController> detailView;
+	id<NSObject,TiChildWindow> detailView;
 }
 
 @end
