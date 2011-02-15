@@ -1,6 +1,6 @@
 /**
  * Appcelerator Titanium Mobile
- * Copyright (c) 2009-2010 by Appcelerator, Inc. All Rights Reserved.
+ * Copyright (c) 2009-2011 by Appcelerator, Inc. All Rights Reserved.
  * Licensed under the terms of the Apache Public License
  * Please see the LICENSE included with this distribution for details.
  */
@@ -17,6 +17,7 @@ import org.appcelerator.titanium.util.TiConfig;
 import org.appcelerator.titanium.util.TiConvert;
 import org.appcelerator.titanium.view.TiUIView;
 
+import android.app.Activity;
 import android.widget.TimePicker;
 import android.widget.TimePicker.OnTimeChangedListener;
 
@@ -33,11 +34,15 @@ public class TiUITimePicker extends TiUIView
 	public TiUITimePicker(TiViewProxy proxy)
 	{
 		super(proxy);
+	}
+	public TiUITimePicker(TiViewProxy proxy, Activity activity)
+	{
+		this(proxy);
 		if (DBG) {
 			Log.d(LCAT, "Creating a time picker");
 		}
 		
-		TimePicker picker = new TimePicker(proxy.getContext());
+		TimePicker picker = new TimePicker(activity);
 		picker.setIs24HourView(false);
 		picker.setOnTimeChangedListener(this);
 		setNativeView(picker);

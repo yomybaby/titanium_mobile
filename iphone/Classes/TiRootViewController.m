@@ -77,10 +77,12 @@
 		enterCurve = UIViewAnimationCurveEaseIn;
 		leaveDuration = 0.3;
 		enterDuration = 0.3;
+		
+		// Set up the initial orientation modes
+		[self setOrientationModes:nil];
 	}
 	return self;
 }
-
 
 -(CGRect)resizeView
 {
@@ -145,11 +147,11 @@
 	//And device orientation is 0 until this notification.
 		// FIRST!  We know the orientation now, so attach the splash!
 		UIInterfaceOrientation oldOrientation = [[UIApplication sharedApplication] statusBarOrientation];
+		windowOrientation = oldOrientation;
+		[self manuallyRotateToOrientation:newOrientation duration:0];
 		if (![[TiApp app] isSplashVisible]) {
 			[[TiApp app] loadSplash];
 		}
-		windowOrientation = oldOrientation;
-		[self manuallyRotateToOrientation:newOrientation duration:0];
 		return;
 	}
 
@@ -160,7 +162,6 @@
 	//The iPhone OS wouldn't send this method.
 		[self willAnimateRotationToInterfaceOrientation:newOrientation duration:[[UIApplication sharedApplication] statusBarOrientationAnimationDuration]];
 	}
-
 }
 
 
@@ -241,7 +242,7 @@
 	if (newOrientation != [ourApp statusBarOrientation])
 	{
 		[keyboardFocusedProxy blur:nil];
-		[ourApp setStatusBarOrientation:newOrientation animated:YES];
+		[ourApp setStatusBarOrientation:newOrientation animated:(duration > 0.0)];
 		[keyboardFocusedProxy focus:nil];
 	}
 	

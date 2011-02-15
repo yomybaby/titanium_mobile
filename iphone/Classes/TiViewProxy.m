@@ -551,7 +551,9 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 		[self viewDidAttach];
 
 		// make sure we do a layout of ourselves
-		[self setSandboxBounds:view.bounds];
+		if(CGRectIsEmpty(sandboxBounds)){
+			[self setSandboxBounds:view.bounds];
+		}
 		[self relayout];
 		viewInitialized = YES;
 	}
@@ -816,11 +818,15 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 		NSString* className = [properties objectForKey:@"className"];
 		NSMutableArray* classNames = [properties objectForKey:@"classNames"];
 		
-		if (objectId!=nil || className != nil || classNames != nil)
+		NSString *type = [NSStringFromClass([self class]) stringByReplacingOccurrencesOfString:@"TiUI" withString:@""];
+		type = [[type stringByReplacingOccurrencesOfString:@"Proxy" withString:@""] lowercaseString];
+
+		TiStylesheet *stylesheet = [[[self pageContext] host] stylesheet];
+		NSString *basename = [[self pageContext] basename];
+		NSString *density = [TiUtils isRetinaDisplay] ? @"high" : @"medium";
+
+		if (objectId!=nil || className != nil || classNames != nil || [stylesheet basename:basename density:density hasClass:type])
 		{
-			TiStylesheet *stylesheet = [[[self pageContext] host] stylesheet];
-			NSString *density = [TiUtils isRetinaDisplay] ? @"high" : @"medium";
-			NSString *basename = [[self pageContext] basename];
 			// get classes from proxy
 			NSString *className = [properties objectForKey:@"className"];
 			NSMutableArray *classNames = [properties objectForKey:@"classNames"];
@@ -833,8 +839,8 @@ LAYOUTPROPERTIES_SETTER(setMinHeight,minimumHeight,TiFixedValueRuleFromObject,[s
 				[classNames addObject:className];
 			}
 			// add the widget type as a class
-			NSString *type = [NSStringFromClass([self class]) stringByReplacingOccurrencesOfString:@"TiUI" withString:@""];
-			type = [[type stringByReplacingOccurrencesOfString:@"Proxy" withString:@""] lowercaseString];
+			// TODO: What takes prescedence here?  Other specified class names, or the widget class name?  That will change where
+			// the type gets inserted into the array.
 			[classNames addObject:type];
 			NSDictionary *merge = [stylesheet stylesheet:objectId density:density basename:basename classes:classNames];
 			if (merge!=nil)

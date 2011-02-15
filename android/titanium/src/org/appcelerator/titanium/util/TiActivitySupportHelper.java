@@ -6,15 +6,16 @@
  */
 package org.appcelerator.titanium.util;
 
+import java.lang.ref.WeakReference;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.appcelerator.titanium.ITiMenuDispatcherListener;
-import org.appcelerator.titanium.proxy.ActivityProxy;
+import org.appcelerator.titanium.TiBaseActivity.ConfigurationChangedListener;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.res.Configuration;
 
 public class TiActivitySupportHelper
 	implements TiActivitySupport
@@ -22,9 +23,9 @@ public class TiActivitySupportHelper
 	private static final String LCAT = "TiActivitySupportHelper";
 	private static final boolean DBG = TiConfig.LOGD;
 	
-	private Activity activity;
-	private HashMap<Integer, TiActivityResultHandler> resultHandlers;
-	private AtomicInteger uniqueResultCodeAllocator;
+	protected Activity activity;
+	protected HashMap<Integer, TiActivityResultHandler> resultHandlers;
+	protected AtomicInteger uniqueResultCodeAllocator;
 
 	public TiActivitySupportHelper(Activity activity)
 	{
@@ -77,10 +78,5 @@ public class TiActivitySupportHelper
 			Log.w(LCAT, "Received a null result handler");
 		}
 		resultHandlers.put(code, resultHandler);
-	}
-
-	@Override
-	public void setMenuDispatchListener(ITiMenuDispatcherListener listener) {
-		//TODO consider refactoring from other activities
 	}
 }

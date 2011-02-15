@@ -15,6 +15,8 @@
 	<property name="classes" location="${build}/classes"/>
 	<property name="dist" location="${ti.module.root}/dist"/>
 	<property name="lib" location="${ti.module.root}/lib"/>
+	<property name="jni" location="${ti.module.root}/jni"/>
+	<property name="libs" location="${ti.module.root}/libs"/>
 
 	<path id="project.classpath">
 		<fileset dir="${lib}">
@@ -51,7 +53,7 @@
 		</javac>
 	</target>
 
-	<target name="compile" depends="process.annotations"
+	<target name="compile" depends="process.annotations,ndk.build"
 		description="Compile this module's source code">
 		<javac 
 			destdir="${classes}"
@@ -66,6 +68,38 @@
 		<copy todir="${classes}">
 			<fileset dir="${gen}" includes="**/*.json"/>
 		</copy>
+	</target>
+
+	<macrodef name="check.ndk">
+		<sequential>
+			<fail message="The module.ndkbuild property is set, but the android.ndk property is not set to an existing Android NDK installation (check your module's build.properties)">
+				<condition>
+					<not>
+						<available file="${android.ndk}" type="dir"/>
+					</not>
+				</condition>
+			</fail>
+		</sequential>
+	</macrodef>
+
+	<target name="ndk.build" if="module.ndkbuild">
+		<check.ndk/>
+		<property name="ndk.build" location="${android.ndk}/ndk-build"/>
+		<exec executable="${ndk.build}" dir="${jni}">
+			<arg line="V=1"/>
+		</exec>
+	</target>
+
+	<target name="libs.check">
+		<condition property="libs.exists">
+			<available file="${libs}" type="dir"/>
+		</condition>
+	</target>
+
+	<target name="zip.libs" depends="libs.check" if="libs.exists">
+		<zip destfile="${dist}/${module.id}-android-${manifest.version}.zip" update="true">
+			<zipfileset dir="${libs}" includes="**/*.so" prefix="${zip.prefix}/libs"/>
+		</zip>
 	</target>
 
 	<target name="dist" depends="compile" description="Generate a distributable module JAR">
@@ -83,15 +117,25 @@
 			<zipfileset file="timodule.xml" prefix="${zip.prefix}"/>
 			<zipfileset dir="${lib}" includes="**/*.jar" prefix="${zip.prefix}/lib"/>
 		</zip>
+		<antcall target="zip.libs"/>
 		<delete dir="${lib.expand.dir}" includeemptydirs="true" failonerror="false" deleteonexit="true"/>
 	</target>
-	
-	<target name="clean" description="Cleans classes and dist files">
+
+	<target name="clean" description="Cleans classes and dist files" depends="ndk.clean">
 		<delete dir="${classes}"/>
 		<delete dir="${dist}"/>
 		<delete includeemptydirs="true" failonerror="false">
 			<fileset dir="${gen}" includes="**/*"/>
 		</delete>
+	</target>
+
+	<target name="ndk.clean" if="module.ndkbuild">
+		<check.ndk/>
+		<property name="ndk.build" location="${android.ndk}/ndk-build"/>
+		<exec executable="${ndk.build}" dir="${jni}">
+			<arg line="V=1"/>
+			<arg line="clean"/>
+		</exec>
 	</target>
 	
 	<property name="titanium.py" location="${titanium.platform}/../titanium.py"/>

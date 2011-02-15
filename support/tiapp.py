@@ -77,14 +77,19 @@ class TiAppXML(object):
 				# multiple windows rooted by <windows>
 				elif child.nodeName == 'windows':
 					print "[WARN] windows in tiapp.xml no longer supported. this will be ignored"
-				# handle modules		
+				# handle modules
 				elif child.nodeName == 'modules':
 					for module in child.childNodes:
 						if module.nodeType == 1:
-							ver = module.getAttribute('version')
-							name = getText(module.childNodes)
-							self.properties['modules'].append({'name':name,'version':ver})
-				# handle modules		
+							version = module.getAttribute('version')
+							platform = module.getAttribute('platform')
+							module_id = getText(module.childNodes)
+							self.properties['modules'].append({
+								'id': module_id,
+								'version': version,
+								'platform': platform
+							})
+				# handle plugins
 				elif child.nodeName == 'plugins':
 					for plugin in child.childNodes:
 						if plugin.nodeType == 1:
@@ -146,6 +151,7 @@ class TiAppXML(object):
 					self.android_manifest['manifest'] = []
 				manifest = self.android_manifest['manifest']
 				manifest.append(child)
+			if node.attributes.length > 0:
 				self.android_manifest['manifest-attributes'] = node.attributes
 
 		def get_url_based_classname(url, appendage):
@@ -257,9 +263,39 @@ class TiAppXML(object):
 					else:
 						orientations.append(orientation)
 			self.iphone['orientations_'+device] = orientations
-			
+		
+		def parse_backgroundModes(node):
+			valid_modes = ['audio', 'location', 'voip']
+			self.iphone['background'] = []
+			for child in node.childNodes:
+				if child.nodeName == 'mode':
+					mode = getText(child.childNodes)
+					if mode not in valid_modes:
+						print "[WARN] Invalid background mode %s: ignoring" % mode
+						continue
+					self.iphone['background'].append(mode)
+		
+		def parse_requires(node):
+			# Note that some of these are meaningless right now, but are
+			# included for The Future.
+			valid_reqs = ['telephony', 'wifi', 'sms', 'still-camera', 
+						  'auto-focus-camera', 'front-facing-camera',
+						  'camera-flash', 'video-camera', 'accelerometer',
+						  'gyroscope', 'location-services', 'gps', 'magnetometer',
+						  'gamekit', 'microphone', 'opengles-1', 'opengles-2',
+						  'armv6', 'armv7', 'peer-peer']
+			self.iphone['requires'] = []
+			for child in node.childNodes:
+				if child.nodeName == 'feature':
+					feature = getText(child.childNodes)
+					if feature not in valid_reqs:
+						print "[WARN] Invalid feature %s: ignoring" % feature
+						continue
+					self.iphone['requires'].append(feature)
+		
+		
 		local_objects = locals()
-		parse_tags = ['orientations']
+		parse_tags = ['orientations', 'backgroundModes', 'requires']
 		for child in node.childNodes:
 			if child.nodeName in parse_tags:
 				local_objects['parse_'+child.nodeName](child)
@@ -327,8 +363,22 @@ class TiAppXML(object):
 					propertyName += '~ipad'
 				propertyValue = '<array>\n'
 				for orientation in self.iphone[prop]:
-					propertyValue += "                <string>%s</string>\n" % orientation
-				propertyValue += '        </array>'
+					propertyValue += "	<string>%s</string>\n" % orientation
+				propertyValue += '	</array>'
+				self.infoplist_properties[propertyName]=propertyValue
+			if prop == 'background':
+				propertyName = 'UIBackgroundModes'
+				propertyValue = '<array>\n'
+				for mode in self.iphone[prop]:
+					propertyValue += "	<string>%s</string>\n" % mode
+				propertyValue += '	</array>'
+				self.infoplist_properties[propertyName]=propertyValue
+			if prop == 'requires':
+				propertyName = 'UIRequiredDeviceCapabilities'
+				propertyValue = '<array>\n'
+				for feature in self.iphone[prop]:
+					propertyValue += "	<string>%s</string>\n" % feature
+				propertyValue += '	</array>'
 				self.infoplist_properties[propertyName]=propertyValue
 		
 		plist = codecs.open(file,'r','utf-8','replace').read()

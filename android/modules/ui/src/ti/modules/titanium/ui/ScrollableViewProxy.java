@@ -140,29 +140,17 @@ public class ScrollableViewProxy extends TiViewProxy
 
 	@Kroll.setProperty @Kroll.method
 	public void setViews(Object viewsObject) {
-		Message msg = getUIHandler().obtainMessage(MSG_SET_VIEWS);
-		AsyncResult result = new AsyncResult(viewsObject);
-		msg.obj = result;
-		msg.sendToTarget();
-		result.getResult(); // Wait for it
+		sendBlockingUiMessage(MSG_SET_VIEWS, viewsObject);
 	}
 
 	@Kroll.method
 	public void addView(Object viewObject) {
-		Message msg = getUIHandler().obtainMessage(MSG_ADD_VIEW);
-		AsyncResult result = new AsyncResult(viewObject);
-		msg.obj = result;
-		msg.sendToTarget();
-		result.getResult(); // Wait for it 
+		sendBlockingUiMessage(MSG_ADD_VIEW, viewObject); 
 	}
 	
 	@Kroll.method
 	public void removeView(Object viewObject) {
-		Message msg = getUIHandler().obtainMessage(MSG_REMOVE_VIEW);
-		AsyncResult result = new AsyncResult(viewObject);
-		msg.obj = result;
-		msg.sendToTarget();
-		result.getResult(); // Wait for it 
+		sendBlockingUiMessage(MSG_REMOVE_VIEW, viewObject); 
 	}
 
 	@Kroll.method
@@ -232,5 +220,13 @@ public class ScrollableViewProxy extends TiViewProxy
 
 	public void onAnimationStart(Animation anim) {
 		inAnimation.set(true);
+	}
+
+	@Override
+	public void releaseViews()
+	{
+		getUIHandler().removeMessages(MSG_SHOW_PAGER);
+		getUIHandler().removeMessages(MSG_HIDE_PAGER);
+		super.releaseViews();
 	}
 }

@@ -6,6 +6,7 @@
  */
 package org.appcelerator.kroll;
 
+import org.appcelerator.titanium.TiMessageQueue;
 import org.appcelerator.titanium.util.AsyncResult;
 import org.appcelerator.titanium.util.Log;
 import org.mozilla.javascript.BaseFunction;
@@ -13,28 +14,30 @@ import org.mozilla.javascript.Context;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.Scriptable;
 
-import android.app.Activity;
-
 @SuppressWarnings("serial")
-public abstract class KrollMethod extends BaseFunction implements Function {
-	
+public abstract class KrollMethod
+	extends BaseFunction implements Function
+{
 	private static final String TAG = "KrollMethod";
-	
+
 	protected String name;
 	protected boolean runOnUiThread = false;
 
-	public KrollMethod(String name) {
+	public KrollMethod(String name)
+	{
 		super();
 		this.name = name;
 	}
-	
+
 	@Override
-	public String getClassName() {
+	public String getClassName()
+	{
 		return "KrollMethod";
 	}
-	
+
 	@Override
-	public Object call(Context context, Scriptable scope, Scriptable thisObj, Object[] args) {
+	public Object call(Context context, Scriptable scope, Scriptable thisObj, Object[] args)
+	{
 		KrollProxy proxy = null;
 		if (thisObj instanceof KrollObject) {
 			proxy = ((KrollObject)thisObj).getProxy();
@@ -47,15 +50,13 @@ public abstract class KrollMethod extends BaseFunction implements Function {
 			if (!runOnUiThread) {
 				return invoke(inv, args);
 			} else {
-				Activity activity = inv.getTiContext().getActivity();
 				if (inv.getTiContext().isUIThread()) {
 					return invoke(inv, args);
 				} else {
 					final KrollInvocation fInv = inv;
 					final Object[] fArgs = args;
 					final AsyncResult result = new AsyncResult();
-					
-					activity.runOnUiThread(new Runnable() {
+					TiMessageQueue.getMainMessageQueue().post(new Runnable() {
 						public void run() {
 							try {
 								Object retVal = invoke(fInv, fArgs);
@@ -65,7 +66,6 @@ public abstract class KrollMethod extends BaseFunction implements Function {
 							}
 						}
 					});
-					
 					Object retVal = result.getResult();
 					if (retVal instanceof Exception) {
 						exception = (Exception)retVal;
@@ -86,30 +86,35 @@ public abstract class KrollMethod extends BaseFunction implements Function {
 		}
 		return methodResult;
 	}
-	
+
 	@Override
-	public Scriptable construct(Context arg0, Scriptable arg1, Object[] arg2) {
+	public Scriptable construct(Context arg0, Scriptable arg1, Object[] arg2)
+	{
 		// TODO Auto-generated method stub
 		return null;
 	}
-	
+
 	public abstract Object invoke(KrollInvocation invocation, Object[] args) throws Exception;
 	
-	public void setRunOnUiThread(boolean runOnUiThread) {
+	public void setRunOnUiThread(boolean runOnUiThread)
+	{
 		this.runOnUiThread = runOnUiThread;
 	}
 	
-	public String getName() {
+	public String getName()
+	{
 		return name;
 	}
 	
 	@Override
-	public Object getDefaultValue(Class<?> typeHint) {
+	public Object getDefaultValue(Class<?> typeHint)
+	{
 		return "[KrollMethod " + name + "]";
 	}
 	
 	@Override
-	protected Object equivalentValues(Object value) {
+	protected Object equivalentValues(Object value)
+	{
 		if (value instanceof KrollProxy.ThisMethod) {
 			KrollProxy.ThisMethod other = (KrollProxy.ThisMethod) value;
 			return this.equals(other.getDelegate());

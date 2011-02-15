@@ -79,6 +79,7 @@
 -(void)handleContentSize
 {
 	CGSize newContentSize = [self bounds].size;
+	CGFloat scale = [scrollView zoomScale];
 
 	switch (contentWidth.type)
 	{
@@ -110,14 +111,14 @@
 			minimumContentHeight = newContentSize.height;
 			break;
 	}
-	newContentSize.height = MAX(newContentSize.height,minimumContentHeight);
+	newContentSize.width *= scale;
+	newContentSize.height = scale * MAX(newContentSize.height,minimumContentHeight);
 
 	[scrollView setContentSize:newContentSize];
 	CGRect wrapperBounds;
 	wrapperBounds.origin = CGPointZero;
 	wrapperBounds.size = newContentSize;
-	[wrapperView setBounds:wrapperBounds];
-	[wrapperView setCenter:CGPointMake(newContentSize.width/2, newContentSize.height/2)];
+	[wrapperView setFrame:wrapperBounds];
 	needsHandleContentSize = NO;
 	[(TiViewProxy *)[self proxy] layoutChildren:NO];
 }
@@ -202,6 +203,11 @@
 
 #pragma mark scrollView delegate stuff
 
+
+- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView_               // any offset changes
+{
+	[(id<UIScrollViewDelegate>)[self proxy] scrollViewDidEndDecelerating:scrollView_];
+}
 
 - (void)scrollViewDidScroll:(UIScrollView *)scrollView_               // any offset changes
 {

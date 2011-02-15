@@ -22,6 +22,7 @@ import ti.modules.titanium.ui.widget.tableview.TableViewModel.Item;
 import ti.modules.titanium.ui.widget.tableview.TiTableViewRowProxyItem;
 import android.app.Activity;
 import android.os.Message;
+import android.test.IsolatedContext;
 
 @Kroll.proxy(creatableInModule=UIModule.class)
 public class TableViewRowProxy extends TiViewProxy
@@ -74,6 +75,22 @@ public class TableViewRowProxy extends TiViewProxy
 		}
 		controls.add(control);
 		control.setParent(this);
+		if (tableViewItem != null) {
+			Message msg = getUIHandler().obtainMessage(MSG_SET_DATA);
+			msg.sendToTarget();
+		}
+	}
+
+	@Override
+	public void remove(TiViewProxy control) {
+		if (controls == null) {
+			return;
+		}
+		controls.remove(control);
+		if (tableViewItem != null) {
+			Message msg = getUIHandler().obtainMessage(MSG_SET_DATA);
+			msg.sendToTarget();
+		}
 	}
 
 	public void setTableViewItem(TiTableViewRowProxyItem item) {
@@ -106,8 +123,12 @@ public class TableViewRowProxy extends TiViewProxy
 	public void setProperty(String name, Object value, boolean fireChange) {
 		super.setProperty(name, value, fireChange);
 		if (tableViewItem != null) {
-			Message msg = getUIHandler().obtainMessage(MSG_SET_DATA);
-			msg.sendToTarget();
+			if (context.isUIThread()) {
+				tableViewItem.setRowData(this);
+			} else {
+				Message msg = getUIHandler().obtainMessage(MSG_SET_DATA);
+				msg.sendToTarget();
+			}
 		}
 	}
 

@@ -82,7 +82,12 @@ NSString * const TI_DB_VERSION = @"1";
 -(void)backgroundFlushEventQueue
 {
 	// place the flush on a background thread so it doesn't need to block the main UI thread
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
+	// flushEventQueueWrapper is only defined when compiling for 4.0 and greater - otherwise we get hella crashes.
 	SEL queueFlusher = [TiUtils isIOS4OrGreater] ? @selector(flushEventQueueWrapper) : @selector(flushEventQueue);
+#else
+	SEL queueFlusher = @selector(flushEventQueue);
+#endif
 	[NSThread detachNewThreadSelector:queueFlusher toTarget:self withObject:nil];
 }
 
@@ -131,7 +136,12 @@ NSString * const TI_DB_VERSION = @"1";
 -(void)flushEventQueue
 {
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	[lock lock];
+	if (![lock tryLock]) {
+		// We're currently in the middle of flushing the event queue, but didn't block on actually ADDING an event -
+		// this means that we don't need to run a second flush.
+		[pool release];
+		return;
+	}
 	
 	// Can't use network module since pageContext/host may have shut down when sending 'final' events,
 	// giving us bad reachability info.
@@ -169,10 +179,11 @@ NSString * const TI_DB_VERSION = @"1";
 	// before the expiration date, one way or another.
 	// TODO: Documentation is vague about this - can we ever be shutting down AND in the background state,
 	// at the same time?
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= __IPHONE_4_0
 	if ([TiUtils isIOS4OrGreater] && [[UIApplication sharedApplication] applicationState] == UIApplicationStateBackground) {
 		timeout = [[UIApplication sharedApplication] backgroundTimeRemaining] * 0.75; // Give us a good chunk of time to complete
 	}
-	
+#endif
 	[database beginTransaction];
 	
 	NSMutableArray *data = [NSMutableArray array];

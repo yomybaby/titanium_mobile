@@ -148,6 +148,10 @@ NSArray* moviePlayerKeys = nil;
 				   name:MPMoviePlayerPlaybackStateDidChangeNotification 
 				 object:movie];
 		
+		[nc addObserver:self selector:@selector(handleRotationNotification:)
+				   name:UIApplicationDidChangeStatusBarOrientationNotification
+				 object:nil];
+		
 		//FIXME: add to replace preload for 3.2
 		//MPMediaPlaybackIsPreparedToPlayDidChangeNotification
 	}
@@ -264,8 +268,10 @@ NSArray* moviePlayerKeys = nil;
 -(void)setInitialPlaybackTime:(id)time
 {
 	if (movie != nil) {
-		if ([TiUtils doubleValue:time] > 0) {
-			[[self player] performSelectorOnMainThread:@selector(setInitialPlaybackTime:) withObject:time waitUntilDone:NO];
+		CGFloat ourTime = [TiUtils doubleValue:time];
+		if (ourTime > 0) {
+			ENSURE_UI_THREAD_1_ARG(time);
+			[[self player] setInitialPlaybackTime:ourTime];
 		}
 	}
 	else {
@@ -1018,6 +1024,14 @@ NSArray* moviePlayerKeys = nil;
 	}
 }
 
+-(void)handleRotationNotification:(NSNotification*)note
+{
+	// Only track if we're fullscreen
+	if (movie != nil) {
+		hasRotated = [[self player] isFullscreen];
+	}
+}
+
 -(void)handleFullscreenEnterNotification:(NSNotification*)note
 {
 	if ([self _hasListeners:@"fullscreen"])
@@ -1028,7 +1042,7 @@ NSArray* moviePlayerKeys = nil;
 		[event setObject:NUMBOOL(YES) forKey:@"entering"];
 		[self fireEvent:@"fullscreen" withObject:event];
 	}	
-	enterFullscreenOrientation = [[UIApplication sharedApplication] statusBarOrientation];
+	hasRotated = NO;
 }
 
 -(void)handleFullscreenExitNotification:(NSNotification*)note
@@ -1041,10 +1055,11 @@ NSArray* moviePlayerKeys = nil;
 		[event setObject:NUMBOOL(NO) forKey:@"entering"];
 		[self fireEvent:@"fullscreen" withObject:event];
 	}	
-	if (enterFullscreenOrientation != [[UIApplication sharedApplication] statusBarOrientation]) {
+	if (hasRotated) {
 		[[[TiApp app] controller] resizeView];
 		[[[TiApp app] controller] repositionSubviews];
 	}
+	hasRotated = NO;
 }
 
 -(void)handleSourceTypeNotification:(NSNotification*)note

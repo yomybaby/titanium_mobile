@@ -27,7 +27,7 @@ extern NSString * const TI_APPLICATION_VERSION;
 
 extern void UIColorFlushCache();
 
-#define SHUTDOWN_TIMEOUT_IN_SEC	10
+#define SHUTDOWN_TIMEOUT_IN_SEC	3
 #define TIV @"TiVerify"
 
 //
@@ -126,35 +126,39 @@ void MyUncaughtExceptionHandler(NSException *exception)
 	UIDeviceOrientation orientation = [[UIDevice currentDevice] orientation];
 	
 	UIImage* image = nil;
-	// Specific orientation check
-	switch (orientation) {
-		case UIDeviceOrientationPortrait:
+
+	if([TiUtils isIPad])
+	{
+		// Specific orientation check
+		switch (orientation) {
+			case UIDeviceOrientationPortrait:
+				image = [UIImage imageNamed:@"Default-Portrait.png"];
+				break;
+			case UIDeviceOrientationPortraitUpsideDown:
+				image = [UIImage imageNamed:@"Default-PortraitUpsideDown.png"];
+				break;
+			case UIDeviceOrientationLandscapeLeft:
+				image = [UIImage imageNamed:@"Default-LandscapeLeft.png"];
+				break;
+			case UIDeviceOrientationLandscapeRight:
+				image = [UIImage imageNamed:@"Default-LandscapeRight.png"];
+				break;
+		}
+		if (image != nil) {
+			return image;
+		}
+			
+		// Generic orientation check
+		if (UIDeviceOrientationIsPortrait(orientation)) {
 			image = [UIImage imageNamed:@"Default-Portrait.png"];
-			break;
-		case UIDeviceOrientationPortraitUpsideDown:
-			image = [UIImage imageNamed:@"Default-PortraitUpsideDown.png"];
-			break;
-		case UIDeviceOrientationLandscapeLeft:
-			image = [UIImage imageNamed:@"Default-LandscapeLeft.png"];
-			break;
-		case UIDeviceOrientationLandscapeRight:
-			image = [UIImage imageNamed:@"Default-LandscapeRight.png"];
-			break;
-	}
-	if (image != nil) {
-		return image;
-	}
-		
-	// Generic orientation check
-	if (UIDeviceOrientationIsPortrait(orientation)) {
-		image = [UIImage imageNamed:@"Default-Portrait.png"];
-	}
-	else if (UIDeviceOrientationIsLandscape(orientation)) {
-		image = [UIImage imageNamed:@"Default-Landscape.png"];
-	}
-		
-	if (image != nil) {
-		return image;
+		}
+		else if (UIDeviceOrientationIsLandscape(orientation)) {
+			image = [UIImage imageNamed:@"Default-Landscape.png"];
+		}
+			
+		if (image != nil) {
+			return image;
+		}
 	}
 	
 	// Default 
@@ -163,17 +167,24 @@ void MyUncaughtExceptionHandler(NSException *exception)
 
 - (UIView*)attachSplash
 {
-	CGFloat splashY = -TI_STATUSBAR_HEIGHT;
-	if ([[UIApplication sharedApplication] isStatusBarHidden])
-	{
-		splashY = 0;
-	}
+	UIView * controllerView = [controller view];
+	
 	RELEASE_TO_NIL(loadView);
-	CGRect viewFrame = [[UIScreen mainScreen] bounds];
-	BOOL flipLandscape = UIDeviceOrientationIsLandscape([[UIDevice currentDevice] orientation]);
-	loadView = [[UIImageView alloc] initWithFrame:CGRectMake(0, splashY, 
-															 flipLandscape ? viewFrame.size.height : viewFrame.size.width, 
-															 flipLandscape ? viewFrame.size.width : viewFrame.size.height)];
+
+	CGRect destRect;
+
+	if([TiUtils isIPad]) //iPad, 1024*748 or 748*1004, under the status bar.
+	{
+		destRect = [controllerView bounds];
+	}
+	else //iPhone: 320*480, placing behind the statusBar.
+	{
+		destRect = [controllerView convertRect:[[UIScreen mainScreen] bounds] fromView:nil];
+		destRect.origin.y -= [[UIApplication sharedApplication] statusBarFrame].size.height;
+	}
+
+	loadView = [[UIImageView alloc] initWithFrame:destRect];
+	[loadView setContentMode:UIViewContentModeScaleAspectFill];
 	loadView.image = [self loadAppropriateSplash];
 	[controller.view addSubview:loadView];
 	splashAttached = YES;
@@ -369,11 +380,16 @@ void MyUncaughtExceptionHandler(NSException *exception)
 
 	//These shutdowns return immediately, yes, but the main will still run the close that's in their queue.	
 	[kjsBridge shutdown:condition];
-	
+
+	// THE CODE BELOW IS WRONG.
+	// It only waits until ONE context has signialed that it has shut down; then we proceed along our merry way.
+	// This might lead to problems like contexts not getting cleaned up properly due to premature app termination.
+	// Plus, it blocks the main thread... meaning that we can have deadlocks if any context is currently executing
+	// a request that requires operations on the main thread.
 	[condition lock];
 	[condition waitUntilDate:[NSDate dateWithTimeIntervalSinceNow:SHUTDOWN_TIMEOUT_IN_SEC]];
 	[condition unlock];
-	
+
 	//This will shut down the modules.
 	[theNotificationCenter postNotificationName:kTiShutdownNotification object:self];
 	
