@@ -11,6 +11,7 @@
 #import "TiHost.h"
 
 @implementation Bridge
+@synthesize delegate;
 
 -(id)initWithHost:(TiHost*)host_
 {
@@ -55,6 +56,10 @@
 
 -(void)shutdown:(NSCondition*)condition
 {
+	if ([delegate respondsToSelector:@selector(bridgeUnloaded:)])
+	{
+		[delegate performSelectorOnMainThread:@selector(bridgeUnloaded:) withObject:self waitUntilDone:NO];
+	}
 }
 
 -(void)gc
@@ -68,6 +73,10 @@
 		[callback performSelector:@selector(booted:) withObject:self];
 		[callback release];
 		callback = nil;
+	}
+	if ([delegate respondsToSelector:@selector(bridgeLoaded:)])
+	{
+		[delegate performSelectorOnMainThread:@selector(bridgeLoaded:) withObject:self waitUntilDone:NO];
 	}
 	[url release];
 	url=nil;

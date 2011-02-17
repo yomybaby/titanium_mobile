@@ -327,14 +327,26 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 	return [self argOrWindowProperty:@"fullscreen" args:args];
 }
 
--(BOOL)isRootViewAttached
-{
-	return ([[[[TiApp app] controller] view] superview]!=nil);
-}
-
 -(void)open:(id)args
 {
+	//Shouldn't this be in the parent's domain?
+
+
+
+
+
+
+
 	ENSURE_UI_THREAD(open,args);
+
+
+
+
+
+
+
+
+
 
 	// opening a window more than once does nothing
 	if (opened==YES)
@@ -349,9 +361,7 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 		opening = YES;
 	}
 	
-	navWindow = NO;
-	BOOL rootViewAttached = [self isRootViewAttached];
-	
+	navWindow = NO;	
 	// give it to our subclass. he'll either return true to continue with open state and animation or 
 	// false to delay for some other action
 	if ([self _handleOpen:args])
@@ -368,12 +378,10 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 		}
 		if (animation!=nil)
 		{
-			if (rootViewAttached)
-			{
-				[[[TiApp app] controller] willShowViewController:[self controller] animated:(animation != nil)];
-				[self attachViewToTopLevelWindow];
-				[[[TiApp app] controller] didShowViewController:[self controller] animated:animation!=nil];
-			}
+			[[[TiApp app] controller] willShowViewController:[self controller] animated:(animation != nil)];
+			[self attachViewToTopLevelWindow];
+			[[[TiApp app] controller] didShowViewController:[self controller] animated:animation!=nil];
+
 			if ([animation isTransitionAnimation])
 			{
 				transitionAnimation = [[animation transition] intValue];
@@ -426,26 +434,13 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 			BOOL animated = [TiUtils boolValue:@"animated" properties:dict def:YES];
 			[self setupWindowDecorations];
 			
-			if (rootViewAttached==NO)
+			if (nc!=nil)
 			{
-				//TEMP hack until we can figure out split view issue
-				RELEASE_TO_NIL(tempController);
-				tempController = [[UIViewController alloc]init];
-				UIWindow *w = [self _window];
-				[w addSubview:tempController.view];
-				[tempController presentModalViewController:wc animated:YES];
-				attached = YES;
+				[[TiApp app] showModalController:nc animated:animated];
 			}
-			else
+			else 
 			{
-				if (nc!=nil)
-				{
-					[[TiApp app] showModalController:nc animated:animated];
-				}
-				else 
-				{
-					[[TiApp app] showModalController:wc animated:animated];
-				}
+				[[TiApp app] showModalController:wc animated:animated];
 			}
 		}
 		if (animation==nil)
@@ -800,14 +795,68 @@ END_UI_THREAD_PROTECTED_VALUE(opened)
 	[parentWindow childWindowChangedOrientationFlags:self];
 }
 
+-(void)setParentWindow:(id <TiParentWindow>) newWindow
+{
+//TODO: Is this threadsafe? Does it need to be?
+	if (newWindow == parentWindow)
+	{
+		return;
+	}
+	parentWindow = newWindow; //We don't retain parents for reasons to avoid retain loops.
+	if ((windowState == TiWindowClosable) && [parentWindow respondsToSelector:@selector(childWindowIsClosable:)])
+	{
+		[parentWindow performSelectorOnMainThread:@selector(childWindowIsClosable:) withObject:self waitUntilDone:NO];
+	}
+	if ((windowState == TiWindowOpenable) && [parentWindow respondsToSelector:@selector(childWindowIsOpenable:)])
+	{
+		[parentWindow performSelectorOnMainThread:@selector(childWindowIsOpenable:) withObject:self waitUntilDone:NO];
+	}
+}
+
 -(void)setWindowState:(TiWindowState) newState
 {
+//TODO: Is this threadsafe? Does it need to be?
 	if (newState == windowState)
 	{
 		return;
 	}
 	windowState = newState;
-	[parentWindow childWindowChangedState:self];
+	
+	if ([parentWindow respondsToSelector:@selector(childWindowChangedState:)])
+	{
+		[parentWindow performSelectorOnMainThread:@selector(childWindowChangedState:) withObject:self waitUntilDone:NO];
+	}
+	if ((newState == TiWindowClosable) && [parentWindow respondsToSelector:@selector(childWindowIsClosable:)])
+	{
+		[parentWindow performSelectorOnMainThread:@selector(childWindowIsClosable:) withObject:self waitUntilDone:NO];
+	}
+	if ((newState == TiWindowOpenable) && [parentWindow respondsToSelector:@selector(childWindowIsOpenable:)])
+	{
+		[parentWindow performSelectorOnMainThread:@selector(childWindowIsOpenable:) withObject:self waitUntilDone:NO];
+	}
+}
+
+-(void)windowWillOpen:(BOOL)animated;
+{
+	[self setWindowState:TiWindowOpening];
+//We should initialize and setup to handle the parent becoming visible.
+//Layout and all. Parent will be visible, even.
+}
+
+-(void)windowDidOpen:(BOOL)animated;
+{
+	[self setWindowState:TiWindowOpened];
+}
+
+-(void)windowWillClose:(BOOL)animated;
+{
+	[self setWindowState:TiWindowClosing];
+}
+
+-(void)windowDidClose:(BOOL)animated;
+{
+	[self setWindowState:TiWindowClosed];
+//At this point, parent is no longer visibile. However, this might not matter if the window is going byebye.
 }
 
 @end

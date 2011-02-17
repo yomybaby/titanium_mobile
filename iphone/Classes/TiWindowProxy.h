@@ -29,7 +29,7 @@ typedef enum
 #define TI_ORIENTATION_ALLOWED(flag,bit)	(flag & (1<<bit))
 #define TI_ORIENTATION_SET(flag,bit)		(flag |= (1<<bit))
 
-typedef enum
+enum
 {
 	TiWindowClosed		= 0x00,	//Unattached, unopened, uninterested
 	TiWindowLoading		= 0x01,	//Windows with an url will go into this state. Intending to open once the JS does a single pass
@@ -42,17 +42,22 @@ typedef enum
 
 	TiWindowAnimating	= TiWindowOpening | TiWindowClosing,
 
-} TiWindowState;
+};
+typedef int TiWindowState;
 
 @protocol TiParentWindow;
 @protocol TiChildWindow <NSObject>
 
 @property(nonatomic,readwrite,assign)	id<TiParentWindow> parentWindow;
 @property(nonatomic,readonly,assign)	TiOrientationFlags orientationFlags;
-
 @property(nonatomic,readonly,assign)	TiWindowState windowState;
 
 //Should this be a should, or an attach?
+//Loading, unloading, and loaded are only of the BridgeDelegate protocol.
+
+//Because these are typically triggered by ParentWindow methods already on the main thread,
+//let's declare by fiat: These methods MUST be done on the main thread, because it's likley
+//that these methods will deal with the UI as well.
 -(void)windowWillOpen:(BOOL)animated;
 -(void)windowDidOpen:(BOOL)animated;
 -(void)windowWillClose:(BOOL)animated;
@@ -61,9 +66,13 @@ typedef enum
 @end
 
 @protocol TiParentWindow <NSObject>
-
+//All of these methods MUST be done on the main thread, because it's likely that these methods will deal with UI.
 -(void)childWindowChangedOrientationFlags:(id<TiChildWindow>) childWindow;
+
+@optional
 -(void)childWindowChangedState:(id<TiChildWindow>) childWindow;
+-(void)childWindowIsOpenable:(id<TiChildWindow>) childWindow;
+-(void)childWindowIsClosable:(id<TiChildWindow>) childWindow;
 
 @end
 

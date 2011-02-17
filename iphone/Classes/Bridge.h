@@ -7,15 +7,26 @@
 #import "TiProxy.h"
 
 @class TiHost;
+@class Bridge;
+
+@protocol TiBridgeDelegate <NSObject>
+
+@optional
+-(void)bridgeLoaded:(Bridge *)loadedBridge;
+-(void)bridgeUnloaded:(Bridge *)unloadedBridge;
+@end
 
 @interface Bridge : NSObject {
 @private
+	NSObject<TiBridgeDelegate> * delegate;
 	id callback;
 	NSString *basename;
 @protected
 	NSURL *url;
 	TiHost *host;
 }
+
+@property(readwrite,assign) NSObject<TiBridgeDelegate> * delegate;
 
 -(id)initWithHost:(TiHost*)host;
 

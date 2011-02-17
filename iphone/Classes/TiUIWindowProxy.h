@@ -13,7 +13,7 @@
 
 //TODO: we probably should split this ViewProxy into a a separate TiUIView like normal
 
-@interface TiUIWindowProxy : TiWindowProxy 
+@interface TiUIWindowProxy : TiWindowProxy<TiBridgeDelegate> 
 {
 @private
 	KrollBridge *context;

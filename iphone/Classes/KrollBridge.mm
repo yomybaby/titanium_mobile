@@ -425,7 +425,7 @@ extern BOOL const TI_APPLICATION_ANALYTICS;
 		WARN_IF_BACKGROUND_THREAD_OBJ;	//NSNotificationCenter is not threadsafe!
 		NSNotification *notification = [NSNotification notificationWithName:kTiContextShutdownNotification object:self];
 		[[NSNotificationCenter defaultCenter] postNotification:notification];
-		
+		[super shutdown:condition];
 		[context stop];
 	}
 	else

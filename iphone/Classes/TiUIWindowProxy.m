@@ -113,6 +113,7 @@
 	RELEASE_TO_NIL(barImageView);
 	if (context!=nil)
 	{
+		[context setDelegate:nil];
 		[context shutdown:nil];
 		RELEASE_TO_NIL(context);
 	}
@@ -813,6 +814,34 @@ else{\
 	[super _associateTab:controller_ navBar:navbar_ tab:tab_];
 	SETPROP(@"tabBarHidden",setTabBarHidden);
 }
+
+-(void)bridgeLoaded:(Bridge *)loadedBridge
+{
+	if((loadedBridge == context) && ([self windowState] == TiWindowLoading)){
+		[self setWindowState:TiWindowOpenable];
+	}
+}
+
+-(void)bridgeUnloaded:(Bridge *)unloadedBridge
+{
+	if((unloadedBridge == context) && ([self windowState] == TiWindowUnloading)){
+		[self setWindowState:TiWindowClosed];
+	}
+
+}
+
+-(void)windowDidClose:(BOOL)animated;
+{
+	if(context == nil){
+		[super windowDidClose:animated];
+		return;
+	}
+	
+	[context shutdown:nil];
+	[self setWindowState:TiWindowUnloading];
+//At this point, parent is no longer visibile. However, this might not matter if the window is going byebye.
+}
+
 
 @end
 
