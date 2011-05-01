@@ -375,11 +375,23 @@ void DoProxyDelegateReadValuesWithKeysFromProxy(UIView<TiProxyDelegate> * target
 	return destroyed;
 }
 
+-(void)setMemorymark:(id)newValue
+{
+	NSLog(@"[INFO] %@0x%X is now known as '%@'",self,self,newValue);
+	[self replaceValue:newValue forKey:@"memorymark" notification:NO];
+}
+
 -(void)dealloc
 {
 #if PROXY_MEMORY_TRACK == 1
 	NSLog(@"DEALLOC: %@ (%d)",self,[self hash]);
 #endif
+	NSString * memoryMark = [self valueForUndefinedKey:@"memorymark"];
+	if (memoryMark != nil)
+	{
+			NSLog(@"[INFO] Fully deleting %@0x%X AKA '%@'",self,self,memoryMark);
+	}
+
 	[self _destroy];
 	pthread_rwlock_destroy(&listenerLock);
 	pthread_rwlock_destroy(&dynpropsLock);

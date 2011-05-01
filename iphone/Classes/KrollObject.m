@@ -395,6 +395,19 @@ void KrollFinalizer(TiObjectRef ref)
 #endif
 			if ((ourTarget != nil) && ([ourBridge krollObjectForProxy:ourTarget] == o))
 			{
+				NSString * memoryMark = [ourTarget valueForUndefinedKey:@"memorymark"];
+				if (memoryMark != nil)
+				{
+					if ([ourTarget retainCount]<=2)
+					{
+						NSLog(@"[INFO] Garbage collecting %@0x%X AKA '%@'.",ourTarget,ourTarget,memoryMark);
+					}else
+					{
+						NSLog(@"[INFO] Garbage collecting %@0x%X AKA '%@', but it is still being held %d times.",
+								ourTarget,ourTarget,memoryMark,[ourTarget retainCount]-2)
+					}
+				}
+			
 				[ourBridge unregisterProxy:ourTarget];
 			}
 		}
