@@ -17,7 +17,8 @@
 {
 	if (self = [super init])
 	{
-		//FIXME: review this with Blain as to why...
+		//This is done to insert the top line of the nav bar
+		//underneath the bottom line of the status bar.
 		layoutProperties.top = TiDimensionPixels(-1);
 	}
 	return self;
@@ -28,6 +29,7 @@
 	TiWindowProxy *window = [args objectAtIndex:0];
 	ENSURE_TYPE(window,TiWindowProxy);
 	[self rememberProxy:window];
+
 	ENSURE_UI_THREAD(open, args);
 	NSDictionary *properties = [args count] > 1 ? [args objectAtIndex:1] : [NSDictionary dictionary];
 	[[self view] performSelector:@selector(open:withObject:) withObject:window withObject:properties];
@@ -41,13 +43,11 @@
 		
 		TiWindowProxy *window = [args objectAtIndex:0];
 		ENSURE_TYPE(window,TiWindowProxy);
-		
-		[self forgetProxy:window];
-		
 		ENSURE_UI_THREAD(close,args);
 
 		NSDictionary *properties = [args count] > 1 ? [args objectAtIndex:1] : [NSDictionary dictionary];
 		[[self view] performSelector:@selector(close:withObject:) withObject:window withObject:properties];
+		[self forgetProxy:window];
 	}
 	else 
 	{
@@ -107,6 +107,12 @@
 	[parentOrientationController childOrientationControllerChangedFlags:self];
 }
 
+-(void)windowDidClose
+{
+	WARN_IF_BACKGROUND_THREAD;
+	[[self view] close];
+	[super windowDidClose];
+}
 
 @end
 

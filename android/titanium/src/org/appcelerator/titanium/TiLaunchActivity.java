@@ -55,7 +55,12 @@ public abstract class TiLaunchActivity extends TiBaseActivity
 	 * This happens before the script is loaded.
 	 */
 	protected void contextCreated() { }
-	
+
+	public TiContext getTiContext()
+	{
+		return tiContext;
+	}
+
 	protected void loadActivityScript()
 	{
 		try {
@@ -99,6 +104,9 @@ public abstract class TiLaunchActivity extends TiBaseActivity
 	@Override
 	protected void windowCreated()
 	{
+		ITiAppInfo appInfo = getTiApp().getAppInfo();
+		getIntent().putExtra(TiC.PROPERTY_FULLSCREEN, appInfo.isFullscreen());
+		getIntent().putExtra(TiC.PROPERTY_NAV_BAR_HIDDEN, appInfo.isNavBarHidden());
 		super.windowCreated();
 		loadActivityScript();
 		scriptLoaded();
