@@ -396,19 +396,18 @@ void KrollFinalizer(TiObjectRef ref)
 			if ((ourTarget != nil) && ([ourBridge krollObjectForProxy:ourTarget] == o))
 			{
 				NSString * memoryMark = [ourTarget valueForUndefinedKey:@"memorymark"];
+				[ourBridge unregisterProxy:ourTarget];
 				if (memoryMark != nil)
 				{
-					if ([ourTarget retainCount]<=2)
+					if ([ourTarget retainCount]<=1)
 					{
 						NSLog(@"[INFO] Garbage collecting %@0x%X AKA '%@'.",ourTarget,ourTarget,memoryMark);
 					}else
 					{
-						NSLog(@"[INFO] Garbage collecting %@0x%X AKA '%@', but it is still being held %d times.",
-								ourTarget,ourTarget,memoryMark,[ourTarget retainCount]-2)
+						NSLog(@"[INFO] Garbage collecting %@0x%X AKA '%@', but it is still being held %d times. Bridges %@ still refer to it.",
+								ourTarget,ourTarget,memoryMark,[ourTarget retainCount]-1,[KrollBridge krollBridgesUsingProxy:ourTarget]);
 					}
 				}
-			
-				[ourBridge unregisterProxy:ourTarget];
 			}
 		}
 	}
@@ -489,6 +488,13 @@ TiValueRef KrollGetProperty(TiContextRef jsContext, TiObjectRef object, TiString
 		if ([result isKindOfClass:[KrollObject class]] &&
 				![result isKindOfClass:[KrollCallback class]] && [[result target] isKindOfClass:[TiProxy class]])
 		{
+			NSString * memoryMark = [[result target] valueForUndefinedKey:@"memorymark"];
+			if (memoryMark != nil)
+			{
+				NSLog(@"[INFO] Noting during get %@0x%X AKA '%@' as %@ for %@0x%X.",
+						[result target],[result target],memoryMark,name,[o target],[o target]);
+			}
+
 			[o noteObject:jsResult forTiString:prop context:jsContext];
 		}
 		else
@@ -529,6 +535,13 @@ bool KrollSetProperty(TiContextRef jsContext, TiObjectRef object, TiStringRef pr
 #endif
 		if ([v isKindOfClass:[TiProxy class]])
 		{
+			NSString * memoryMark = [v valueForUndefinedKey:@"memorymark"];
+			if (memoryMark != nil)
+			{
+				NSLog(@"[INFO] Setting %@0x%X AKA '%@' as %@ for %@0x%X.",
+						v,v,memoryMark,name,[o target],[o target]);
+			}
+
 			[o noteObject:value forTiString:prop context:jsContext];
 		}
 		else
@@ -1114,6 +1127,12 @@ bool KrollHasInstance(TiContextRef ctx, TiObjectRef constructor, TiValueRef poss
 		return;
 	}
 	protecting = YES;
+
+	NSString * memoryMark = [target valueForUndefinedKey:@"memorymark"];
+	if (memoryMark != nil)
+	{
+		NSLog(@"[INFO] Self-protecting %@0x%X AKA '%@'.",target,target,memoryMark);
+	}
 	TiValueProtect(jscontext,jsobject);
 }
 
@@ -1137,6 +1156,12 @@ bool KrollHasInstance(TiContextRef ctx, TiObjectRef constructor, TiValueRef poss
 		return;
 	}
 	protecting = NO;
+
+	NSString * memoryMark = [target valueForUndefinedKey:@"memorymark"];
+	if (memoryMark != nil)
+	{
+		NSLog(@"[INFO] Self-unprotecting %@0x%X AKA '%@'.",target,target,memoryMark);
+	}
 	TiValueUnprotect(jscontext,jsobject);
 }
 
@@ -1152,6 +1177,11 @@ bool KrollHasInstance(TiContextRef ctx, TiObjectRef constructor, TiValueRef poss
 	}
 
 	NSString * falseKey = [NSString stringWithFormat:@"__PX%X",value];
+	NSString * memoryMark = [[value target] valueForUndefinedKey:@"memorymark"];
+	if (memoryMark != nil)
+	{
+		NSLog(@"[INFO] Keylessly noting %@0x%X AKA '%@' as %@ in %@0x%X.",[value target],[value target],memoryMark,falseKey,target,target);
+	}
 	[self noteKrollObject:value forKey:falseKey];
 }
 
@@ -1167,6 +1197,11 @@ bool KrollHasInstance(TiContextRef ctx, TiObjectRef constructor, TiValueRef poss
 	}
 
 	NSString * falseKey = [NSString stringWithFormat:@"__PX%X",value];
+	NSString * memoryMark = [[value target] valueForUndefinedKey:@"memorymark"];
+	if (memoryMark != nil)
+	{
+		NSLog(@"[INFO] Keylessly forgetting %@0x%X AKA '%@' as %@ in %@0x%X.",[value target],[value target],memoryMark,falseKey,target,target);
+	}
 	[self forgetKrollObjectforKey:falseKey];
 }
 
@@ -1265,6 +1300,12 @@ bool KrollHasInstance(TiContextRef ctx, TiObjectRef constructor, TiValueRef poss
 		[context enqueue:safeInvoke];
 		[safeInvoke release];
 		return;
+	}
+
+	NSString * memoryMark = [[value target] valueForUndefinedKey:@"memorymark"];
+	if (memoryMark != nil)
+	{
+		NSLog(@"[INFO] Noting %@0x%X AKA '%@' as %@ in %@0x%X.",[value target],[value target],memoryMark,key,target,target);
 	}
 
 	TiStringRef nameRef = TiStringCreateWithCFString((CFStringRef)key);
