@@ -70,6 +70,7 @@ NSArray * tableKeySequence;
 	{
 		[self throwException:@"couldn't determine row data from argument" subreason:nil location:CODELOCATION];
 	}
+
 	return row;
 }
 

@@ -36,11 +36,13 @@ typedef enum
 	BOOL attaching;
 	NSInteger row;
 	TiUITableViewCell* callbackCell;
+    TiUITableViewCell* prerenderedCell;
 }
 
 #pragma mark Public APIs
 
 @property(nonatomic,readonly)	NSString *tableClass;
+@property(nonatomic,readonly)   UITableViewCell *prerenderedCell;
 
 #pragma mark Framework
 
@@ -58,6 +60,8 @@ typedef enum
 -(id)createEventObject:(id)initialObject;
 -(void)triggerAttach;
 -(void)updateRow:(NSDictionary*)data withObject:(NSDictionary*)properties;
+-(void)prerender;
+-(void)cleanPrerendering;
 
 @end
 

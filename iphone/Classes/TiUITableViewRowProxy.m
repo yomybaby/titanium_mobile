@@ -25,6 +25,8 @@ NSString * const defaultRowTableClass = @"_default_";
 // TODO: Clean this up a bit
 #define NEEDS_UPDATE_ROW 1
 
+#define PRERENDERING_ON
+
 static void addRoundedRectToPath(CGContextRef context, CGRect rect,
 								 float ovalWidth,float ovalHeight)
 
@@ -254,7 +256,7 @@ TiProxy * DeepScanForProxyOfViewContainingPoint(UIView * targetView, CGPoint poi
 
 @implementation TiUITableViewRowProxy
 
-@synthesize tableClass, table, section, row, callbackCell;
+@synthesize tableClass, table, section, row, callbackCell,prerenderedCell;
 
 -(void)setCallbackCell:(TiUITableViewCell *)newValue
 {
@@ -276,6 +278,8 @@ TiProxy * DeepScanForProxyOfViewContainingPoint(UIView * targetView, CGPoint poi
 	RELEASE_TO_NIL(rowContainerView);
 	[callbackCell setProxy:nil];
 	RELEASE_TO_NIL(callbackCell);
+    [prerenderedCell setProxy:nil];
+    RELEASE_TO_NIL(prerenderedCell);
 	[super _destroy];
 }
 
@@ -624,12 +628,11 @@ TiProxy * DeepScanForProxyOfViewContainingPoint(UIView * targetView, CGPoint poi
 	}
 }
 
+// this method is called when the cell is initially created
+// to be initialized. on subsequent repaints of a re-used
+// table cell, the updateChildren below will be called instead
 -(void)configureChildren:(UITableViewCell*)cell
 {
-	// this method is called when the cell is initially created
-	// to be initialized. on subsequent repaints of a re-used
-	// table cell, the updateChildren below will be called instead
-	configuredChildren = YES;
 	if (self.children!=nil)
 	{
 		UIView *contentView = cell.contentView;
@@ -656,9 +659,8 @@ TiProxy * DeepScanForProxyOfViewContainingPoint(UIView * targetView, CGPoint poi
 			}
 			[proxy windowWillOpen];
 			[proxy setReproxying:YES];
-			TiUIView *uiview = [proxy view];
+			[rowContainerView addSubview:[proxy view]];
 			[self redelegateViews:proxy toView:contentView];
-			[rowContainerView addSubview:uiview];
 			[proxy setReproxying:NO];
 		}
 		[self willEnqueue];
@@ -841,6 +843,31 @@ TiProxy * DeepScanForProxyOfViewContainingPoint(UIView * targetView, CGPoint poi
 	}
 	modifyingRow = NO;
 }
+
+-(void)prerender
+{
+#ifdef PRERENDERING_ON
+    ENSURE_UI_THREAD_0_ARGS;
+    
+    if (prerenderedCell == nil) {
+        prerenderedCell = [[TiUITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:tableClass row:self];
+        [self initializeTableViewCell:prerenderedCell];
+    }
+#endif
+}
+
+-(void)cleanPrerendering
+{
+    RELEASE_TO_NIL(prerenderedCell);
+}
+
+-(void)setTable:(TiUITableView*)table_
+{
+    table = table_;
+    [self cleanPrerendering];
+    [self prerender];
+}
+
 
 -(BOOL)isAttached
 {

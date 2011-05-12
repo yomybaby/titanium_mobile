@@ -1591,14 +1591,21 @@ if(ourTableView != tableview)	\
 	UITableViewCell *cell = [ourTableView dequeueReusableCellWithIdentifier:row.tableClass];
 	if (cell == nil)
 	{
-		cell = [[[TiUITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:row.tableClass row:row] autorelease];
+        // Try the prerendered cell first, and if we have one, just use that.
+		cell = [row prerenderedCell];
+        if (cell == nil) {
+            cell = [[[TiUITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:row.tableClass row:row] autorelease];
+            [row initializeTableViewCell:cell];
+        }
 	}
 	else
 	{
 		// TODO: Right now, reproxying, redrawing, reloading, etc. is SLOWER than simply drawing in the new cell contents!
 		// So what we're going to do with this cell is clear its contents out, then redraw it as if it were a new cell.
 		// Keeps the cell pool small and reusable.
+        [row cleanPrerendering];
 		[TiUITableViewRowProxy clearTableRowCell:cell];
+        [(TiUITableViewCell*)cell setProxy:row];
 		
 		/*
 		 * Old-school style:
@@ -1607,8 +1614,9 @@ if(ourTableView != tableview)	\
 		[row renderTableViewCell:cell];
 		 *
 		 */
+        [row initializeTableViewCell:cell];
+        
 	}
-	[row initializeTableViewCell:cell];
 	
 	return cell;
 }
