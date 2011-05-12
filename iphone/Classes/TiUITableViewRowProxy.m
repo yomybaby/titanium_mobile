@@ -850,7 +850,7 @@ TiProxy * DeepScanForProxyOfViewContainingPoint(UIView * targetView, CGPoint poi
     ENSURE_UI_THREAD_0_ARGS;
     
     if (prerenderedCell == nil) {
-        prerenderedCell = [[TiUITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:tableClass row:self];
+        prerenderedCell = [[TiUITableViewCell alloc] initWithStyle:UITableViewCellStyleDefault reuseIdentifier:[self tableClass] row:self];
         [self initializeTableViewCell:prerenderedCell];
     }
 #endif
