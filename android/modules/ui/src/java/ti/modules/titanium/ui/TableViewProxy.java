@@ -1,6 +1,6 @@
 /**
  * Appcelerator Titanium Mobile
- * Copyright (c) 2009-2011 by Appcelerator, Inc. All Rights Reserved.
+ * Copyright (c) 2009-2012 by Appcelerator, Inc. All Rights Reserved.
  * Licensed under the terms of the Apache Public License
  * Please see the LICENSE included with this distribution for details.
  */
@@ -137,10 +137,11 @@ public class TableViewProxy extends TiViewProxy
 
 	@Override
 	public boolean fireEvent(String eventName, Object data) {
-		if (eventName.equals(TiC.EVENT_LONGPRESS)) {
+		if (eventName.equals(TiC.EVENT_LONGPRESS) && (data instanceof HashMap)) {
 			// The data object may already be in use by the runtime thread
 			// due to a child view's event fire. Create a copy to be thread safe.
-			KrollDict dataCopy = new KrollDict((KrollDict)data);
+			@SuppressWarnings("unchecked")
+			KrollDict dataCopy = new KrollDict((HashMap<String, Object>) data);
 			double x = dataCopy.getDouble(TiC.PROPERTY_X);
 			double y = dataCopy.getDouble(TiC.PROPERTY_Y);
 			int index = getTableView().getTableView().getIndexFromXY(x, y);
@@ -204,7 +205,14 @@ public class TableViewProxy extends TiViewProxy
 		}
 		try {
 			ArrayList<TableViewSectionProxy> currentSections = getSectionsArray();
+			TableViewSectionProxy oldSection = currentSections.get(sectionIndex);
 			currentSections.set(sectionIndex, sectionProxy);
+			if (sectionProxy != oldSection) {
+				sectionProxy.setParent(this);
+				if (oldSection.getParent() == this) {
+					oldSection.setParent(null);
+				}
+			}
 			getTableView().setModelDirty();
 			updateView();
 		} catch (IndexOutOfBoundsException e) {
@@ -246,9 +254,8 @@ public class TableViewProxy extends TiViewProxy
 				TableViewSectionProxy addedToSection = addRowToSection(rowProxy, lastSection);
 				if (lastSection == null || !lastSection.equals(addedToSection)) {
 					sections.add(addedToSection);
+					addedToSection.setParent(this);
 				}
-				rowProxy.setProperty(TiC.PROPERTY_SECTION, addedToSection);
-				rowProxy.setProperty(TiC.PROPERTY_PARENT, addedToSection);
 			}
 		}
 
@@ -282,6 +289,7 @@ public class TableViewProxy extends TiViewProxy
 			TableViewSectionProxy sectionProxy = sectionProxyFor(sectionList[i]);
 			if (sectionProxy != null) {
 				currentSections.add(sectionProxy);
+				sectionProxy.setParent(this);
 			}
 		}
 
@@ -290,29 +298,44 @@ public class TableViewProxy extends TiViewProxy
 	}
 
 	@Kroll.method
-	public void deleteRow(int index, @Kroll.argument(optional = true) KrollDict options)
+	public void deleteRow(Object row, @Kroll.argument(optional = true) KrollDict options)
 	{
 		if (TiApplication.isUIThread()) {
-			handleDeleteRow(index);
+			handleDeleteRow(row);
 			return;
 		}
 
-		Object asyncResult = TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_DELETE_ROW), index);
+		Object asyncResult = TiMessenger.sendBlockingMainMessage(getMainHandler().obtainMessage(MSG_DELETE_ROW), row);
 
 		if (asyncResult instanceof IllegalStateException) {
 			throw (IllegalStateException) asyncResult;
 		}
 	}
 
-	private void handleDeleteRow(int index) throws IllegalStateException
+	private void handleDeleteRow(Object row) throws IllegalStateException
 	{
-		RowResult rr = new RowResult();
-		if (locateIndex(index, rr)) {
-			rr.section.removeRowAt(rr.rowIndexInSection);
-			getTableView().setModelDirty();
-			updateView();
+		if (row instanceof Integer) {
+			int index = (Integer) row;
+			RowResult rr = new RowResult();
+			if (locateIndex(index, rr)) {
+				rr.section.removeRowAt(rr.rowIndexInSection);
+				getTableView().setModelDirty();
+				updateView();
+			} else {
+				throw new IllegalStateException("Unable to delete row. Index out of range. Non-existent row at " + index);
+			}
+		} else if (row instanceof TableViewRowProxy) {
+			TableViewRowProxy rowProxy = (TableViewRowProxy) row;
+			TiViewProxy section = rowProxy.getParent();
+			if (section instanceof TableViewSectionProxy) {
+				((TableViewSectionProxy) section).remove(rowProxy);
+				getTableView().setModelDirty();
+				updateView();
+			} else {
+				Log.e(TAG, "Unable to delete row. The row is not added to the table yet.");
+			}
 		} else {
-			throw new IllegalStateException("Index out of range. Non-existent row at " + index);
+			Log.e(TAG, "Unable to delete row. Invalid type of row: " + row);
 		}
 	}
 
@@ -335,7 +358,11 @@ public class TableViewProxy extends TiViewProxy
 	{
 		ArrayList<TableViewSectionProxy> currentSections = getSectionsArray();
 		try {
+			TableViewSectionProxy section = currentSections.get(index);
 			currentSections.remove(index);
+			if (section.getParent() == this) {
+				section.setParent(null);
+			}
 			getTableView().setModelDirty();
 			updateView();
 		} catch (IndexOutOfBoundsException e) {
@@ -431,6 +458,7 @@ public class TableViewProxy extends TiViewProxy
 		try {
 			ArrayList<TableViewSectionProxy> currentSections = getSectionsArray();
 			currentSections.add(index, sectionProxy);
+			sectionProxy.setParent(this);
 			getTableView().setModelDirty();
 			updateView();
 		} catch (IndexOutOfBoundsException e) {
@@ -498,6 +526,7 @@ public class TableViewProxy extends TiViewProxy
 		try {
 			ArrayList<TableViewSectionProxy> currentSections = getSectionsArray();
 			currentSections.add(index+1, sectionProxy);
+			sectionProxy.setParent(this);
 			getTableView().setModelDirty();
 			updateView();
 		} catch (IndexOutOfBoundsException e) {
@@ -563,6 +592,7 @@ public class TableViewProxy extends TiViewProxy
 			currentSection = new TableViewSectionProxy();
 			currentSection.setActivity(getActivity());
 			sections.add(currentSection);
+			currentSection.setParent(this);
 			currentSection.setProperty(TiC.PROPERTY_HEADER_TITLE, getProperty(TiC.PROPERTY_HEADER_TITLE));
 		}
 		if (hasProperty(TiC.PROPERTY_FOOTER_TITLE)) {
@@ -570,6 +600,7 @@ public class TableViewProxy extends TiViewProxy
 				currentSection = new TableViewSectionProxy();
 				currentSection.setActivity(getActivity());
 				sections.add(currentSection);
+				currentSection.setParent(this);
 			}
 			currentSection.setProperty(TiC.PROPERTY_FOOTER_TITLE, getProperty(TiC.PROPERTY_FOOTER_TITLE));
 		}
@@ -582,6 +613,7 @@ public class TableViewProxy extends TiViewProxy
 				if (currentSection == null || !currentSection.equals(addedToSection)) {
 					currentSection = addedToSection;
 					sections.add(currentSection);
+					currentSection.setParent(this);
 				}
 			} else if (o instanceof TableViewSectionProxy) {
 				currentSection = (TableViewSectionProxy) o;
@@ -626,6 +658,7 @@ public class TableViewProxy extends TiViewProxy
 		return new Object[0];
 	}
 
+	@SuppressWarnings("unchecked")
 	private TableViewRowProxy rowProxyFor(Object row)
 	{
 		TableViewRowProxy rowProxy = null;
@@ -639,7 +672,7 @@ public class TableViewProxy extends TiViewProxy
 				rowDict = (KrollDict) row;
 
 			} else if (row instanceof HashMap) {
-				rowDict = new KrollDict((HashMap) row);
+				rowDict = new KrollDict((HashMap<String, Object>) row);
 			}
 
 			if (rowDict != null) {
@@ -659,10 +692,10 @@ public class TableViewProxy extends TiViewProxy
 			return null;
 		}
 
-		rowProxy.setParent(this);
 		return rowProxy;
 	}
 
+	@SuppressWarnings("unchecked")
 	private TableViewSectionProxy sectionProxyFor(Object section)
 	{
 		TableViewSectionProxy sectionProxy = null;
@@ -674,7 +707,7 @@ public class TableViewProxy extends TiViewProxy
 			if (section instanceof KrollDict) {
 				sectionDict = (KrollDict) section;
 			} else if (section instanceof HashMap) {
-				sectionDict = new KrollDict((HashMap) section);
+				sectionDict = new KrollDict((HashMap<String, Object>) section);
 			}
 			if (sectionDict != null) {
 				sectionProxy = new TableViewSectionProxy();
@@ -693,12 +726,13 @@ public class TableViewProxy extends TiViewProxy
 				sectionProxy.setActivity(getActivity());
 			}
 		}
+
 		if (sectionProxy == null) {
 			Log.e(TAG,
 				"Unable to create table view section proxy for object, likely an error in the type of the object passed in...");
 			return null;
 		}
-		sectionProxy.setParent(this);
+
 		return sectionProxy;
 	}
 
@@ -811,7 +845,7 @@ public class TableViewProxy extends TiViewProxy
 		} else if (msg.what == MSG_DELETE_ROW) {
 			AsyncResult result = (AsyncResult) msg.obj;
 			try {
-				handleDeleteRow((Integer) result.getArg());
+				handleDeleteRow(result.getArg());
 				result.setResult(null);
 			} catch (IllegalStateException e) {
 				result.setResult(e);

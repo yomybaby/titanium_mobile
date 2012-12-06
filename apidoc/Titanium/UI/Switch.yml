@@ -10,9 +10,6 @@ description: |
     On Mobile Web, a switch always has text associated with it, and appears as a toggle button, 
     similar to Android.
     
-    On BlackBerry, a switch is a fixed-size switch control with two states: checked or unchecked.
-    Switch on BlackBerry doesn't have any text associated with it.
-
     Use the <Titanium.UI.createSwitch> method to create a switch.
 extends: Titanium.UI.View
 since: "0.8"
@@ -221,3 +218,21 @@ examples:
             });
             
             win.open();
+
+  - title: Alloy XML Markup
+    example: |
+        Previous simple switch example as an Alloy view.
+
+        switchexample.xml:
+
+            <Alloy>
+                <Window id="win" backgroundColor="white">
+                    <Switch id="basicSwitch" value="true" onChange="outputState"/>
+                </Window>
+            </Alloy>
+
+        switchexample.js:
+
+            function outputState(){
+                Ti.API.info('Switch value: ' + $.basicSwitch.value);
+            }

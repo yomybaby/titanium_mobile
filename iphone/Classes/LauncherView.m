@@ -113,14 +113,13 @@ static const NSTimeInterval kLauncherViewFastTransitionDuration = 0.2;
 
 -(LauncherButton*)addButtonWithItem:(LauncherItem*)item
 {
-	LauncherButton *button = [[LauncherButton alloc] initWithFrame:CGRectZero];
-	[button setTitle:item.title forState:UIControlStateNormal];
-	[button addTarget:self action:@selector(buttonTouchedUpInside:) forControlEvents:UIControlEventTouchUpInside];
-	[button addTarget:self action:@selector(buttonTouchedUpOutside:) forControlEvents:UIControlEventTouchUpOutside];
-	[button addTarget:self action:@selector(buttonTouchedDown:withEvent:) forControlEvents:UIControlEventTouchDown];
-	[scrollView addSubview:button];
-	button.item = item;
-	return [button autorelease];
+    LauncherButton *button = [[LauncherButton alloc] initWithFrame:CGRectZero];
+    [button addTarget:self action:@selector(buttonTouchedUpInside:) forControlEvents:UIControlEventTouchUpInside];
+    [button addTarget:self action:@selector(buttonTouchedUpOutside:) forControlEvents:UIControlEventTouchUpOutside];
+    [button addTarget:self action:@selector(buttonTouchedDown:withEvent:) forControlEvents:UIControlEventTouchDown];
+    [scrollView addSubview:button];
+    button.item = item;
+    return [button autorelease];
 }
 
 -(NSInteger)rowHeight
@@ -199,7 +198,6 @@ static const NSTimeInterval kLauncherViewFastTransitionDuration = 0.2;
 	if (numberOfPages != pager.numberOfPages) 
 	{
 		pager.numberOfPages = numberOfPages;
-		[pager setCurrentPage:numberOfPages-1];
 	}
 }
 - (void)layoutButtons 
@@ -274,7 +272,13 @@ static const NSTimeInterval kLauncherViewFastTransitionDuration = 0.2;
     
 	[self layoutButtons];
 	
-	[pager setCurrentPage:curIndex];
+    NSInteger oldPageNo = pager.currentPage;
+    [pager setCurrentPage:curIndex];
+    if (oldPageNo != curIndex) {
+        if ([delegate respondsToSelector:@selector(launcherView:didChangePage:)]) {
+            [delegate launcherView:self didChangePage:[NSNumber numberWithInteger:pager.currentPage]];
+        }
+    }
 }
 
 - (void)scrollToItem:(LauncherItem*)item animated:(BOOL)animated 
@@ -348,8 +352,8 @@ static const NSTimeInterval kLauncherViewFastTransitionDuration = 0.2;
 	
 	if (dragButton) 
 	{
-		dragButton.selected = NO;
-		dragButton.highlighted = NO;
+		[dragButton setSelected:NO];
+		[dragButton setHighlighted:NO];
 		dragButton.dragging = NO;
 		[self layoutButtons];
 	}
@@ -546,7 +550,7 @@ static const NSTimeInterval kLauncherViewFastTransitionDuration = 0.2;
 	}
 }
 
-- (void)closeButtonTouchedUpInside:(LauncherButton*)closeButton 
+- (void)closeButtonTouchedUpInside:(LauncherButton*)closeButton
 {
 	for (NSArray* buttonPage in buttons) 
 	{
@@ -664,8 +668,13 @@ static const NSTimeInterval kLauncherViewFastTransitionDuration = 0.2;
 	}
 	
 	[self layoutButtons];
-	
+	NSInteger oldPageNo = pager.currentPage;
 	[pager setCurrentPage:curIndex];
+	if (oldPageNo != curIndex) {
+		if ([delegate respondsToSelector:@selector(launcherView:didChangePage:)]) {
+			[delegate launcherView:self didChangePage:[NSNumber numberWithInteger:pager.currentPage]];
+		}
+	}
 	
 	if ([delegate respondsToSelector:@selector(launcherViewDidEndEditing:)]) 
 	{
@@ -674,23 +683,22 @@ static const NSTimeInterval kLauncherViewFastTransitionDuration = 0.2;
 }
 
 
-- (void)editHoldTimer:(NSTimer*)timer 
+- (void)editHoldTimer:(NSTimer*)timer
 {
     editHoldTimer = nil;
 
 	NSArray *data = timer.userInfo;
 	LauncherButton *button = [data objectAtIndex:0];
 	UIEvent *event = [data objectAtIndex:1];
-    if (button.item.userData == nil) {
+    if ( button.item.userData == nil) {
         return;
     }
 	
 	[self beginEditing];
 	
-	button.selected = NO;
-	button.highlighted = NO;
-	
-	[self startDraggingButton:button withEvent:event];
+    [button setSelected:NO];
+    [button setHighlighted:NO];
+    [self startDraggingButton:button withEvent:event];
 }
 
 
@@ -757,8 +765,15 @@ static const NSTimeInterval kLauncherViewFastTransitionDuration = 0.2;
 
 - (void)updatePagerWithContentOffset:(CGPoint)contentOffset 
 {
-	CGFloat pageWidth = scrollView.frame.size.width;
-	pager.currentPage = floor((contentOffset.x - pageWidth / 2) / pageWidth) + 1;
+    CGFloat pageWidth = scrollView.frame.size.width;
+    NSInteger oldPageNo = pager.currentPage;
+    pager.currentPage = floor((contentOffset.x - pageWidth / 2) / pageWidth) + 1;
+    if (oldPageNo != pager.currentPage) {
+        if ([delegate respondsToSelector:@selector(launcherView:didChangePage:)]) {
+            [delegate launcherView:self didChangePage:[NSNumber numberWithInteger:pager.currentPage]];
+        }
+        
+    }
 }
 
 - (void)springLoadTimer:(NSTimer*)timer 
@@ -919,7 +934,10 @@ static const NSTimeInterval kLauncherViewFastTransitionDuration = 0.2;
 
 - (void)pageChanged 
 {
-	scrollView.contentOffset = CGPointMake(pager.currentPage * scrollView.frame.size.width, 0);
+    if ([delegate respondsToSelector:@selector(launcherView:didChangePage:)]) {
+        [delegate launcherView:self didChangePage:[NSNumber numberWithInteger:pager.currentPage]];
+    }
+    scrollView.contentOffset = CGPointMake(pager.currentPage * scrollView.frame.size.width, 0);
 }
 
 - (void)scrollViewWillBeginDragging:(UIScrollView*)scrollView 

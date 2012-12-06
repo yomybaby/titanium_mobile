@@ -160,7 +160,7 @@ NSArray* listenerArray = nil;
 
 DEFINE_EXCEPTIONS
 
-@synthesize proxy,touchDelegate,backgroundImage;
+@synthesize proxy,touchDelegate,backgroundImage,oldSize;
 
 #pragma mark Internal Methods
 
@@ -300,6 +300,47 @@ DEFINE_EXCEPTIONS
 -(id)transformMatrix
 {
 	return transformMatrix;
+}
+
+- (id)accessibilityElement
+{
+	return self;
+}
+
+#pragma mark - Accessibility API
+
+- (void)setAccessibilityLabel_:(id)accessibilityLabel
+{
+	id accessibilityElement = self.accessibilityElement;
+	if (accessibilityElement != nil) {
+		[accessibilityElement setIsAccessibilityElement:YES];
+		[accessibilityElement setAccessibilityLabel:[TiUtils stringValue:accessibilityLabel]];
+	}
+}
+
+- (void)setAccessibilityValue_:(id)accessibilityValue
+{
+	id accessibilityElement = self.accessibilityElement;
+	if (accessibilityElement != nil) {
+		[accessibilityElement setIsAccessibilityElement:YES];
+		[accessibilityElement setAccessibilityValue:[TiUtils stringValue:accessibilityValue]];
+	}
+}
+
+- (void)setAccessibilityHint_:(id)accessibilityHint
+{
+	id accessibilityElement = self.accessibilityElement;
+	if (accessibilityElement != nil) {
+		[accessibilityElement setIsAccessibilityElement:YES];
+		[accessibilityElement setAccessibilityHint:[TiUtils stringValue:accessibilityHint]];
+	}
+}
+
+- (void)setAccessibilityHidden_:(id)accessibilityHidden
+{
+	if ([TiUtils isIOS5OrGreater]) {
+		self.accessibilityElementsHidden = [TiUtils boolValue:accessibilityHidden def:NO];
+	}
 }
 
 #pragma mark Layout 
@@ -475,6 +516,11 @@ DEFINE_EXCEPTIONS
     
     UIGraphicsBeginImageContextWithOptions(self.bounds.size, NO, bgImage.scale);
     CGContextRef background = UIGraphicsGetCurrentContext();
+    if (background == nil) {
+        //TIMOB-11564. Either width or height of the bounds is zero
+        UIGraphicsEndImageContext();
+        return;
+    }
     CGRect imageRect = CGRectMake(0, 0, bgImage.size.width, bgImage.size.height);
     CGContextDrawTiledImage(background, imageRect, [translatedImage CGImage]);
     UIImage* renderedBg = UIGraphicsGetImageFromCurrentImageContext();
@@ -693,7 +739,7 @@ DEFINE_EXCEPTIONS
 	}	
 }
 
--(void)transferProxy:(TiViewProxy*)newProxy
+-(void)transferProxy:(TiViewProxy*)newProxy deep:(BOOL)deep
 {
 	TiViewProxy * oldProxy = (TiViewProxy *)[self proxy];
 	
@@ -715,7 +761,10 @@ DEFINE_EXCEPTIONS
 		for (NSString * thisKey in keySequence)
 		{
 			id newValue = [newProxy valueForKey:thisKey];
-			[self setKrollValue:newValue forKey:thisKey withObject:nil];
+			id oldValue = [oldProxy valueForKey:thisKey];
+			if ((oldValue != newValue) && ![oldValue isEqual:newValue]) {
+				[self setKrollValue:newValue forKey:thisKey withObject:nil];
+			}
 		}
 		
 		for (NSString * thisKey in oldProperties)
@@ -741,6 +790,13 @@ DEFINE_EXCEPTIONS
 			[self setKrollValue:newValue forKey:thisKey withObject:nil];
 		}
 		
+		if (deep) {
+			NSArray *subProxies = [newProxy children];
+			[[oldProxy children] enumerateObjectsUsingBlock:^(TiViewProxy *oldSubProxy, NSUInteger idx, BOOL *stop) {
+				TiViewProxy *newSubProxy = idx < [subProxies count] ? [subProxies objectAtIndex:idx] : nil;
+				[[oldSubProxy view] transferProxy:newSubProxy deep:YES];
+			}];
+		}
 		[oldProxy release];
 		
 		[newProxy setReproxying:NO];
@@ -748,6 +804,34 @@ DEFINE_EXCEPTIONS
 	}
 }
 
+-(BOOL)validateTransferToProxy:(TiViewProxy*)newProxy deep:(BOOL)deep
+{
+	TiViewProxy * oldProxy = (TiViewProxy *)[self proxy];
+	
+	if (oldProxy == newProxy) {
+		return YES;
+	}
+	if (![newProxy isMemberOfClass:[oldProxy class]]) {
+		return NO;
+	}
+	
+	__block BOOL result = YES;
+	if (deep) {
+		NSArray *subProxies = [newProxy children];
+		NSArray *oldSubProxies = [oldProxy children];
+		if ([subProxies count] != [oldSubProxies count]) {
+			return NO;
+		}
+		[oldSubProxies enumerateObjectsUsingBlock:^(TiViewProxy *oldSubProxy, NSUInteger idx, BOOL *stop) {
+			TiViewProxy *newSubProxy = [subProxies objectAtIndex:idx];
+			result = [[oldSubProxy view] validateTransferToProxy:newSubProxy deep:YES];
+			if (!result) {
+				*stop = YES;
+			}
+		}];
+	}
+	return result;
+}
 
 -(id)proxyValueForKey:(NSString *)key
 {
@@ -1047,19 +1131,6 @@ DEFINE_EXCEPTIONS
 			[proxy fireEvent:@"touchstart" withObject:evt propagate:YES];
 			[self handleControlEvents:UIControlEventTouchDown];
 		}
-        // Click handling is special; don't propagate if we have a delegate,
-        // but DO invoke the touch delegate.
-		// clicks should also be handled by any control the view is embedded in.
-		if ([touch tapCount] == 1 && [proxy _hasListeners:@"click"])
-		{
-			if (touchDelegate == nil) {
-				[proxy fireEvent:@"click" withObject:evt propagate:YES];
-				return;
-			} 
-		} else if ([touch tapCount] == 2 && [proxy _hasListeners:@"dblclick"]) {
-			[proxy fireEvent:@"dblclick" withObject:evt propagate:YES];
-			return;
-		}
 	}
 }
 
@@ -1104,6 +1175,20 @@ DEFINE_EXCEPTIONS
 		{
 			[proxy fireEvent:@"touchend" withObject:evt propagate:YES];
 			[self handleControlEvents:UIControlEventTouchCancel];
+		}
+        
+		// Click handling is special; don't propagate if we have a delegate,
+		// but DO invoke the touch delegate.
+		// clicks should also be handled by any control the view is embedded in.
+		if ([touch tapCount] == 1 && [proxy _hasListeners:@"click"])
+		{
+			if (touchDelegate == nil) {
+				[proxy fireEvent:@"click" withObject:evt propagate:YES];
+				return;
+			}
+		} else if ([touch tapCount] == 2 && [proxy _hasListeners:@"dblclick"]) {
+			[proxy fireEvent:@"dblclick" withObject:evt propagate:YES];
+			return;
 		}
 	}
 }

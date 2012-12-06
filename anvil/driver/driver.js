@@ -12,7 +12,7 @@
  *
  * DRIVER / HARNESS COMMUNICATION PROTOCOL:
  * The communication protocol used between the driver and harness is outlined below.  The protocol 
- * is the same when running tests for socket based platforms (Android, iOS, and BlackBerry currently) but is 
+ * is the same when running tests for socket based platforms (Android and iOS currently) but is 
  * slightly modified for http based platforms like Mobile Web.  Messages sent from the Driver to 
  * the harness are in a simple pipe delimited format.  Messages sent from the Harness to the Driver 
  * are all JSON object identified via a "type" property that exists in all messages
@@ -105,7 +105,6 @@ function printUsageAndExit() {
 		+ "    android - starts driver for Android\n"
 		+ "    ios - starts driver for iOS\n"
 		+ "    mobileweb - starts driver for Mobile Web\n"
-		+ "    blackberry - starts driver for BlackBerry\n"
 		+ "\n"
 		+ "Log level:\n"
 		+ "    quiet - only print test results summary and error output\n"
@@ -127,15 +126,15 @@ function init() {
 	};
 
 	driverGlobal.driverDir = __dirname;
-	driverGlobal.configSetDir = path.join(driverGlobal.driverDir, "configSet");
-	driverGlobal.harnessTemplateDir = path.join(driverGlobal.driverDir, "harnessResourcesTemplate");
+	driverGlobal.configSetDir = path.resolve(driverGlobal.driverDir, "..", "..", "support", "anvil", "configSet");
+	driverGlobal.harnessTemplateDir = path.resolve(driverGlobal.driverDir, "harnessResourcesTemplate");
 
 	driverGlobal.platforms = {};
 
-	var platforms = ["android", "ios", "mobileweb", "blackberry"];
+	var platforms = ["android", "ios", "mobileweb"];
 	for (var i = 0; i < platforms.length; i++) {
 		try {
-			driverGlobal.platforms[platforms[i]] = require(path.join(driverGlobal.driverDir, "platforms", platforms[i]));
+			driverGlobal.platforms[platforms[i]] = require(path.resolve(driverGlobal.driverDir, "platforms", platforms[i]));
 
 		} catch(e) {
 			console.log("exception occurred when loading platform module for <" + platforms[i] + ">: " + e);
@@ -156,7 +155,7 @@ function processCommandLineArgs(callback) {
 		modeArg = "local";
 	}
 
-	var modePath = path.join(driverGlobal.driverDir, modeArg + "Mode.js");
+	var modePath = path.resolve(driverGlobal.driverDir, modeArg + "Mode.js");
 	if (!(path.existsSync(modePath))) {
 		console.log("unable to find the specified mode: " + modeArg);
 		printUsageAndExit();
@@ -198,7 +197,7 @@ function processCommandLineArgs(callback) {
 }
 
 function loadConfigModule() {
-	var configModulePath = path.join(__dirname, "config.js");
+	var configModulePath = path.resolve(__dirname, "config.js");
 	if (!(path.existsSync(configModulePath))) {
 		console.log("No config module found!  Do the following:\n" +
 			driverUtils.getTabs(1) + "1) copy the exampleConfig.js to config.js in the root driver directory\n" +
@@ -218,20 +217,11 @@ function loadConfigModule() {
 		process.exit(1);
 	}
 
-	driverUtils.checkConfigItem("androidSdkDir", config.androidSdkDir, "string");
-	driverUtils.checkConfigItem("blackberryNdkDir", config.blackberryNdkDir, "string");
 	driverUtils.checkConfigItem("tiSdkDirs", config.tiSdkDirs, "string");
 	driverUtils.checkConfigItem("maxLogs", config.maxLogs, "number");
-	driverUtils.checkConfigItem("androidSocketPort", config.androidSocketPort, "number");
-	driverUtils.checkConfigItem("iosSocketPort", config.iosSocketPort, "number");
-	driverUtils.checkConfigItem("blackberrySocketPort", config.blackberrySocketPort, "number");
 	driverUtils.checkConfigItem("maxSocketConnectAttempts", config.maxSocketConnectAttempts, "number");
-	driverUtils.checkConfigItem("httpPort", config.httpPort, "number");
 	driverUtils.checkConfigItem("defaultTestTimeout", config.defaultTestTimeout, "number");
 	driverUtils.checkConfigItem("tabString", config.tabString, "string");
-	driverUtils.checkConfigItem("defaultIosSimVersion", config.defaultIosSimVersion, "string");
-	driverUtils.checkConfigItem("blackberryDeviceType", config.blackberryDeviceType, "string");
-	driverUtils.checkConfigItem("blackberryDeviceIp", config.blackberryDeviceIp, "string");
 
 	// load the defaultPlatform config property and set the global platform property if needed
 	new function() {
@@ -262,8 +252,8 @@ function loadConfigModule() {
 	// load the tempDir config property and setup other properties that rely on the tempDir property
 	new function() {
 		driverUtils.checkConfigItem("tempDir", config.tempDir, "string");
-		driverGlobal.harnessDir = path.join(config.tempDir, "harness");
-		driverGlobal.logsDir = path.join(config.tempDir, "logs");
+		driverGlobal.harnessDir = path.resolve(config.tempDir, "harness");
+		driverGlobal.logsDir = path.resolve(config.tempDir, "logs");
 	}
 
 	/*
@@ -291,23 +281,10 @@ function loadConfigModule() {
 }
 
 function setupTempDirs() {
-	function createDir(dir) {
-		if (path.existsSync(dir)) {
-			return;
-		}
-
-		try {
-			fs.mkdirSync(dir, 0777);
-
-		} catch(e) {
-			console.log("exception <" + e + "> occurred when creating " + dir);
-		}
-	}
-
-	createDir(driverGlobal.config.tempDir);
-	createDir(driverGlobal.harnessDir);
-	createDir(driverGlobal.logsDir);
-	createDir(path.join(driverGlobal.logsDir, driverGlobal.platform.name));
+	driverUtils.createDir(driverGlobal.config.tempDir);
+	driverUtils.createDir(driverGlobal.harnessDir);
+	driverUtils.createDir(driverGlobal.logsDir);
+	driverUtils.createDir(path.resolve(driverGlobal.logsDir, driverGlobal.platform.name));
 }
 
 init();

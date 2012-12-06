@@ -92,12 +92,15 @@ class TiAppXML(object):
 						if module.nodeType == 1:
 							version = module.getAttribute('version')
 							platform = module.getAttribute('platform')
+							deploy_type = module.getAttribute('deploy-type')
 							module_id = getText(module.childNodes)
 							self.properties['modules'].append({
 								'id': module_id,
 								'version': version,
-								'platform': platform
+								'platform': platform,
+								'deploy-type': deploy_type
 							})
+
 				# handle plugins
 				elif child.nodeName == 'plugins':
 					for plugin in child.childNodes:
@@ -114,7 +117,7 @@ class TiAppXML(object):
 				elif child.nodeName == 'property':
 					name = child.getAttribute('name')
 					value = getText(child.childNodes)
-					print "[TRACE] app property, %s : %s" % (name, value)
+					# print "[TRACE] app property, %s : %s" % (name, value)
 					self.app_properties[name] = value
 					
 				# properties of the app

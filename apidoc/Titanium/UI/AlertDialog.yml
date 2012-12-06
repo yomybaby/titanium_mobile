@@ -121,11 +121,8 @@ properties:
         buttons may be created on Android, as the hardware `back` button may be used instead.
         
         A maximum of 3 buttons is supported on Android.
-
-        On BlackBerry, 'Cancel' and 'OK' buttons will be automatically created if none are explicitly
-        defined. Providing buttonNames will omit these buttons and use those provided instead.
     type: Array<String>
-    default: null (Android), ['OK'] (iOS), undefined (BlackBerry)
+    default: No buttons (Android), Single "OK" button (iOS, Mobile Web)
     availability: creation
 
   - name: cancel
@@ -133,7 +130,7 @@ properties:
     description: |
         On iOS and Mobile Web, set to `-1` to disable the cancel option.
     type: Number
-    default: undefined (Android, BlackBerry), -1 (iOS, Mobile Web)
+    default: undefined (Android), -1 (iOS, Mobile Web)
     
   - name: message
     summary: Dialog message.
@@ -172,7 +169,6 @@ properties:
 
   - name: ok
     summary: Text for the `OK` button.
-    platforms: [android, iphone, ipad, mobileweb]
     description: |
         This property is useful when only one button is required, as it negates the need to define 
         the `buttonNames` property. If `buttonNames` is defined, this property is ignored.
@@ -193,8 +189,9 @@ properties:
         This property is useful to ensure that the alert dialog will not be ignored 
         by the user when the application is paused/suspended.
     type: Boolean
-    default: false
-    platforms: [iphone, ipad]
+    default: false on iOS, true on Android
+    since: "3.0.0"
+    platforms: [android, iphone, ipad]
 
 examples:
   - title: Single-button Alert Dialog (using alias)
@@ -289,3 +286,36 @@ examples:
               dialog.show();
             });
             win.open();
+
+  - title: Alloy XML Markup
+    example: |
+        Previous three-button alert dialog example as an Alloy view.
+
+        alertdialog.xml:
+
+            <Alloy>
+                <Window id="win" onClick="showDialog" title="Click window to test" backgroundColor="white"
+                    exitOnClose="true" fullscreen="false" >
+
+                    <AlertDialog id="dialog" onClick="doClick" title="Delete"
+                        message="Would you like to delete the file?" cancel="1">
+
+                        <!-- The ButtonNames tag sets the buttonNames property. -->
+                        <ButtonNames>
+                            <ButtonName>Confirm</ButtonName>
+                            <ButtonName>Cancel</ButtonName>
+                            <ButtonName>Help</ButtonName>
+                        </ButtonNames>
+                    </AlertDialog>
+                </Window>
+            </Alloy>
+
+        alertdialog.js:
+
+            function showDialog(){
+                $.dialog.show();
+            };
+
+            function doClick(e){
+                Ti.API.info('e.text: ' + e.text);
+            };
