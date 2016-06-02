@@ -697,9 +697,9 @@ NSString *HTMLTextEncodingNameForStringEncoding(NSStringEncoding encoding)
            for (NSString*check in blacklistedURLs)
            {
                if ([[newUrl absoluteString] rangeOfString:check options:NSCaseInsensitiveSearch].location != NSNotFound) {
-                   if([self.proxy _hasListeners:@"onStopBlacklistedUrl"]) {
+                   if([self.proxy _hasListeners:@"stopBlacklistedUrl"]) {
                        NSDictionary* evt = [NSDictionary dictionaryWithObjectsAndKeys:[TiUtils stringValue:request], @"url", @"Webview did not load blacklisted url.", @"messsage", nil];
-                       [self.proxy fireEvent:@"onStopBlacklistedUrl" withObject:evt];
+                       [self.proxy fireEvent:@"stopBlacklistedUrl" withObject:evt];
                    }
                    return NO;
                }
