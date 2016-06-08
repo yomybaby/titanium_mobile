@@ -66,6 +66,15 @@ NSString *HTMLTextEncodingNameForStringEncoding(NSStringEncoding encoding)
 @implementation TiUIWebView
 @synthesize reloadData, reloadDataProperties;
 
+#ifdef TI_USE_AUTOLAYOUT
+-(void)initializeTiLayoutView
+{
+    [super initializeTiLayoutView];
+    [self setDefaultHeight:TiDimensionAutoFill];
+    [self setDefaultWidth:TiDimensionAutoFill];
+}
+#endif
+
 -(void)dealloc
 {
 	if (webview!=nil)
@@ -323,6 +332,15 @@ NSString *HTMLTextEncodingNameForStringEncoding(NSStringEncoding encoding)
 	return url;
 }
 
+-(void)setAllowsLinkPreview_:(id)value
+{
+    if ([TiUtils isIOS9OrGreater] == NO) {
+        return;
+    }
+    ENSURE_TYPE(value, NSNumber);
+    [webview setAllowsLinkPreview:[TiUtils boolValue:value]];
+}
+
 - (void)reload
 {
     RELEASE_TO_NIL(lastValidLoad);
@@ -383,7 +401,7 @@ NSString *HTMLTextEncodingNameForStringEncoding(NSStringEncoding encoding)
         }
         
     } else if ([value isKindOfClass:[NSString class]]) {
-            [blacklistedURLs addObject:[TiUtils stringValue:value]];
+        [blacklistedURLs addObject:[TiUtils stringValue:value]];
         
     } else {
         [self throwException:@"Invalid datatype passed in"
@@ -444,7 +462,8 @@ NSString *HTMLTextEncodingNameForStringEncoding(NSStringEncoding encoding)
 			case TiBlobTypeData:
 			{
 				[self ensureLocalProtocolHandler];
-				[[self webview] loadData:[blob data] MIMEType:[blob mimeType] textEncodingName:@"utf-8" baseURL:nil];
+				// Empty NSURL since nil is not accepted here
+				[[self webview] loadData:[blob data] MIMEType:[blob mimeType] textEncodingName:@"utf-8" baseURL:[NSURL new]];
 				if (scalingOverride==NO)
 				{
 					[[self webview] setScalesPageToFit:YES];
@@ -683,6 +702,19 @@ NSString *HTMLTextEncodingNameForStringEncoding(NSStringEncoding encoding)
 {
 	NSURL * newUrl = [request URL];
     
+    
+	if (blacklistedURLs) {
+           for (NSString*check in blacklistedURLs) {
+                 if ([[newUrl absoluteString] rangeOfString:check options:NSCaseInsensitiveSearch].location != NSNotFound) {
+                      if([self.proxy _hasListeners:@"onStopBlacklistedUrl"]) {
+                          NSDictionary* evt = [NSDictionary dictionaryWithObjectsAndKeys:[newUrl absoluteString], @"url", @"Webview did not load blacklisted url.", @"messsage", nil];
+                          [self.proxy fireEvent:@"onStopBlacklistedUrl" withObject:evt];
+                       }
+                  return NO;
+                  }
+            }
+	}
+    
 	if ([self.proxy _hasListeners:@"beforeload"])
 	{
 		NSDictionary *event = newUrl == nil ? nil : [NSDictionary dictionaryWithObjectsAndKeys:[newUrl absoluteString], @"url", NUMINT(navigationType), @"navigationType", nil];
@@ -691,19 +723,6 @@ NSString *HTMLTextEncodingNameForStringEncoding(NSStringEncoding encoding)
     
 	if (navigationType != UIWebViewNavigationTypeOther) {
 		RELEASE_TO_NIL(lastValidLoad);
-	}
-    
-	if (blacklistedURLs) {
-           for (NSString*check in blacklistedURLs)
-           {
-               if ([[newUrl absoluteString] rangeOfString:check options:NSCaseInsensitiveSearch].location != NSNotFound) {
-                   if([self.proxy _hasListeners:@"stopBlacklistedUrl"]) {
-                       NSDictionary* evt = [NSDictionary dictionaryWithObjectsAndKeys:[TiUtils stringValue:request], @"url", @"Webview did not load blacklisted url.", @"messsage", nil];
-                       [self.proxy fireEvent:@"stopBlacklistedUrl" withObject:evt];
-                   }
-                   return NO;
-               }
-           }
 	}
     
 	NSString * scheme = [[newUrl scheme] lowercaseString];
