@@ -1,7 +1,7 @@
 {
   "name": "titanium-mobile",
   "description": "Appcelerator Titanium Mobile",
-  "version": "5.2.2",
+  "version": "5.3.0",
   "keywords": [
     "appcelerator",
     "titanium",
@@ -27,7 +27,8 @@
     "ejs": "2.3.4",
     "fields": "0.1.24",
     "humanize": "0.0.9",
-    "ioslib": "0.9.0",
+    "ioslib": "0.10.4",
+    "lodash.defaultsdeep": "4.3.5",
     "markdown": "0.5.0",
     "moment": "2.10.6",
     "node-appc": "0.2.33",
@@ -38,7 +39,7 @@
     "temp": "0.8.3",
     "uglify-js": "2.5.0",
     "unorm": "^1.4.1",
-    "windowslib": "0.3.1",
+    "windowslib": "0.4.13",
     "wrench": "1.5.8",
     "xcode": "0.8.2",
     "xmldom": "0.1.19"
