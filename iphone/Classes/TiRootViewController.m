@@ -570,8 +570,11 @@
 		}
         
         
-        [confirmedScrollView keyboardDidShowAtHeight:keyboardHeight];
+    [confirmedScrollView keyboardDidShowAtHeight:keyboardHeight];
+    TiUIView *tiuiview = (TiUIView *) confirmedScrollView;
+    if(![TiUtils boolValue:[tiuiview.proxy valueForKey:@"preventAutoScroll"] def:NO]){
         [confirmedScrollView scrollToShowView:scrolledView withKeyboardHeight:keyboardHeight];
+    }
 		
 	}
     
