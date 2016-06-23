@@ -37,6 +37,11 @@ DEFINE_DEF_INT_PROP(maxLength,-1);
     [super _initWithProperties:props];
 }
 
+-(NSString*)htmlString
+{
+    return [(TiUITextArea *)[self view] getHtmlString];
+}
+
 
 @end
 

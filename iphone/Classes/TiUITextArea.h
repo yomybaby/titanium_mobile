@@ -25,6 +25,7 @@
 }
 
 -(void)setShowUndoRedoActions:(id)value;
+-(id)getHtmlString;
 
 -(UIView<UITextInputTraits>*)textWidgetView;
 

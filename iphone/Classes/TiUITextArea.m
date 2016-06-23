@@ -12,6 +12,10 @@
 #import "TiUtils.h"
 #import "Webcolor.h"
 #import "TiApp.h"
+#import "WebFont.h"
+
+#import "TiUIAttributedStringProxy.h"
+
 
 @implementation TiUITextViewImpl
 
@@ -188,6 +192,94 @@
 {
 	return [(UITextView *)[self textWidgetView] hasText];
 }
+
+- (NSString *)hexStringFromColor:(UIColor *)color {
+    const CGFloat *components = CGColorGetComponents(color.CGColor);
+    
+    CGFloat r = components[0];
+    CGFloat g = components[1];
+    CGFloat b = components[2];
+    
+    return [NSString stringWithFormat:@"#%02lX%02lX%02lX",
+            lroundf(r * 255),
+            lroundf(g * 255),
+            lroundf(b * 255)];
+}
+
+-(NSString *)getHtmlString
+{
+    NSMutableString *htmlString = [NSMutableString string];
+    UITextView* ourView = (UITextView*)[self textWidgetView];
+    NSMutableAttributedString* optimizedAttributedText = [ourView.attributedText mutableCopy];
+    TiUIAttributedStringProxy* newAttr = [[TiUIAttributedStringProxy alloc] autorelease];
+    
+    if (optimizedAttributedText != nil) {
+        // use label's font and lineBreakMode properties in case the attributedText does not contain such attributes
+        [ourView.attributedText enumerateAttributesInRange:NSMakeRange(0, [ourView.attributedText length]) options:NSAttributedStringEnumerationLongestEffectiveRangeNotRequired usingBlock:^(NSDictionary *dictionary, NSRange range, BOOL *stop) {
+            
+            NSMutableString *fontString = [NSMutableString string];
+            UIFont *font = [dictionary objectForKey:NSFontAttributeName];
+            UIColor *foregroundColor = [dictionary objectForKey:NSForegroundColorAttributeName];
+            UIColor *backGroundColor = [dictionary objectForKey:NSBackgroundColorAttributeName];
+            NSNumber *underline = [dictionary objectForKey:NSUnderlineStyleAttributeName];
+            BOOL hasUnderline = (!underline || underline.intValue == NSUnderlineStyleNone) ? NO :YES;
+            NSNumber *strikeThrough = [dictionary objectForKey:NSStrikethroughStyleAttributeName];
+            BOOL hasStrikeThrough = (!strikeThrough || strikeThrough.intValue == NSUnderlineStyleNone) ? NO :YES;
+            
+            
+            [fontString appendString:[[[self.proxy valueForKey:@"value"] substringFromIndex:range.location] substringToIndex:range.length]];
+            
+            if (foregroundColor && [foregroundColor isKindOfClass:[UIColor class]]){
+                [fontString insertString:[NSString stringWithFormat:@"<font color=\"%@\">", [self hexStringFromColor:foregroundColor]] atIndex:0];
+                [fontString insertString:@"</font>" atIndex:fontString.length];
+            }
+            
+            
+            UIFontDescriptor *fontDescriptor = font.fontDescriptor;
+            UIFontDescriptorSymbolicTraits fontDescriptorSymbolicTraits = fontDescriptor.symbolicTraits;
+            BOOL isBold = (fontDescriptorSymbolicTraits & UIFontDescriptorTraitBold) != 0;
+            
+            if (isBold)
+            {
+                [fontString insertString:@"<b>" atIndex:0];
+                [fontString insertString:@"</b>" atIndex:fontString.length];
+            }
+
+//            if ([font isItalic])
+//            {
+//                [fontString insertString:@"<i>" atIndex:0];
+//                [fontString insertString:@"</i>" atIndex:fontString.length];
+//            }
+            
+            if (hasUnderline)
+            {
+                [fontString insertString:@"<u>" atIndex:0];
+                [fontString insertString:@"</u>" atIndex:fontString.length];
+            }
+            
+            if (hasStrikeThrough)
+            {
+                [fontString insertString:@"<strike>" atIndex:0];
+                [fontString insertString:@"</strike>" atIndex:fontString.length];
+            }
+            
+            
+            [htmlString appendString:fontString];
+            
+
+        }];
+        
+        NSLog(@"[%@]", (NSString*)htmlString);
+        
+        // [self checkLinkAttributeForString:optimizedAttributedText atPoint:tapPoint];
+        // newAttr.attributedString = optimizedAttributedText;
+        // [[self proxy] replaceValue:(Ti)optimizedAttributedText forKey:@"attributedString" notification:NO];
+        
+        [optimizedAttributedText release];
+    }
+    return htmlString;
+}
+
 
 
 //TODO: scrollRangeToVisible
