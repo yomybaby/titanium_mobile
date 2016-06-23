@@ -98,6 +98,16 @@ public class TextAreaProxy extends TiViewProxy
 	}
 	
 	@Kroll.method @Kroll.getProperty
+	public String getHtmlString()
+	{
+		TiUIView v = peekView();
+		if(v != null){
+			return ((TiUIText)v).getHtmlString();
+		}
+		return null;
+	}
+	
+	@Kroll.method @Kroll.getProperty
 	public KrollDict getSelection()
 	{
 		TiUIView v = peekView();

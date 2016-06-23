@@ -26,6 +26,7 @@ import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
+import android.text.Html;
 import android.text.InputType;
 import android.text.Spannable;
 import android.text.TextUtils.TruncateAt;
@@ -673,5 +674,10 @@ public class TiUIText extends TiUIView
 		if (spannableText != null) {
 			tv.setHint(spannableText);
 		}
+	}
+	
+	public String getHtmlString(){
+		Spannable espan = tv.getText();
+		return Html.toHtml(espan);
 	}
 }
